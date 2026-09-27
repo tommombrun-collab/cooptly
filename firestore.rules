@@ -1,0 +1,337 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isEmlyon() {
+      // Restriction domaine désactivée pour le bêta test
+      return request.auth != null;
+    }
+
+    function isPlatformAdmin() {
+      return isEmlyon() &&
+             exists(/databases/$(database)/documents/platform_admins/$(request.auth.uid));
+    }
+
+    function isSecge(orgId) {
+      return isEmlyon() &&
+             exists(/databases/$(database)/documents/memberships/$(request.auth.uid + '_' + orgId));
+    }
+
+    // Appartenance à une asso, admin plateforme inclus.
+    // ⚠️ À utiliser partout où une collection porte un `organizationId`.
+    // `isEmlyon()` seul signifie « n'importe quel compte », donc n'importe
+    // quelle autre asso : ce n'est PAS un contrôle de cloisonnement.
+    function ownsOrg(orgId) {
+      return isPlatformAdmin() || isSecge(orgId);
+    }
+
+    // Le document écrit ne doit pas changer d'asso, de campagne ni de personne.
+    // Sert à borner les écritures anonymes (jurés et staff sans compte) sans
+    // leur ouvrir la possibilité de déplacer une donnée vers une autre asso.
+    /**
+     * Un anonyme ne peut faire AVANCER le statut d'une candidature que vers
+     * 'place' (reservation du creneau) ou 'entretien_fait' (evaluation du jury),
+     * et jamais revenir en arriere.
+     */
+    function avanceStatut() {
+      return request.resource.data.statut in ['place', 'entretien_fait']
+        && !(resource.data.get('statut', 'recu') == 'entretien_fait'
+             && request.resource.data.statut == 'place');
+    }
+
+    function keepsScope(champs) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(champs);
+    }
+
+    // ── Platform settings (logo, branding) ───────────────────────
+    match /platform_settings/{docId} {
+      allow read: if true;
+      allow write: if isPlatformAdmin();
+    }
+
+    // ── Users (profils auto-enregistrés à la connexion) ──────────
+    match /users/{userId} {
+      // Chacun lit SON profil : la visite guidée y range `tutoVu` pour ne
+      // s'afficher qu'une fois par personne, sur tous ses appareils. Le profil
+      // des autres reste réservé à l'admin (recherche par email).
+      allow read: if isPlatformAdmin()
+        || (request.auth != null && request.auth.uid == userId);
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // ── Platform admins ──────────────────────────────────────────
+    match /platform_admins/{userId} {
+      allow read: if request.auth != null && (request.auth.uid == userId || isPlatformAdmin());
+      allow create, delete: if isPlatformAdmin();
+      allow update: if isPlatformAdmin();
+    }
+
+    // ── Organizations ────────────────────────────────────────────
+    match /organizations/{orgId} {
+      allow read: if true;  // public : nécessaire pour postuler.html (non authentifié)
+      allow write: if isPlatformAdmin();
+    }
+
+    // ── Memberships ──────────────────────────────────────────────
+    // ⚠️ Un membership DONNE les droits sur une asso : `isSecge(orgId)` teste
+    // l'existence de `memberships/{uid}_{orgId}`. Autoriser la création à tout
+    // compte connecté laissait donc n'importe qui s'octroyer le rôle bureau
+    // sur n'importe quelle asso. Chaque création doit désormais être justifiée
+    // par quelque chose que les règles peuvent vérifier.
+
+    function inviteCode(codeId) {
+      return get(/databases/$(database)/documents/invite_codes/$(codeId)).data;
+    }
+    function inviteCodeExists(codeId) {
+      return exists(/databases/$(database)/documents/invite_codes/$(codeId));
+    }
+    // Le code d'invitation couvre l'org ET le rôle demandés : impossible de
+    // se donner « président » avec un code « bureau ».
+    // `in` avant l'accès au champ : lire une clé absente lève une erreur.
+    function validInviteFor(data, orgId, role) {
+      return 'viaCode' in data && data.viaCode is string
+             && inviteCodeExists(data.viaCode)
+             && inviteCode(data.viaCode).organizationId == orgId
+             && inviteCode(data.viaCode).role == role
+             && inviteCode(data.viaCode).active != false;
+    }
+
+    function membership(docId) {
+      return get(/databases/$(database)/documents/memberships/$(docId)).data;
+    }
+    function membershipExists(docId) {
+      return exists(/databases/$(database)/documents/memberships/$(docId));
+    }
+    // Promotion d'un membership existant vers l'ID canonique {uid}_{orgId} :
+    // le doc source doit concerner la MÊME asso et désigner l'appelant (par
+    // email ou par uid, les docs anciens n'ont pas toujours le champ email).
+    // Un membre pré-ajouté peut donc se rattacher, mais personne ne peut
+    // fabriquer un rattachement à une asso où il n'a jamais été inscrit.
+    function validPromotion(data, orgId) {
+      return 'promotedFrom' in data && data.promotedFrom is string
+             && membershipExists(data.promotedFrom)
+             && membership(data.promotedFrom).organizationId == orgId
+             && (
+                  membership(data.promotedFrom).get('email',  '') == request.auth.token.email
+               || membership(data.promotedFrom).get('userId', '') == request.auth.token.email
+               || membership(data.promotedFrom).get('userId', '') == request.auth.uid
+             );
+    }
+
+    match /memberships/{id} {
+      // Avant : `isEmlyon()`, donc tout compte lisait les emails, noms et
+      // roles de tous les bureaux de toutes les assos. On limite a son propre
+      // rattachement et a son asso. Regle evaluee par document, y compris sur
+      // les requetes : les queries de auth.js (par userId, par email) passent.
+      allow read: if isPlatformAdmin()
+        || isSecge(resource.data.organizationId)
+        || (isEmlyon() && (
+              resource.data.userId == request.auth.uid ||
+              resource.data.get('email', '') == request.auth.token.email ||
+              resource.data.userId == request.auth.token.email));
+
+      allow create: if isPlatformAdmin()
+        // Le bureau d'une asso ajoute un membre à SA propre asso
+        || isSecge(request.resource.data.organizationId)
+        // Auto-inscription : uniquement pour soi-même, et justifiée
+        || (isEmlyon()
+            && request.resource.data.userId == request.auth.uid
+            && (validInviteFor(request.resource.data,
+                               request.resource.data.organizationId,
+                               request.resource.data.role)
+             || validPromotion(request.resource.data,
+                               request.resource.data.organizationId)));
+
+      // Update : l'admin, ou l'utilisateur sur son propre doc, mais SANS
+      // pouvoir changer son rôle ni son asso (sinon simple montée en droits).
+      allow update: if isPlatformAdmin()
+        // Le bureau gere le staff de son asso, mais ne peut pas se promouvoir
+        // lui-meme : la branche isSecge accordait tout, y compris son propre
+        // role, ce qui vidait de son sens le garde-fou ci-dessous.
+        || (isSecge(resource.data.organizationId)
+            && (resource.data.userId != request.auth.uid || keepsScope(['role'])))
+        || (isEmlyon()
+            && (resource.data.email  == request.auth.token.email ||
+                resource.data.userId == request.auth.token.email ||
+                resource.data.userId == request.auth.uid)
+            && !request.resource.data.diff(resource.data).affectedKeys()
+                 .hasAny(['role', 'organizationId']));
+
+      // Retirer quelqu'un d'une asso : l'admin ou le bureau de cette asso.
+      allow delete: if isPlatformAdmin() || isSecge(resource.data.organizationId);
+    }
+
+    // ── Platform Campaigns ────────────────────────────────────────
+    // Collection heritee, plus referencee par aucune page (les 5 fonctions
+    // correspondantes ont ete retirees de db.js). La lecture etait ouverte a
+    // tout compte connecte : on la reserve a l'admin en attendant sa suppression.
+    match /platform_campaigns/{id} {
+      allow read:  if isPlatformAdmin();
+      allow write: if isPlatformAdmin();
+    }
+
+    // ── Campaigns ─────────────────────────────────────────────────
+    // Contient toute la configuration du recrutement d'une asso (mode de rdv,
+    // dates, critères d'évaluation…). `isEmlyon()` seul autorisait n'importe
+    // quel compte connecté à réécrire la config d'une AUTRE asso : le
+    // cloisonnement n'existait que côté client. On exige l'appartenance.
+    //
+    // Prérequis : le doc `memberships/{uid}_{orgId}` doit exister. Les membres
+    // pré-ajoutés par email ont un ID auto-généré : `ensureCanonicalMembership()`
+    // dans auth.js crée le doc canonique au chargement de toute page authentifiée.
+    match /campaigns/{campaignId} {
+      allow read: if true;
+      allow create: if isPlatformAdmin() || isSecge(request.resource.data.organizationId);
+      // On vérifie l'org AVANT et APRÈS : empêche de déplacer une campagne
+      // vers une autre asso pour en prendre le contrôle.
+      allow update: if isPlatformAdmin() ||
+        (isSecge(resource.data.organizationId) &&
+         request.resource.data.organizationId == resource.data.organizationId);
+      allow delete: if isPlatformAdmin() || isSecge(resource.data.organizationId);
+    }
+
+    // ── Candidates ────────────────────────────────────────────────
+    // Note : read public conservé car planning-public.html (page partagée) affiche les noms.
+    match /candidates/{candidateId} {
+      allow create: if true;
+      allow read:   if true;
+      // Ré-soumission anonyme du formulaire : l'email doit rester inchangé et les
+      // champs sensibles restent intouchables.
+      //
+      // Le statut, lui, DOIT pouvoir avancer sans compte : postuler.html passe la
+      // candidature a 'place' des que le cooptant reserve son creneau, et
+      // evaluer-publique.html la passe a 'entretien_fait' quand un jure sans
+      // compte envoie son evaluation. L'interdire en bloc cassait ces deux
+      // parcours (voir tests/parcours-publics.test.mjs).
+      //
+      // On borne donc au lieu d'interdire : un anonyme ne peut qu'avancer vers
+      // 'place' ou 'entretien_fait', jamais revenir en arriere ni inventer un
+      // statut.
+      allow update: if ownsOrg(resource.data.organizationId) ||
+        (request.auth != null && resource.data.userId == request.auth.uid) ||
+        (resource.data.email == request.resource.data.email &&
+         keepsScope(['resultToken', 'userId', 'organizationId', 'campaignId', 'notesInternes']) &&
+         (keepsScope(['statut']) || avanceStatut()));
+      allow delete: if ownsOrg(resource.data.organizationId);
+    }
+
+    // ── Staff availabilities ──────────────────────────────────────
+    match /staff_availabilities/{id} {
+      allow read:   if true;        // lecture publique pour postuler.html (créneaux dispo)
+      // Création/MAJ publiques : permet aux membres de déposer leurs dispos
+      // SANS compte via la page publique dispos-publique.html (même principe que
+      // la soumission publique des candidats/entretiens). La suppression reste
+      // réservée au staff connecté.
+      allow create: if true;
+      // Ecriture anonyme conservee (depot des dispos sans compte), mais bornee :
+      // impossible de reaffecter la dispo a une autre asso, campagne ou personne.
+      allow update: if ownsOrg(resource.data.organizationId)
+        || keepsScope(['organizationId', 'campaignId', 'userId']);
+      allow delete: if ownsOrg(resource.data.organizationId);
+    }
+
+    // ── Roster members (liste de noms, SANS compte ni rôle) ───────
+    // Sert uniquement à identifier qui dépose ses dispos sur la page publique.
+    // Ne contient AUCUN droit/rôle : ce n'est pas une membership (créer une
+    // membership publiquement serait une faille : un rôle pourrait être usurpé).
+    match /roster_members/{id} {
+      allow read:   if true;        // affiché dans la liste déroulante publique
+      allow create: if true;        // le sec-gé pré-remplit, ou auto-ajout public
+      allow delete: if ownsOrg(resource.data.organizationId);
+    }
+
+    // ── Rooms ─────────────────────────────────────────────────────
+    match /rooms/{id} {
+      // Lecture publique : nom de salle affiché sur le planning public partageable
+      // (planning-public.html). Ne contient que des noms/types de salle.
+      allow read: if true;
+      allow create: if ownsOrg(request.resource.data.organizationId);
+      allow update, delete: if ownsOrg(resource.data.organizationId);
+    }
+
+    // ── Room bookings ─────────────────────────────────────────────
+    match /room_bookings/{id} {
+      allow read:   if ownsOrg(resource.data.organizationId);
+      allow create: if ownsOrg(request.resource.data.organizationId);
+      allow update, delete: if ownsOrg(resource.data.organizationId);
+    }
+
+    // ── Interview evaluations ─────────────────────────────────────
+    match /interview_evaluations/{id} {
+      // Avant : `isEmlyon()`, donc tout compte lisait les notes et commentaires
+      // de TOUTES les assos. Le commentaire disait « reserve au staff », ce qui
+      // etait inexact : c'etait ouvert a n'importe quel compte.
+      // Regle evaluee par document : si UN seul doc ancien n'avait pas
+      // d'organizationId, toute la requete echouerait. On retombe alors sur
+      // l'asso de la campagne. Ce chemin ne sert qu'aux docs legacy.
+      allow read: if isPlatformAdmin()
+        || ('organizationId' in resource.data
+              ? isSecge(resource.data.organizationId)
+              : ('campaignId' in resource.data
+                   && isSecge(get(/databases/$(database)/documents/campaigns/$(resource.data.campaignId)).data.organizationId)));
+      // Creation publique : les jures evaluent SANS compte via
+      // evaluer-publique.html. Ils ne peuvent pas lire, donc l'upsert se fait
+      // sur un ID deterministe (campaignId_candidateId), sans requete.
+      allow create: if true;
+      // Mise a jour anonyme bornee : impossible de deplacer une evaluation
+      // vers une autre asso, campagne ou cooptant.
+      allow update: if ownsOrg(resource.data.organizationId)
+        || keepsScope(['organizationId', 'campaignId', 'candidateId']);
+      allow delete: if isPlatformAdmin() || isSecge(resource.data.organizationId);
+    }
+
+    // ── Interviews ────────────────────────────────────────────────
+    match /interviews/{id} {
+      // Lecture publique : nécessaire pour postuler.html (créneaux déjà pris)
+      // et confirmation.html (récap du rendez-vous). Ne contient pas de noms,
+      // seulement des IDs + horaires (les candidats sont déjà en lecture publique).
+      allow read:   if true;
+      allow create: if true;        // réservation publique depuis postuler.html
+      // Reschedule public : le candidat ré-écrit son entretien (selfBooked:true).
+      // On s'assure que le candidateId ne change pas et que les champs jury/salle
+      // ne sont pas touchés par un anonyme.
+      allow update: if ownsOrg(resource.data.organizationId) ||
+        // Report de creneau par le cooptant lui-meme (sans compte). On verrouille
+        // le jury, la salle, ET l'asso/campagne/personne concernees.
+        (request.resource.data.selfBooked == true &&
+         request.resource.data.candidateId == resource.data.candidateId &&
+         keepsScope(['jury1Id', 'jury2Id', 'jury3Id', 'roomId', 'salleNom',
+                     'organizationId', 'campaignId', 'candidateId']));
+      allow delete: if ownsOrg(resource.data.organizationId);
+    }
+
+    // ── Corbeille ─────────────────────────────────────────────────
+    // Copie intégrale de ce que le bureau supprime (cooptants avec entretien et
+    // évaluation, dispos du staff), récupérable 30 jours (js/corbeille.js).
+    // Contient des données personnelles ET les avis du jury : réservée au
+    // bureau de l'asso, jamais publique. Pas de modification : une entrée se
+    // crée, se restaure (suppression) ou se vide.
+    match /corbeille/{id} {
+      allow read, delete: if ownsOrg(resource.data.organizationId);
+      allow create: if ownsOrg(request.resource.data.organizationId)
+        && request.resource.data.docs is list;
+      allow update: if false;
+    }
+
+    // ── Invite codes ──────────────────────────────────────────────
+    // Doc ID = le code lui-même (ex: "ASSO1234")
+    // Lecture unitaire publique pour valider le code avant la création de compte
+    match /invite_codes/{codeId} {
+      allow get:    if true;               // validation pré-auth sur la page d'inscription
+      // ⚠️ `list` etait ouvert a tout compte connecte : on pouvait donc lister
+      // TOUS les codes de TOUTES les assos, puis s'en servir sur rejoindre.html
+      // pour devenir bureau de n'importe quelle asso. Chainage de prise de
+      // controle complet.
+      // Contrairement a l'ancien commentaire, `resource` EST disponible sur
+      // list : la regle est evaluee par document renvoye. Les pages concernees
+      // filtrent deja par organizationId, la requete passe donc telle quelle.
+      allow list:   if isPlatformAdmin() || isSecge(resource.data.organizationId);
+      // Admin peut créer n'importe quel code ; sec-gé peut créer des codes pour son asso
+      allow create: if isPlatformAdmin() || isSecge(request.resource.data.organizationId);
+      // Seul l'admin peut modifier un code existant
+      allow update: if isPlatformAdmin();
+      // Admin ou sec-gé de l'asso peut supprimer un code
+      allow delete: if isPlatformAdmin() || isSecge(resource.data.organizationId);
+    }
+  }
+}

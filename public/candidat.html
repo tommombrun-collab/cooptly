@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <script>(function(){var t=localStorage.getItem("_theme");if(t)document.documentElement.setAttribute("data-theme",t);})();</script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mon entretien · Cooptly</title>
+  <!-- Connexions ouvertes d'avance : sans elles, chaque serveur (polices,
+       SDK, base de données) coûtait sa propre poignée de main réseau au
+       moment où la page en avait besoin. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin />
+  <!-- Le SDK est préchargé dès l'en-tête. Sinon le navigateur ne le
+       découvre qu'en arrivant au script, tout en bas de la page. -->
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js" />
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js" />
+  <!-- Polices en <link> et non plus en @import dans main.css : l'@import
+       obligeait à télécharger la feuille de style avant même de découvrir
+       les polices, trois allers-retours à la suite avant le texte. -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Antic&family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;600;700&display=swap" />
+  <link rel="stylesheet" href="/css/main.css" />
+  <style>
+    /* ── Timeline de candidature ──────────────────────────────── */
+    .candidat-timeline {
+      display: flex; align-items: flex-start; justify-content: center;
+      margin: 4px 0 28px; width: 100%;
+    }
+    .ct-step { display: flex; flex-direction: column; align-items: center; gap: 5px; flex-shrink: 0; }
+    .ct-dot {
+      width: 11px; height: 11px; border-radius: 50%;
+      background: var(--border); border: 2px solid var(--border);
+      transition: background .2s, border-color .2s, box-shadow .2s;
+    }
+    .ct-label { font-size: 10px; color: var(--text-muted); font-weight: 500; white-space: nowrap; }
+    .ct-line  { flex: 1; height: 2px; background: var(--border); min-width: 18px; margin-bottom: 16px; transition: background .2s; }
+    .ct-step.done .ct-dot  { background: var(--indigo); border-color: var(--indigo); }
+    .ct-step.done .ct-label { color: var(--indigo); }
+    .ct-line.done { background: var(--indigo); }
+    .ct-step.active .ct-dot {
+      background: var(--surface); border-color: var(--indigo); border-width: 3px;
+      box-shadow: 0 0 0 3px var(--indigo-light);
+    }
+    .ct-step.active .ct-label { color: var(--indigo); font-weight: 700; }
+
+    /* ── Interview detail rows ────────────────────────────────── */
+    .iv-detail-row { display: flex; align-items: flex-start; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--border); }
+    .iv-detail-row:last-child { border-bottom: none; }
+    .iv-detail-icon { flex-shrink: 0; width: 18px; color: var(--text-muted); margin-top: 2px; }
+    .iv-detail-body { flex: 1; min-width: 0; text-align: left; }
+    .iv-detail-label { font-size: 10px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 2px; }
+    .iv-detail-value { font-size: 15px; font-weight: 600; color: var(--text); line-height: 1.3; }
+
+    /* ── Add-to-calendar buttons ──────────────────────────────── */
+    .cal-btns { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; justify-content: center; }
+    .cal-btns .btn { flex: 1; min-width: 130px; justify-content: center; font-size: 13px; }
+
+    /* ── Tip banner ───────────────────────────────────────────── */
+    .candidat-tip {
+      margin-top: 20px; padding: 12px 16px;
+      background: var(--indigo-light); border: 1px solid var(--indigo-mid);
+      border-radius: 8px; font-size: 13px; color: var(--indigo-dark);
+      text-align: left; line-height: 1.55;
+    }
+  </style>
+</head>
+<body>
+
+<div class="result-wrap">
+  <div class="result-card">
+
+    <!-- Org branding : populated by JS -->
+    <div id="org-logo-wrap" style="min-height:52px;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;"></div>
+    <div id="org-name" style="font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:20px;">Cooptly</div>
+
+    <!-- Progress timeline : populated by JS -->
+    <div id="candidat-timeline" class="candidat-timeline" style="display:none;">
+      <div class="ct-step" id="ct-1"><div class="ct-dot"></div><div class="ct-label">Candidature</div></div>
+      <div class="ct-line" id="ct-line-1"></div>
+      <div class="ct-step" id="ct-2"><div class="ct-dot"></div><div class="ct-label">Entretien</div></div>
+      <div class="ct-line" id="ct-line-2"></div>
+      <div class="ct-step" id="ct-3"><div class="ct-dot"></div><div class="ct-label">Terminé</div></div>
+      <div class="ct-line" id="ct-line-3"></div>
+      <div class="ct-step" id="ct-4"><div class="ct-dot"></div><div class="ct-label">Décision</div></div>
+    </div>
+
+    <!-- Loading state -->
+    <div id="loading-state">
+      <div class="spinner" style="margin:24px auto 12px;"></div>
+      <p style="color:var(--text-muted);font-size:14px;">Chargement de ton dossier…</p>
+    </div>
+
+    <!-- Error state -->
+    <div id="error-state" style="display:none;">
+      <div class="result-icon">😕</div>
+      <h2 style="color:var(--text);">Lien invalide</h2>
+      <p class="mt-8" id="error-msg">Ce lien ne correspond à aucun dossier de cooptation. Vérifie l'URL reçue.</p>
+    </div>
+
+    <!-- Status: reçu -->
+    <div id="status-recu" style="display:none;">
+      <div class="result-icon">✅</div>
+      <h2 class="result-status-pending">Candidature reçue !</h2>
+      <p class="mt-8" style="font-size:15px;">
+        Bonjour <strong id="candidat-prenom-recu"></strong>,<br/>
+        ton dossier a bien été enregistré.
+      </p>
+      <div class="interview-detail mt-24" style="text-align:center;">
+        <p style="font-size:14px;color:var(--text-muted);">
+          L'association te contactera <strong>prochainement</strong><br/>
+          pour confirmer ton créneau d'entretien.
+        </p>
+      </div>
+      <div class="candidat-tip">
+        💡 Mets cette page en favori : les détails de ton entretien y apparaîtront dès qu'ils seront confirmés.
+      </div>
+    </div>
+
+    <!-- Status: placé -->
+    <div id="status-place" style="display:none;">
+      <div class="result-icon">🎉</div>
+      <h2 class="result-status-placed">Ton entretien est confirmé !</h2>
+      <p class="mt-8" style="font-size:15px;">
+        Bonjour <strong id="candidat-prenom-place"></strong>,<br/>
+        voici les détails de ton entretien.
+      </p>
+
+      <div class="interview-detail mt-16">
+        <div class="iv-detail-row">
+          <div class="iv-detail-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
+          <div class="iv-detail-body"><div class="iv-detail-label">Date</div><div class="iv-detail-value" id="interview-date">·</div></div>
+        </div>
+        <div class="iv-detail-row">
+          <div class="iv-detail-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+          <div class="iv-detail-body"><div class="iv-detail-label">Horaire</div><div class="iv-detail-value" id="interview-heure">·</div></div>
+        </div>
+        <div class="iv-detail-row">
+          <div class="iv-detail-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
+          <div class="iv-detail-body"><div class="iv-detail-label">Salle</div><div class="iv-detail-value" id="interview-salle">·</div></div>
+        </div>
+        <div class="iv-detail-row">
+          <div class="iv-detail-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+          <div class="iv-detail-body"><div class="iv-detail-label">Jury</div><div class="iv-detail-value" id="interview-jury">·</div></div>
+        </div>
+      </div>
+
+      <div class="cal-btns" id="cal-btns" style="display:none;">
+        <a id="cal-google" class="btn btn-ghost btn-sm" target="_blank" rel="noopener">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          Google Agenda
+        </a>
+        <button id="cal-ics" class="btn btn-ghost btn-sm" type="button">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Télécharger (.ics)
+        </button>
+      </div>
+
+      <div class="candidat-tip">
+        ✉️ Ce créneau ne convient pas ? <a id="link-modify" href="/postuler.html" style="color:var(--indigo);font-weight:600;">Modifie ton entretien</a> depuis le formulaire de candidature.
+      </div>
+    </div>
+
+    <!-- Status: entretien fait -->
+    <div id="status-fait" style="display:none;">
+      <div class="result-icon">📋</div>
+      <h2 style="color:var(--text);">Entretien réalisé</h2>
+      <p class="mt-8" style="font-size:15px;">
+        Bonjour <strong id="candidat-prenom-fait"></strong>,<br/>
+        ton entretien a bien eu lieu. Le bureau délibère et te contactera prochainement pour t'annoncer la décision.
+      </p>
+      <div class="candidat-tip">
+        ⏳ Merci pour ta patience : la décision arrive bientôt !
+      </div>
+    </div>
+
+    <!-- Status: accepté -->
+    <div id="status-accepte" style="display:none;">
+      <div class="result-icon">🥳</div>
+      <h2 style="color:var(--green);">Félicitations !</h2>
+      <p class="mt-8" style="font-size:15px;">
+        Bonjour <strong id="candidat-prenom-accepte"></strong>,<br/>
+        tu as été accepté(e) dans l'association. Bienvenue dans l'équipe !
+      </p>
+      <div class="candidat-tip" style="background:var(--green-light);border-color:var(--green-mid);color:var(--green);">
+        🎉 Le bureau va te contacter prochainement pour les prochaines étapes de ton intégration.
+      </div>
+    </div>
+
+    <!-- Status: refusé -->
+    <div id="status-refuse" style="display:none;">
+      <div class="result-icon">💌</div>
+      <h2 style="color:var(--text);">Merci pour ta candidature</h2>
+      <p class="mt-8" style="font-size:15px;">
+        Bonjour <strong id="candidat-prenom-refuse"></strong>,<br/>
+        nous ne pouvons malheureusement pas te proposer un poste cette année. N'hésite pas à repostuler l'an prochain !
+      </p>
+    </div>
+
+    <!-- Footer -->
+    <div style="margin-top:32px;padding-top:16px;border-top:1px solid var(--border);font-size:12px;color:var(--text-muted);">
+      <a href="/" style="color:var(--indigo);text-decoration:none;">← Cooptly</a>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getFirestore, collection, query, where, getDocs, getDoc, doc }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { firebaseConfig } from '/js/firebase-config.js';
+import { paramLien } from '/js/utils.js';
+
+const app = initializeApp(firebaseConfig);
+const db  = getFirestore(app);
+
+const token = paramLien('token');
+let org = null;
+
+const SECTIONS = ['loading-state','error-state','status-recu','status-place','status-fait','status-accepte','status-refuse'];
+
+function showSection(id) {
+  SECTIONS.forEach(s => {
+    const el = document.getElementById(s);
+    if (el) el.style.display = s === id ? '' : 'none';
+  });
+}
+
+function showTimeline(activeStep) {
+  document.getElementById('candidat-timeline').style.display = 'flex';
+  for (let i = 1; i <= 4; i++) {
+    const step = document.getElementById(`ct-${i}`);
+    const line = document.getElementById(`ct-line-${i}`);
+    if (i < activeStep)       { step?.classList.add('done');   line?.classList.add('done'); }
+    else if (i === activeStep)  step?.classList.add('active');
+  }
+}
+
+function fmtDate(d) {
+  return d.toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+}
+function fmtTime(d) {
+  return d.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' });
+}
+function icsDate(d) {
+  return d.toISOString().replace(/[-:]/g,'').slice(0, 15) + 'Z';
+}
+
+function makeGCalUrl(start, end, title, location) {
+  return `https://www.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${icsDate(start)}/${icsDate(end)}&location=${encodeURIComponent(location)}`;
+}
+
+function downloadICS(start, end, title, location) {
+  const lines = [
+    'BEGIN:VCALENDAR', 'VERSION:2.0', "PRODID:-//Cooptly//FR",
+    'BEGIN:VEVENT',
+    `DTSTART:${icsDate(start)}`,
+    `DTEND:${icsDate(end)}`,
+    `SUMMARY:${title}`,
+    `LOCATION:${location}`,
+    'END:VEVENT', 'END:VCALENDAR',
+  ];
+  const blob = new Blob([lines.join('\r\n')], { type: 'text/calendar;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'entretien-cooptation.ics';
+  a.click();
+}
+
+async function loadCandidate() {
+  if (!token) return showSection('error-state');
+
+  try {
+    const snap = await getDocs(query(collection(db, 'candidates'), where('resultToken', '==', token)));
+    if (snap.empty) return showSection('error-state');
+
+    const candidate = { id: snap.docs[0].id, ...snap.docs[0].data() };
+
+    let campaign = null;
+    if (candidate.campaignId) {
+      const campDoc = await getDoc(doc(db, 'campaigns', candidate.campaignId));
+      if (campDoc.exists()) campaign = { id: campDoc.id, ...campDoc.data() };
+    }
+
+    // Load org + branding
+    if (campaign?.organizationId) {
+      const orgDoc = await getDoc(doc(db, 'organizations', campaign.organizationId));
+      if (orgDoc.exists()) {
+        org = { id: orgDoc.id, ...orgDoc.data() };
+        document.getElementById('org-name').textContent = org.name || "Cooptly";
+        const wrap  = document.getElementById('org-logo-wrap');
+        const color = org.primaryColor || 'var(--indigo)';
+        const init  = (org.name || 'C')[0].toUpperCase();
+        wrap.innerHTML = org.logoBase64
+          ? `<img src="${org.logoBase64}" style="width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid var(--border);" />`
+          : `<div style="width:52px;height:52px;background:${color};border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:20px;">${init}</div>`;
+      }
+    }
+
+    const prenom = candidate.prenom || '';
+
+    switch (candidate.statut) {
+      case 'recu': {
+        document.getElementById('candidat-prenom-recu').textContent = prenom;
+        showTimeline(1);
+        showSection('status-recu');
+        break;
+      }
+
+      case 'place': {
+        document.getElementById('candidat-prenom-place').textContent = prenom;
+
+        // Modify-slot link
+        if (org) {
+          // Avec le jeton : le formulaire se rouvre prérempli, réponses comprises.
+          document.getElementById('link-modify').href =
+            `/postuler.html?org=${org.slug || org.id}&modif=${encodeURIComponent(token)}`;
+        }
+
+        // Load interview
+        const intSnap = await getDocs(query(collection(db, 'interviews'), where('candidateId', '==', candidate.id)));
+        if (!intSnap.empty) {
+          const iv    = intSnap.docs[0].data();
+          const start = iv.datetimeStart?.toDate ? iv.datetimeStart.toDate() : new Date(iv.datetimeStart);
+          const end   = iv.datetimeEnd?.toDate   ? iv.datetimeEnd.toDate()   : new Date(iv.datetimeEnd);
+
+          document.getElementById('interview-date').textContent  = fmtDate(start);
+          document.getElementById('interview-heure').textContent = `${fmtTime(start)} - ${fmtTime(end)}`;
+
+          // Room
+          let roomLabel = 'À confirmer';
+          if (iv.roomId) {
+            const roomDoc = await getDoc(doc(db, 'rooms', iv.roomId));
+            if (roomDoc.exists()) roomLabel = roomDoc.data().code || roomDoc.data().nom || 'Salle à confirmer';
+          } else if (iv.salleNom) {
+            roomLabel = iv.salleNom;
+          }
+          document.getElementById('interview-salle').textContent = roomLabel;
+
+          // Jury
+          // Les jurés portent en général l'id de leur entrée dans la liste du
+          // staff (c'est lui qu'écrit le lien public des dispos), pas un UID de
+          // compte. Et les comptes (`memberships`) ne sont plus lisibles sans
+          // connexion : les y chercher affichait « À confirmer » ou « Membre
+          // jury » alors que le jury était bien attribué. On lit donc la liste
+          // du staff, puis les fiches de dispos, toutes deux publiques, comme
+          // le fait déjà planning-public.html.
+          const juryNames = [];
+          for (const juryId of [iv.jury1Id, iv.jury2Id, iv.jury3Id].filter(Boolean)) {
+            try {
+              const r = await getDoc(doc(db, 'roster_members', juryId));
+              if (r.exists() && r.data().displayName) { juryNames.push(r.data().displayName); continue; }
+              const sa = await getDocs(query(collection(db, 'staff_availabilities'), where('userId', '==', juryId)));
+              const nom = sa.docs.map(d => d.data().displayName).find(Boolean);
+              juryNames.push(nom || 'Membre du jury');
+            } catch { juryNames.push('Membre du jury'); }
+          }
+          document.getElementById('interview-jury').textContent = juryNames.length ? juryNames.join(' · ') : 'À confirmer';
+
+          // Calendar
+          const orgName = org?.name || "Cooptly";
+          const title   = `Entretien de cooptation - ${orgName}`;
+          const loc     = roomLabel !== 'À confirmer' ? roomLabel : '';
+          document.getElementById('cal-google').href = makeGCalUrl(start, end, title, loc);
+          document.getElementById('cal-ics').addEventListener('click', () => downloadICS(start, end, title, loc));
+          document.getElementById('cal-btns').style.display = 'flex';
+        } else {
+          ['interview-date','interview-heure','interview-salle','interview-jury']
+            .forEach(id => { document.getElementById(id).textContent = 'À confirmer'; });
+        }
+
+        showTimeline(2);
+        showSection('status-place');
+        break;
+      }
+
+      case 'entretien_fait':
+        document.getElementById('candidat-prenom-fait').textContent = prenom;
+        showTimeline(3);
+        showSection('status-fait');
+        break;
+
+      case 'accepte':
+        document.getElementById('candidat-prenom-accepte').textContent = prenom;
+        showTimeline(4);
+        showSection('status-accepte');
+        break;
+
+      case 'refuse':
+        document.getElementById('candidat-prenom-refuse').textContent = prenom;
+        showTimeline(4);
+        showSection('status-refuse');
+        break;
+
+      default:
+        document.getElementById('candidat-prenom-recu').textContent = prenom;
+        showTimeline(1);
+        showSection('status-recu');
+    }
+
+  } catch (err) {
+    console.error(err);
+    document.getElementById('error-msg').textContent = 'Erreur de chargement : ' + err.message;
+    showSection('error-state');
+  }
+}
+
+loadCandidate();
+</script>
+</body>
+</html>

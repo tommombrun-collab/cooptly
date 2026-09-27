@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <script>(function(){var t=localStorage.getItem("_theme");if(t)document.documentElement.setAttribute("data-theme",t);})();</script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Connexion · Cooptly</title>
+  <!-- Connexions ouvertes d'avance : sans elles, chaque serveur (polices,
+       SDK, base de données) coûtait sa propre poignée de main réseau au
+       moment où la page en avait besoin. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin />
+  <!-- Le SDK est préchargé dès l'en-tête. Sinon le navigateur ne le
+       découvre qu'en arrivant au script, tout en bas de la page. -->
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js" />
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js" />
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js" />
+  <!-- Polices en <link> et non plus en @import dans main.css : l'@import
+       obligeait à télécharger la feuille de style avant même de découvrir
+       les polices, trois allers-retours à la suite avant le texte. -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Antic&family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;600;700&display=swap" />
+  <link rel="stylesheet" href="/css/main.css" />
+</head>
+<body>
+
+<div class="login-wrap">
+  <div class="login-card">
+
+    <div class="login-logo">✈️</div>
+    <h1 class="login-title">Cooptly</h1>
+    <p class="login-subtitle">Espace réservé au staff des associations</p>
+
+    <div style="display:flex;background:var(--bg);border-radius:9px;padding:3px;margin-bottom:24px;gap:2px;border:1px solid var(--border);">
+      <button class="tab-toggle active" id="toggle-login"  onclick="switchMode('login')">Connexion</button>
+      <button class="tab-toggle"        id="toggle-signup" onclick="switchMode('signup')">Créer un compte</button>
+    </div>
+
+    <form id="auth-form" novalidate class="stack">
+
+      <!-- Signup only : prénom + nom -->
+      <div class="form-group" id="field-name" style="display:none;">
+        <div style="display:flex;gap:12px;">
+          <div style="flex:1;">
+            <label class="form-label" for="input-firstname">Prénom <span class="required">*</span></label>
+            <input class="form-input" type="text" id="input-firstname" placeholder="Prénom" autocomplete="off" />
+          </div>
+          <div style="flex:1;">
+            <label class="form-label" for="input-lastname">Nom <span class="required">*</span></label>
+            <input class="form-input" type="text" id="input-lastname" placeholder="Nom" autocomplete="off" />
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="input-email">Email <span class="required">*</span></label>
+        <input class="form-input" type="email" id="input-email"
+          placeholder="ton.email@example.com" autocomplete="email" autocapitalize="none" required />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="input-password">Mot de passe <span class="required">*</span></label>
+        <div style="position:relative;">
+          <input class="form-input" type="password" id="input-password"
+            placeholder="8 caractères minimum" style="padding-right:44px;" required />
+          <button type="button" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:18px;color:var(--text-muted);"
+            onclick="togglePw()">👁</button>
+        </div>
+      </div>
+
+      <!-- Signup only : confirmation mdp -->
+      <div class="form-group" id="field-confirm" style="display:none;">
+        <label class="form-label" for="input-confirm">Confirmer le mot de passe <span class="required">*</span></label>
+        <input class="form-input" type="password" id="input-confirm" placeholder="Répète ton mot de passe" />
+      </div>
+
+      <!-- Signup only : code d'invitation -->
+      <div class="form-group" id="field-code" style="display:none;">
+        <label class="form-label" for="input-code">Code d'invitation <span class="required">*</span></label>
+        <input class="form-input" type="text" id="input-code"
+          placeholder="Ex: ASSO1234"
+          autocomplete="off" autocapitalize="characters" spellcheck="false"
+          style="text-transform:uppercase;letter-spacing:.12em;font-weight:700;font-size:16px;" />
+        <span class="form-hint">Fourni par l'administrateur de ton association</span>
+      </div>
+
+      <div class="login-error" id="auth-error" style="display:none;margin:0;"></div>
+      <button type="submit" class="btn btn-primary btn-full btn-lg" id="btn-submit" style="margin-top:4px;">
+        Se connecter
+      </button>
+    </form>
+
+    <p id="forgot-link" style="margin-top:14px;font-size:12px;color:var(--text-muted);text-align:center;">
+      <a href="#" onclick="sendReset(event)" style="color:var(--indigo);text-decoration:none;font-weight:500;">Mot de passe oublié ?</a>
+    </p>
+    <p style="margin-top:8px;font-size:12px;color:var(--text-muted);">
+      Accès réservé au staff, version bêta
+    </p>
+  </div>
+</div>
+
+<style>
+.tab-toggle {
+  flex: 1; padding: 8px 14px; border: none; background: transparent;
+  border-radius: 7px; font-size: 13.5px; font-weight: 500;
+  color: var(--text-muted); cursor: pointer; transition: all .15s;
+  font-family: inherit;
+}
+.tab-toggle.active {
+  background: var(--surface); color: var(--text); font-weight: 700;
+  box-shadow: 0 1px 4px rgba(0,0,0,.10), 0 0 0 1px rgba(0,0,0,.04);
+}
+</style>
+
+<script type="module">
+import { loginWithPassword, createAccount, getCurrentUser, getUserRole } from '/js/auth.js';
+import { sendPasswordResetEmail } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+import { getAuth } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+import { app } from '/js/auth.js';
+import { getFirestore, getDoc, setDoc, doc, serverTimestamp }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+const db = getFirestore(app);
+let mode = 'login';
+
+// ── Logo plateforme ──────────────────────────────────────────────
+async function applyPlatformLogo() {
+  const logoEl = document.querySelector('.login-logo');
+  if (!logoEl) return;
+  let b64 = localStorage.getItem('_platformLogo');
+  if (!b64) {
+    try {
+      const d = await getDoc(doc(db, 'platform_settings', 'main'));
+      if (d.exists() && d.data().logoBase64) {
+        b64 = d.data().logoBase64;
+        localStorage.setItem('_platformLogo', b64);
+      }
+    } catch(e) { /* keep default */ }
+  }
+  if (b64) {
+    logoEl.innerHTML = `<img src="${b64}" style="width:60px;height:60px;border-radius:50%;object-fit:cover;display:block;" />`;
+    logoEl.style.background = 'transparent';
+    logoEl.style.padding = '0';
+    logoEl.style.fontSize = '0';
+    logoEl.style.boxShadow = 'none';
+    logoEl.style.borderRadius = '0';
+  }
+}
+applyPlatformLogo();
+
+// Déjà connecté → router
+getCurrentUser().then(async user => {
+  if (user) await route(user);
+});
+
+async function route(user) {
+  const role = await getUserRole(user);
+  if (role === 'admin')  { window.location.href = '/admin/dashboard.html'; return; }
+  if (role === 'secge')  { window.location.href = '/secge/dashboard.html'; return; }
+  // Les membres n'ont plus de compte : ils déposent leurs dispos via le lien public.
+  showErr('Plus besoin de compte pour les membres : utilise le lien de disponibilités partagé par ton association. Cet accès est réservé au bureau.');
+}
+
+window.switchMode = m => {
+  mode = m;
+  document.getElementById('toggle-login').classList.toggle('active',  m === 'login');
+  document.getElementById('toggle-signup').classList.toggle('active', m === 'signup');
+  document.getElementById('field-name').style.display    = m === 'signup' ? '' : 'none';
+  document.getElementById('field-confirm').style.display = m === 'signup' ? '' : 'none';
+  document.getElementById('field-code').style.display    = m === 'signup' ? '' : 'none';
+  document.getElementById('forgot-link').style.display   = m === 'login'  ? '' : 'none';
+  document.getElementById('btn-submit').textContent = m === 'login' ? 'Se connecter' : 'Créer mon compte';
+  document.getElementById('auth-error').style.display = 'none';
+};
+
+window.togglePw = () => {
+  const i = document.getElementById('input-password');
+  i.type = i.type === 'password' ? 'text' : 'password';
+};
+
+document.getElementById('auth-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const btn = document.getElementById('btn-submit');
+  document.getElementById('auth-error').style.display = 'none';
+
+  const email    = document.getElementById('input-email').value.trim().toLowerCase();
+  const password = document.getElementById('input-password').value;
+
+  if (!email.includes('@')) return showErr('Adresse email invalide.');
+  if (password.length < 8)  return showErr('Mot de passe : 8 caractères minimum.');
+
+  if (mode === 'signup') {
+    const firstName = document.getElementById('input-firstname').value.trim();
+    const lastName  = document.getElementById('input-lastname').value.trim();
+    const confirm   = document.getElementById('input-confirm').value;
+    const code      = document.getElementById('input-code').value.trim().toUpperCase().replace(/\s/g, '');
+
+    if (!firstName)       return showErr('Prénom requis.');
+    if (!lastName)        return showErr('Nom requis.');
+    if (password !== confirm) return showErr('Les mots de passe ne correspondent pas.');
+    if (!code)            return showErr('Code d\'invitation requis.');
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner" style="border-top-color:#fff;width:18px;height:18px;border-width:2px;"></span>';
+
+    try {
+      // 1. Valider le code AVANT de créer le compte (lecture publique autorisée)
+      const codeSnap = await getDoc(doc(db, 'invite_codes', code));
+      if (!codeSnap.exists() || codeSnap.data().active === false) {
+        return showErr('Code d\'invitation invalide ou expiré. Demande-en un à l\'admin de ton asso.');
+      }
+      const { organizationId, role } = codeSnap.data();
+
+      // 2. Créer le compte Firebase Auth
+      const displayName = `${firstName} ${lastName}`.trim();
+      const user = await createAccount(email, password, displayName);
+
+      // 3. Créer la membership (ID = uid_orgId, format attendu par les règles Firestore)
+      await setDoc(doc(db, 'memberships', `${user.uid}_${organizationId}`), {
+        userId:         user.uid,
+        organizationId,
+        role,
+        email:          user.email,
+        firstName,
+        lastName,
+        displayName,
+        joinedAt:       serverTimestamp(),
+        // Justificatif exigé par les règles Firestore : le code prouve que
+        // l'asso a bien autorisé cette inscription, avec ce rôle.
+        viaCode:        code,
+      });
+
+      // 4. Router selon le rôle (seul le bureau a un compte)
+      window.location.href = `/secge/dashboard.html?org=${organizationId}`;
+
+    } catch(err) {
+      btn.disabled = false;
+      btn.textContent = 'Créer mon compte';
+      showErr(friendlyErr(err.code, err.message));
+    }
+
+  } else {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner" style="border-top-color:#fff;width:18px;height:18px;border-width:2px;"></span>';
+    try {
+      const user = await loginWithPassword(email, password);
+      await route(user);
+    } catch(err) {
+      btn.disabled = false;
+      btn.textContent = 'Se connecter';
+      showErr(friendlyErr(err.code, err.message));
+    }
+  }
+});
+
+window.sendReset = async (e) => {
+  e.preventDefault();
+  const email = document.getElementById('input-email').value.trim().toLowerCase();
+  if (!email.includes('@')) {
+    showErr('Entre ton adresse email ci-dessus, puis clique sur "Mot de passe oublié ?".');
+    return;
+  }
+  try {
+    const auth = getAuth();
+    await sendPasswordResetEmail(auth, email);
+    const errEl = document.getElementById('auth-error');
+    errEl.style.display = 'block';
+    errEl.style.background = 'var(--green-light)';
+    errEl.style.borderColor = 'var(--green-mid)';
+    errEl.style.color = 'var(--green)';
+    errEl.textContent = `✅ Email de réinitialisation envoyé à ${email}. Vérifie ta boîte mail.`;
+  } catch(err) {
+    showErr(err.code === 'auth/user-not-found' ? 'Aucun compte avec cet email.' : err.message);
+  }
+};
+
+function showErr(m) {
+  const e = document.getElementById('auth-error');
+  e.textContent = m; e.style.display = 'block';
+  const btn = document.getElementById('btn-submit');
+  btn.disabled = false;
+  btn.textContent = mode === 'login' ? 'Se connecter' : 'Créer mon compte';
+}
+function friendlyErr(c, f) {
+  return {
+    'auth/user-not-found':       'Aucun compte avec cet email.',
+    'auth/wrong-password':       'Mot de passe incorrect.',
+    'auth/invalid-credential':   'Email ou mot de passe incorrect.',
+    'auth/email-already-in-use': 'Un compte existe déjà avec cet email. Connecte-toi.',
+    'auth/weak-password':        'Mot de passe trop simple (8 caractères minimum).',
+    'auth/too-many-requests':    'Trop de tentatives. Réessaie dans quelques minutes.',
+  }[c] || f;
+}
+</script>
+</body>
+</html>

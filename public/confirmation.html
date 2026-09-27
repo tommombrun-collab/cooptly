@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <script>(function(){var t=localStorage.getItem("_theme");if(t)document.documentElement.setAttribute("data-theme",t);})();</script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Entretien confirmé · Cooptly</title>
+  <!-- Connexions ouvertes d'avance : sans elles, chaque serveur (polices,
+       SDK, base de données) coûtait sa propre poignée de main réseau au
+       moment où la page en avait besoin. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin />
+  <!-- Le SDK est préchargé dès l'en-tête. Sinon le navigateur ne le
+       découvre qu'en arrivant au script, tout en bas de la page. -->
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js" />
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js" />
+  <!-- Polices en <link> et non plus en @import dans main.css : l'@import
+       obligeait à télécharger la feuille de style avant même de découvrir
+       les polices, trois allers-retours à la suite avant le texte. -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Antic&family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;600;700&display=swap" />
+  <link rel="stylesheet" href="/css/main.css" />
+  <style>
+    .conf-wrap { max-width: 560px; margin: 0 auto; padding: 32px 20px 64px; }
+    .conf-check {
+      width: 72px; height: 72px; border-radius: 50%;
+      background: var(--green-light); color: var(--green);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 38px; margin: 0 auto 20px;
+      animation: pop .4s cubic-bezier(.2,1.4,.5,1);
+    }
+    @keyframes pop { 0% { transform: scale(0); } 100% { transform: scale(1); } }
+    .conf-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 16px; padding: 28px 24px; box-shadow: var(--shadow-sm);
+    }
+    .conf-detail {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 14px 0; border-bottom: 1px solid var(--border);
+    }
+    .conf-detail:last-child { border-bottom: none; }
+    .conf-detail-icon { font-size: 20px; line-height: 1.3; width: 24px; text-align: center; flex-shrink: 0; }
+    .conf-detail-label { font-size: 12px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+    .conf-detail-value { font-size: 15px; font-weight: 600; color: var(--text); margin-top: 2px; }
+    .cal-btns { display: flex; flex-direction: column; gap: 10px; margin-top: 24px; }
+    .cal-btn {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      padding: 13px 18px; border-radius: 10px; font-weight: 600; font-size: 14.5px;
+      text-decoration: none; cursor: pointer; border: 1.5px solid var(--border);
+      background: var(--bg); color: var(--text); transition: all .12s; font-family: inherit;
+    }
+    .cal-btn:hover { border-color: var(--indigo); background: var(--indigo-light); }
+    .cal-btn.primary { background: var(--indigo); color: #fff; border-color: var(--indigo); }
+    .cal-btn.primary:hover { background: var(--indigo-dark); }
+    .reschedule-link {
+      display: block; text-align: center; margin-top: 24px;
+      color: var(--text-muted); font-size: 13.5px; text-decoration: none;
+    }
+    .reschedule-link:hover { color: var(--indigo); text-decoration: underline; }
+    .conf-header-band { height: 8px; border-radius: 999px; background: var(--indigo); margin-bottom: 28px; }
+  </style>
+</head>
+<body>
+
+<div class="conf-wrap">
+
+  <div id="loading-state" style="text-align:center;padding:64px 0;">
+    <div class="spinner" style="margin:0 auto 16px;"></div>
+    <p>Chargement de ta confirmation…</p>
+  </div>
+
+  <div id="error-state" style="display:none;text-align:center;padding:48px 0;color:var(--red);">
+    <div style="font-size:40px;margin-bottom:12px;">⚠️</div>
+    <h2 id="error-msg">Entretien introuvable.</h2>
+    <p class="mt-8" style="color:var(--text-muted);">Vérifie le lien reçu ou contacte ton association.</p>
+  </div>
+
+  <div id="content" style="display:none;">
+    <div class="conf-header-band"></div>
+    <div class="conf-check">✓</div>
+    <h1 style="text-align:center;font-size:26px;margin-bottom:8px;">Entretien confirmé&nbsp;!</h1>
+    <p style="text-align:center;color:var(--text-muted);margin-bottom:28px;" id="subtitle">
+      On a bien réservé ton créneau. Ajoute-le à ton agenda 👇
+    </p>
+
+    <div class="conf-card">
+      <div class="conf-detail">
+        <div class="conf-detail-icon">👤</div>
+        <div>
+          <div class="conf-detail-label">Candidat·e</div>
+          <div class="conf-detail-value" id="d-name">·</div>
+        </div>
+      </div>
+      <div class="conf-detail">
+        <div class="conf-detail-icon">🏛️</div>
+        <div>
+          <div class="conf-detail-label">Association</div>
+          <div class="conf-detail-value" id="d-org">·</div>
+        </div>
+      </div>
+      <div class="conf-detail">
+        <div class="conf-detail-icon">📅</div>
+        <div>
+          <div class="conf-detail-label">Date</div>
+          <div class="conf-detail-value" id="d-date">·</div>
+        </div>
+      </div>
+      <div class="conf-detail">
+        <div class="conf-detail-icon">🕐</div>
+        <div>
+          <div class="conf-detail-label">Horaire</div>
+          <div class="conf-detail-value" id="d-time">·</div>
+        </div>
+      </div>
+      <!-- Affichée seulement quand le bureau a attribué une salle. -->
+      <div class="conf-detail" id="d-room-row" style="display:none;">
+        <div class="conf-detail-icon">🏫</div>
+        <div>
+          <div class="conf-detail-label">Salle</div>
+          <div class="conf-detail-value" id="d-room">·</div>
+        </div>
+      </div>
+
+      <div class="cal-btns">
+        <a class="cal-btn primary" id="btn-gcal" target="_blank" rel="noopener">
+          📆 Ajouter à Google Agenda
+        </a>
+        <a class="cal-btn" id="btn-ics" download="entretien-cooptation.ics">
+          🍎 Apple / Outlook (.ics)
+        </a>
+      </div>
+    </div>
+
+    <!-- Page de suivi personnelle : sans elle, le cooptant n'avait aucun moyen
+         de retrouver son rendez-vous (la plateforme n'envoie pas d'email). -->
+    <div class="conf-card" id="suivi-card" style="display:none;margin-top:16px;">
+      <div style="font-weight:700;font-size:15px;margin-bottom:6px;">📌 Suivre ma candidature</div>
+      <p style="font-size:13.5px;color:var(--text-muted);line-height:1.55;margin-bottom:14px;">
+        Garde ce lien en favori ou envoie-le-toi : il te permet de retrouver ton rendez-vous
+        (date, salle) et de changer de créneau. Il est personnel, ne le partage pas.
+      </p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <a class="cal-btn primary" id="suivi-open" href="#" style="flex:1 1 180px;">Ouvrir ma page de suivi</a>
+        <button class="cal-btn" id="suivi-copy" type="button" style="flex:0 0 auto;padding:13px 16px;">Copier le lien</button>
+      </div>
+    </div>
+
+    <!-- Entretien à plusieurs : lien à transmettre à un ami pour qu'il
+         rejoigne CE créneau. Affiché seulement si l'asso l'autorise. -->
+    <div class="conf-card" id="group-invite" style="display:none;margin-top:16px;">
+      <div style="font-weight:700;font-size:15px;margin-bottom:6px;">🤝 Passer l'entretien avec un ami</div>
+      <p style="font-size:13.5px;color:var(--text-muted);line-height:1.55;margin-bottom:14px;" id="group-invite-desc"></p>
+      <div style="display:flex;gap:8px;">
+        <input class="form-input" id="group-invite-url" readonly
+          style="flex:1;font-size:12.5px;font-family:var(--font-mono);" />
+        <button class="cal-btn primary" id="group-invite-copy" style="flex:0 0 auto;padding:13px 16px;">Copier</button>
+      </div>
+    </div>
+
+    <a class="reschedule-link" id="reschedule-link" href="#">
+      🔄 Je ne suis plus dispo, changer de créneau
+    </a>
+  </div>
+
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import {
+    getFirestore, collection, query, where, getDocs, doc, getDoc
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import { firebaseConfig } from '/js/firebase-config.js';
+  import { campaignConfig, paramLien } from '/js/utils.js';
+
+  const app = initializeApp(firebaseConfig);
+  const db  = getFirestore(app);
+
+  const params       = new URLSearchParams(window.location.search);
+  const token        = paramLien('token');
+  const campaignId   = paramLien('campaign');
+
+  function showError(msg) {
+    document.getElementById('loading-state').style.display = 'none';
+    document.getElementById('content').style.display = 'none';
+    const es = document.getElementById('error-state');
+    es.style.display = '';
+    if (msg) document.getElementById('error-msg').textContent = msg;
+  }
+
+  function applyOrgTheme(hex) {
+    if (!hex || !/^#[0-9A-Fa-f]{6}$/.test(hex)) return;
+    const h = hex.replace('#','');
+    const r = parseInt(h.slice(0,2),16), g = parseInt(h.slice(2,4),16), b = parseInt(h.slice(4,6),16);
+    const D = (v,t) => Math.max(0, Math.round(v*(1-t)));
+    const root = document.documentElement;
+    root.style.setProperty('--indigo', hex);
+    root.style.setProperty('--indigo-dark', `rgb(${D(r,.18)},${D(g,.18)},${D(b,.18)})`);
+    root.style.setProperty('--indigo-light', `rgba(${r},${g},${b},.10)`);
+    root.style.setProperty('--indigo-mid', `rgba(${r},${g},${b},.35)`);
+  }
+
+  const MOIS = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+  const JOURS = ['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'];
+  function fmtDate(d) {
+    return `${JOURS[d.getDay()]} ${d.getDate()} ${MOIS[d.getMonth()]} ${d.getFullYear()}`;
+  }
+  function fmtTime(d) {
+    return `${String(d.getHours()).padStart(2,'0')}h${String(d.getMinutes()).padStart(2,'0')}`;
+  }
+  // YYYYMMDDTHHMMSS (heure locale) : pour Google Calendar & ICS
+  function fmtCalLocal(d) {
+    const p = n => String(n).padStart(2,'0');
+    return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}T${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+  }
+  // UTC stamp for DTSTAMP
+  function fmtCalUTC(d) {
+    const p = n => String(n).padStart(2,'0');
+    return `${d.getUTCFullYear()}${p(d.getUTCMonth()+1)}${p(d.getUTCDate())}T${p(d.getUTCHours())}${p(d.getUTCMinutes())}${p(d.getUTCSeconds())}Z`;
+  }
+
+  /**
+   * Affiche le lien à transmettre pour qu'un ami rejoigne ce créneau.
+   * Ne s'affiche que si l'asso a activé les entretiens à plusieurs, que
+   * l'entretien porte un groupToken, et qu'il reste une place dans le groupe.
+   */
+  async function setupGroupInvite(iv, orgId, campaignId) {
+    if (!iv.groupToken || !campaignId) return;
+
+    let cfg;
+    try {
+      const c = await getDoc(doc(db, 'campaigns', campaignId));
+      if (!c.exists()) return;
+      cfg = campaignConfig({ config: c.data().config });
+    } catch { return; }
+
+    if (!cfg.entretienCollectif) return;
+
+    // Combien de cooptants déjà dans le groupe ?
+    let dejaDansGroupe = 1;
+    try {
+      const snap = await getDocs(query(
+        collection(db, 'interviews'),
+        where('campaignId', '==', campaignId),
+        where('groupId',    '==', iv.groupId)
+      ));
+      if (!snap.empty) dejaDansGroupe = snap.size;
+    } catch { /* on retombe sur 1 : au pire on propose un lien qui sera refusé */ }
+
+    const restant = cfg.maxParGroupe - dejaDansGroupe;
+    if (restant <= 0) return;   // groupe complet : pas de lien à proposer
+
+    const orgParam = orgId ? `org=${orgId}&` : '';
+    const url = `${location.origin}/postuler.html?${orgParam}campaign=${campaignId}&avec=${iv.groupToken}`;
+
+    document.getElementById('group-invite-desc').textContent =
+      `Envoie ce lien à ${restant > 1 ? `${restant} amis` : 'un ami'} : `
+      + `${restant > 1 ? 'ils passeront' : 'il passera'} l'entretien avec toi, sur ce même créneau. `
+      + `Seules les personnes qui ont ce lien peuvent te rejoindre.`;
+    document.getElementById('group-invite-url').value = url;
+    document.getElementById('group-invite').style.display = '';
+
+    const btn = document.getElementById('group-invite-copy');
+    btn.addEventListener('click', () => {
+      navigator.clipboard.writeText(url)
+        .then(() => { btn.textContent = 'Copié ✓'; setTimeout(() => btn.textContent = 'Copier', 2000); })
+        .catch(() => {
+          // clipboard refusé (http, permission) : sélectionner pour copie manuelle
+          const input = document.getElementById('group-invite-url');
+          input.select();
+          btn.textContent = 'Ctrl+C';
+        });
+    });
+  }
+
+  async function init() {
+    if (!token) { showError('Lien invalide.'); return; }
+
+    try {
+      // 1. Charger le candidat via resultToken
+      const candSnap = await getDocs(query(
+        collection(db, 'candidates'),
+        where('resultToken', '==', token)
+      ));
+      if (candSnap.empty) { showError('Candidature introuvable.'); return; }
+      const cand = { id: candSnap.docs[0].id, ...candSnap.docs[0].data() };
+
+      // 2. Charger l'entretien de ce candidat
+      const ivSnap = await getDocs(query(
+        collection(db, 'interviews'),
+        where('candidateId', '==', cand.id)
+      ));
+      if (ivSnap.empty) { showError('Aucun entretien réservé pour cette candidature.'); return; }
+      const iv = ivSnap.docs[0].data();
+
+      const start = iv.datetimeStart?.toDate ? iv.datetimeStart.toDate() : new Date(iv.datetimeStart);
+      const end   = iv.datetimeEnd?.toDate   ? iv.datetimeEnd.toDate()   : new Date(iv.datetimeEnd);
+
+      // 3. Charger l'organisation (nom + couleur) et la salle, en même temps.
+      // Salle : soit une salle de la liste (`roomId`), soit un nom saisi à la
+      // main (`salleNom`). Seul ce second cas était affiché, et seulement dans
+      // l'agenda : le cooptant ne voyait jamais la salle sur la page.
+      let salle = iv.salleNom || '';
+      const sallePromesse = iv.roomId
+        ? getDoc(doc(db, 'rooms', iv.roomId))
+            .then(r => { if (r.exists()) salle = r.data().code || r.data().nom || r.data().name || salle; })
+            .catch(e => console.warn(e))
+        : Promise.resolve();
+
+      let orgName = '', orgColor = null, orgAddress = '';
+      const orgId = cand.organizationId || iv.organizationId;
+      if (orgId) {
+        try {
+          const [orgDoc] = await Promise.all([getDoc(doc(db, 'organizations', orgId)), sallePromesse]);
+          if (orgDoc.exists()) {
+            const o = orgDoc.data();
+            orgName    = o.nom || o.name || '';
+            orgColor   = o.primaryColor || null;
+            orgAddress = o.adresse || o.address || '';
+          }
+        } catch(e) { console.warn(e); }
+      } else {
+        await sallePromesse;
+      }
+      if (orgColor) applyOrgTheme(orgColor);
+
+      // 4. Remplir l'UI
+      document.getElementById('d-name').textContent = `${cand.prenom || ''} ${cand.nom || ''}`.trim() || '·';
+      document.getElementById('d-org').textContent  = orgName || '·';
+      document.getElementById('d-date').textContent = fmtDate(start);
+      document.getElementById('d-time').textContent = `${fmtTime(start)} - ${fmtTime(end)}`;
+      if (salle) {
+        document.getElementById('d-room').textContent = salle;
+        document.getElementById('d-room-row').style.display = '';
+      }
+
+      // 5. Boutons agenda
+      const eventTitle = `Entretien cooptation${orgName ? ' · ' + orgName : ''}`;
+      const eventDetails = `Entretien de cooptation pour ${cand.prenom || ''} ${cand.nom || ''}.`.trim();
+      const eventLoc = salle ? (orgAddress ? `Salle ${salle}, ${orgAddress}` : `Salle ${salle}`) : orgAddress;
+
+      // Google Calendar
+      const gcalUrl = 'https://calendar.google.com/calendar/render?action=TEMPLATE'
+        + `&text=${encodeURIComponent(eventTitle)}`
+        + `&dates=${fmtCalLocal(start)}/${fmtCalLocal(end)}`
+        + `&details=${encodeURIComponent(eventDetails)}`
+        + (eventLoc ? `&location=${encodeURIComponent(eventLoc)}` : '')
+        + '&ctz=Europe/Paris';
+      document.getElementById('btn-gcal').href = gcalUrl;
+
+      // ICS (Apple / Outlook)
+      const ics = [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'PRODID:-//Cooptly//FR',
+        'CALSCALE:GREGORIAN',
+        'METHOD:PUBLISH',
+        'BEGIN:VEVENT',
+        `UID:${cand.id}@cooptly`,
+        `DTSTAMP:${fmtCalUTC(new Date())}`,
+        `DTSTART:${fmtCalUTC(start)}`,
+        `DTEND:${fmtCalUTC(end)}`,
+        `SUMMARY:${eventTitle.replace(/[,;\\]/g, m => '\\'+m)}`,
+        `DESCRIPTION:${eventDetails.replace(/[,;\\]/g, m => '\\'+m)}`,
+        eventLoc ? `LOCATION:${eventLoc.replace(/[,;\\]/g, m => '\\'+m)}` : '',
+        'BEGIN:VALARM',
+        'TRIGGER:-PT1H',
+        'ACTION:DISPLAY',
+        'DESCRIPTION:Entretien cooptation dans 1h',
+        'END:VALARM',
+        'END:VEVENT',
+        'END:VCALENDAR'
+      ].filter(Boolean).join('\r\n');
+      document.getElementById('btn-ics').href =
+        'data:text/calendar;charset=utf-8,' + encodeURIComponent(ics);
+
+      // 6. Lien modifier le créneau
+      if (campaignId) {
+        // Le jeton personnel permet de rouvrir le formulaire avec toutes ses
+        // réponses : seul le cooptant possède ce lien.
+        document.getElementById('reschedule-link').href =
+          `/postuler.html?campaign=${campaignId}&modif=${encodeURIComponent(token)}`;
+      } else {
+        document.getElementById('reschedule-link').style.display = 'none';
+      }
+
+      // 7. Page de suivi personnelle
+      if (token) {
+        const suivi = `${location.origin}/candidat.html?token=${encodeURIComponent(token)}`;
+        document.getElementById('suivi-open').href = suivi;
+        const copie = document.getElementById('suivi-copy');
+        copie.addEventListener('click', async () => {
+          try {
+            await navigator.clipboard.writeText(suivi);
+            copie.textContent = 'Lien copié ✓';
+          } catch {
+            // Presse-papier refusé : on affiche le lien pour qu'il soit copiable à la main.
+            copie.replaceWith(Object.assign(document.createElement('input'), {
+              className: 'form-input', value: suivi, readOnly: true,
+              style: 'flex:1 1 100%;font-size:12.5px;font-family:var(--font-mono);',
+            }));
+          }
+        });
+        document.getElementById('suivi-card').style.display = '';
+      }
+
+      // 8. Lien d'invitation « entretien à plusieurs »
+      await setupGroupInvite(iv, orgId, campaignId);
+
+      document.getElementById('loading-state').style.display = 'none';
+      document.getElementById('content').style.display = '';
+    } catch (err) {
+      console.error(err);
+      showError('Erreur de chargement : ' + err.message);
+    }
+  }
+
+  init();
+</script>
+</body>
+</html>

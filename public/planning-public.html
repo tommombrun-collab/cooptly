@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Planning des entretiens · Cooptly</title>
+  <!-- Connexions ouvertes d'avance : sans elles, chaque serveur (polices,
+       SDK, base de données) coûtait sa propre poignée de main réseau au
+       moment où la page en avait besoin. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin />
+  <!-- Le SDK est préchargé dès l'en-tête. Sinon le navigateur ne le
+       découvre qu'en arrivant au script, tout en bas de la page. -->
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js" />
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js" />
+  <!-- Polices en <link> et non plus en @import dans main.css : l'@import
+       obligeait à télécharger la feuille de style avant même de découvrir
+       les polices, trois allers-retours à la suite avant le texte. -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Antic&family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;600;700&display=swap" />
+  <link rel="stylesheet" href="/css/main.css" />
+  <style>
+    .pp-controls { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:18px; }
+    .pp-seg { display:inline-flex; border:1.5px solid var(--border); border-radius:8px; overflow:hidden; }
+    .pp-seg button { border:none; background:var(--surface); padding:7px 14px; font-size:13px; font-weight:600; cursor:pointer; color:var(--text-muted); font-family:inherit; }
+    .pp-seg button.active { background:var(--indigo); color:#fff; }
+    .pp-nav { display:flex; align-items:center; gap:8px; }
+    .pp-nav .label { font-weight:700; min-width:180px; text-align:center; text-transform:capitalize; }
+
+    /* Vue jour : liste */
+    .pp-day-card { display:flex; gap:14px; align-items:flex-start; padding:12px 14px; border:1.5px solid var(--border); border-radius:10px; margin-bottom:10px; }
+    .pp-time { min-width:96px; font-weight:700; color:var(--indigo); font-size:14px; }
+    .pp-day-card.dimmed { opacity:.2; }
+
+    /* Vues grille (tout / semaine). La grille défile dans son cadre, heures
+       et jours restent figés : on garde ses repères en faisant défiler. */
+    .pp-wrap {
+      overflow:auto; max-height:75vh;
+      border:1px solid var(--border); border-radius:10px; background:var(--surface);
+    }
+    table.pp-grid { border-collapse:separate; border-spacing:0; width:100%; min-width:640px; }
+    table.pp-grid.all { width:auto; min-width:100%; }
+    table.pp-grid th, table.pp-grid td {
+      border-right:1px solid var(--border); border-bottom:1px solid var(--border);
+      vertical-align:top; padding:4px; background:var(--surface);
+    }
+    table.pp-grid.all th:not(.corner), table.pp-grid.all td:not(.time) { min-width:150px; width:150px; }
+    table.pp-grid thead th { position:sticky; top:0; z-index:2; background:var(--bg); font-size:12px; padding:8px 6px; white-space:nowrap; }
+    table.pp-grid th.today { color:var(--indigo-dark); box-shadow:inset 0 -2px 0 var(--indigo); }
+    table.pp-grid td.time {
+      position:sticky; left:0; z-index:1; background:var(--bg);
+      text-align:right; font-size:11px; color:var(--text-muted); white-space:nowrap; width:56px; padding-right:8px;
+    }
+    table.pp-grid th.corner { position:sticky; left:0; top:0; z-index:3; }
+    /* En-tête de jour cliquable : copie la liste des entretiens du jour. */
+    table.pp-grid th[data-jour] { cursor:pointer; transition:color .12s, background .12s; }
+    table.pp-grid th[data-jour]:hover { background:var(--indigo-light); color:var(--indigo-dark); }
+    table.pp-grid th[data-jour]:focus-visible { outline:2px solid var(--indigo); outline-offset:-2px; }
+    table.pp-grid th[data-jour] .pp-copy-ico { opacity:0; margin-left:4px; transition:opacity .12s; }
+    table.pp-grid th[data-jour]:hover .pp-copy-ico, table.pp-grid th[data-jour]:focus-visible .pp-copy-ico { opacity:.8; }
+    .pp-iv { background:var(--indigo-light); border-left:3px solid var(--indigo); border-radius:6px; padding:5px 7px; margin-bottom:4px; font-size:11.5px; }
+    .pp-iv.dimmed { opacity:.18; }
+    .pp-iv .who { font-weight:700; }
+    .pp-iv .meta { color:var(--text-muted); margin-top:1px; }
+
+    @media print {
+      .pp-noprint { display:none !important; }
+      .pp-wrap { max-height:none; overflow:visible; border:none; }
+      table.pp-grid thead th, table.pp-grid td.time { position:static; }
+      .pp-copy-ico { display:none; }
+      .postuler-header { background:#fff !important; color:#000 !important; border-bottom:2px solid #000; }
+      body { background:#fff; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="postuler-header" id="page-header">
+  <div id="org-logo-wrap" style="margin-bottom:12px;"></div>
+  <div style="font-size:13px;font-weight:600;opacity:.85;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px;" id="org-name">Chargement…</div>
+  <h1>📋 Planning des entretiens</h1>
+  <p id="campaign-label"></p>
+</header>
+
+<div class="postuler-body">
+
+  <div id="loading-state" class="card" style="text-align:center;padding:48px;">
+    <div class="spinner" style="margin:0 auto 16px;"></div>
+    <p>Chargement du planning…</p>
+  </div>
+
+  <div id="error-state" class="card" style="display:none;text-align:center;padding:48px;color:var(--red);">
+    <div style="font-size:40px;margin-bottom:12px;">⚠️</div>
+    <p id="error-msg"></p>
+  </div>
+
+  <div id="content" style="display:none;">
+    <div class="pp-controls pp-noprint">
+      <div class="pp-seg">
+        <button id="seg-all" class="active">Tout</button>
+        <button id="seg-week">Semaine</button>
+        <button id="seg-day">Jour</button>
+      </div>
+      <div class="pp-nav" id="pp-nav" style="display:none;">
+        <button class="btn btn-ghost btn-sm" id="nav-prev">←</button>
+        <span class="label" id="nav-label"></span>
+        <button class="btn btn-ghost btn-sm" id="nav-next">→</button>
+      </div>
+      <select class="form-select" id="person-filter" style="max-width:200px;font-size:13px;">
+        <option value="">👤 Tout le monde</option>
+      </select>
+      <select class="form-select" id="campaign-filter" style="max-width:200px;font-size:13px;display:none;"></select>
+      <button class="btn btn-secondary btn-sm" id="btn-print" style="margin-left:auto;">🖨 Imprimer / PDF</button>
+    </div>
+
+    <div id="view-day" style="display:none;"></div>
+    <div id="view-week" class="pp-wrap"></div>
+
+    <p class="text-sm text-muted" style="text-align:center;margin-top:16px;" class="pp-noprint">Planning en lecture seule · partagé par ton association.</p>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getFirestore, collection, query, where, getDocs, getDoc, doc }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { firebaseConfig } from '/js/firebase-config.js';
+import { getCampaignDays, getTimeSlots, esc, nomCourt, paramLien, prenomInitiale, showToast, campaignConfig } from '/js/utils.js';
+import { heureFinValide, pasPlanning, ligneDuPlanning } from '/js/capacite.js';
+import { resolveOrg as resolveOrgShared } from '/js/org-lookup.js';
+
+const app = initializeApp(firebaseConfig);
+const db  = getFirestore(app);
+
+const params = new URLSearchParams(location.search);
+const orgParam = paramLien('org');
+// Plage horaire de la grille : réglée par l'asso (`config.heureFin`), voir loadCampaign.
+let SLOTS = getTimeSlots(8, 19);
+let PAS_LIGNES = 30;
+
+let org = null, campaigns = [], currentCampaign = null;
+let interviews = [], nameMap = {}, candMap = {}, roomMap = {};
+let days = [], weeks = [];
+// « Tout » par défaut : la période entière d'un coup, qui défile.
+let viewMode = 'all', dayIdx = 0, weekIdx = 0, personId = '';
+
+const $ = id => document.getElementById(id);
+function showError(msg) {
+  $('loading-state').style.display = 'none'; $('content').style.display = 'none';
+  $('error-state').style.display = ''; $('error-msg').textContent = msg;
+}
+function darken(hex, t) {
+  const h = (hex||'').replace('#',''); if (h.length !== 6) return hex;
+  const r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16);
+  const d=v=>Math.max(0,Math.round(v*(1-t)));
+  return `rgb(${d(r)},${d(g)},${d(b)})`;
+}
+const sameDay = (a, b) => a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();
+
+// Résolution partagée : ID, slug courant, ou ancien slug après renommage.
+const resolveOrg = param => resolveOrgShared(db, param);
+
+async function init() {
+  org = await resolveOrg(orgParam);
+  if (!org) return showError("Association introuvable. Vérifie le lien partagé.");
+  $('org-name').textContent = org.name || "Cooptly";
+  if (org.logoBase64) {
+    $('org-logo-wrap').innerHTML =
+      `<img src="${org.logoBase64}" style="width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.6);box-shadow:0 2px 8px rgba(0,0,0,.12);" alt="${org.name}" />`;
+  }
+  if (org.primaryColor) {
+    const hdr = $('page-header');
+    hdr.style.background = `linear-gradient(135deg,${org.primaryColor} 0%,${darken(org.primaryColor,.2)} 100%)`;
+    hdr.style.color = '#fff';
+    const h1 = hdr.querySelector('h1');
+    if (h1) h1.style.color = '#fff';
+    const p = hdr.querySelector('p');
+    if (p) p.style.color = 'rgba(255,255,255,.78)';
+  }
+
+  const campSnap = await getDocs(query(collection(db, 'campaigns'), where('organizationId', '==', org.id)));
+  campaigns = campSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0));
+  if (!campaigns.length) return showError("Le recrutement de cette association n'est pas encore configuré.");
+
+  const wanted = paramLien('campaign');
+  currentCampaign = campaigns.find(c => c.id === wanted) || campaigns[0];
+
+  // Sélecteur de campagne si plusieurs
+  if (campaigns.length > 1) {
+    const cf = $('campaign-filter'); cf.style.display = '';
+    campaigns.forEach(c => { const o=document.createElement('option'); o.value=c.id; o.textContent=c.name||c.id; cf.appendChild(o); });
+    cf.value = currentCampaign.id;
+    cf.onchange = async () => { currentCampaign = campaigns.find(c => c.id === cf.value); await loadCampaign(); };
+  }
+
+  $('seg-all').onclick  = () => setView('all');
+  $('seg-day').onclick  = () => setView('day');
+  $('seg-week').onclick = () => setView('week');
+  $('nav-prev').onclick = () => nav(-1);
+  $('nav-next').onclick = () => nav(1);
+  $('person-filter').onchange = e => { personId = e.target.value; render(); };
+  $('btn-print').onclick = () => window.print();
+
+  await loadCampaign();
+  $('loading-state').style.display = 'none';
+  $('content').style.display = '';
+  // La grille était masquée au premier rendu : impossible d'y mesurer quoi
+  // que ce soit. Maintenant visible, on la place sur le premier jour utile.
+  if (viewMode === 'all') { delete $('view-week').dataset.mode; renderAll(); }
+}
+
+async function loadCampaign() {
+  $('campaign-label').textContent = 'Prochaines semaines';
+  days = getCampaignDays(currentCampaign);  // période de l'asso
+  const cfgPlage = campaignConfig(currentCampaign);
+  SLOTS = getTimeSlots(8, heureFinValide(cfgPlage.heureFin), pasPlanning(cfgPlage.pasCreneauxMinutes));
+  PAS_LIGNES = pasPlanning(cfgPlage.pasCreneauxMinutes);
+
+  // Semaines (groupées par lundi)
+  weeks = [];
+  let cur = null;
+  days.forEach(d => {
+    const monday = new Date(d); const dow = (monday.getDay() + 6) % 7; monday.setDate(monday.getDate() - dow); monday.setHours(0,0,0,0);
+    const key = monday.toDateString();
+    if (!cur || cur.key !== key) { cur = { key, monday, days: [] }; weeks.push(cur); }
+    cur.days.push(d);
+  });
+
+  // Données (tout public : interviews, candidates, rooms, staff_availabilities, roster_members)
+  const [ivSnap, candSnap, roomSnap, saSnap, rosterSnap] = await Promise.all([
+    getDocs(query(collection(db, 'interviews'), where('campaignId', '==', currentCampaign.id))),
+    getDocs(query(collection(db, 'candidates'), where('campaignId', '==', currentCampaign.id))),
+    getDocs(query(collection(db, 'rooms'), where('organizationId', '==', org.id))),
+    getDocs(query(collection(db, 'staff_availabilities'), where('campaignId', '==', currentCampaign.id))),
+    getDocs(query(collection(db, 'roster_members'), where('organizationId', '==', org.id))),
+  ]);
+
+  interviews = ivSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+    .filter(iv => iv.datetimeStart?.toDate)
+    .sort((a, b) => a.datetimeStart.toMillis() - b.datetimeStart.toMillis());
+
+  candMap = {}; candSnap.docs.forEach(d => { candMap[d.id] = d.data(); });
+  roomMap = {}; roomSnap.docs.forEach(d => { roomMap[d.id] = d.data().code || d.data().nom || d.data().name; });
+  nameMap = {};
+  saSnap.docs.forEach(d => { const x = d.data(); if (x.userId && x.displayName) nameMap[x.userId] = x.displayName; });
+  rosterSnap.docs.forEach(d => { nameMap[d.id] = d.data().displayName; });
+
+  // Filtre par personne
+  const pf = $('person-filter');
+  pf.innerHTML = '<option value="">👤 Tout le monde</option>';
+  Object.entries(nameMap).sort((a,b)=>(a[1]||'').localeCompare(b[1]||'')).forEach(([id, nm]) => {
+    const o = document.createElement('option'); o.value = id; o.textContent = nm; pf.appendChild(o);
+  });
+  personId = ''; pf.value = '';
+
+  dayIdx = 0; weekIdx = 0;
+  delete $('view-week').dataset.mode;
+  // Démarrer sur le 1er jour qui a des entretiens, sinon le 1er jour
+  const firstWithIv = days.findIndex(d => interviews.some(iv => sameDay(iv.datetimeStart.toDate(), d)));
+  if (firstWithIv >= 0) { dayIdx = firstWithIv; weekIdx = weeks.findIndex(w => w.days.includes(days[firstWithIv])); }
+  render();
+}
+
+function ivData(iv) {
+  const s = iv.datetimeStart.toDate();
+  const e = iv.datetimeEnd?.toDate?.() || new Date(s.getTime() + 30*60000);
+  const cand = candMap[iv.candidateId];
+  const who = cand ? `${cand.prenom||''} ${cand.nom||''}`.trim() || cand.email : 'Cooptant';
+  const room = iv.roomId ? roomMap[iv.roomId] : iv.salleNom;
+  const jurors = [iv.jury1Id, iv.jury2Id, iv.jury3Id].filter(Boolean).map(id => nameMap[id] || 'Juré');
+  return { s, e, who, room, jurors, juryIds: [iv.jury1Id, iv.jury2Id, iv.jury3Id].filter(Boolean) };
+}
+const involves = iv => !personId || [iv.jury1Id, iv.jury2Id, iv.jury3Id].includes(personId);
+
+function setView(mode) {
+  viewMode = mode;
+  $('seg-all').classList.toggle('active', mode === 'all');
+  $('seg-day').classList.toggle('active', mode === 'day');
+  $('seg-week').classList.toggle('active', mode === 'week');
+  $('view-day').style.display  = mode === 'day' ? '' : 'none';
+  $('view-week').style.display = mode === 'day' ? 'none' : '';
+  // Flèches inutiles quand tout est affiché.
+  $('pp-nav').style.display = mode === 'all' ? 'none' : '';
+  render();
+}
+function nav(dir) {
+  if (viewMode === 'day')  dayIdx  = Math.max(0, Math.min(days.length - 1, dayIdx + dir));
+  else                     weekIdx = Math.max(0, Math.min(weeks.length - 1, weekIdx + dir));
+  render();
+}
+
+function render() {
+  if (viewMode === 'day') renderDay();
+  else if (viewMode === 'week') renderWeek();
+  else renderAll();
+}
+
+function renderAll() {
+  if (!days.length) { $('view-week').innerHTML = '<p class="text-muted" style="padding:16px;">Aucun jour.</p>'; return; }
+  const wrap = $('view-week');
+  const garderPosition = wrap.dataset.mode === 'all';
+  const { scrollLeft, scrollTop } = wrap;
+  renderGrid(days, true);
+  if (garderPosition) { wrap.scrollLeft = scrollLeft; wrap.scrollTop = scrollTop; return; }
+  // Première ouverture : on amène le premier jour qui a des entretiens en vue.
+  const th = wrap.querySelectorAll('thead th')[dayIdx + 1];
+  const coin = wrap.querySelector('th.corner');
+  if (th && coin) {
+    // Mesuré par rapport au cadre qui défile (offsetLeft dépend du parent
+    // positionné le plus proche, qui n'est pas forcément ce cadre).
+    const x = th.getBoundingClientRect().left - wrap.getBoundingClientRect().left + wrap.scrollLeft;
+    wrap.scrollLeft = Math.max(0, x - coin.offsetWidth);
+  }
+}
+
+function renderDay() {
+  const day = days[dayIdx];
+  if (!day) { $('view-day').innerHTML = '<p class="text-muted">Aucun jour.</p>'; $('nav-label').textContent=''; return; }
+  $('nav-label').textContent = day.toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long' });
+  const copier = `<div style="display:flex;justify-content:flex-end;margin-bottom:10px;" class="pp-noprint">
+    <button class="btn btn-ghost btn-sm" data-copier-jour="${dayIdx}">📋 Copier la liste du jour</button></div>`;
+  const todays = interviews.filter(iv => sameDay(iv.datetimeStart.toDate(), day));
+  if (!todays.length) { $('view-day').innerHTML = '<div class="card" style="text-align:center;padding:32px;color:var(--text-muted);">Aucun entretien ce jour.</div>'; return; }
+  $('view-day').innerHTML = copier + todays.map(iv => {
+    const d = ivData(iv);
+    const time = `${d.s.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}-${d.e.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}`;
+    return `<div class="pp-day-card ${involves(iv)?'':'dimmed'}">
+      <div class="pp-time">${time}</div>
+      <div style="flex:1;">
+        <div style="font-weight:700;">${esc(d.who)}</div>
+        <div class="text-sm text-muted" style="margin-top:2px;">
+          ${d.room ? `🏫 ${esc(d.room)}` : '🏫 salle à définir'} ·
+          ${d.jurors.length ? '🧑‍⚖️ ' + d.jurors.map(esc).join(', ') : 'jury à définir'}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderWeek() {
+  const wk = weeks[weekIdx];
+  if (!wk) { $('view-week').innerHTML = '<p class="text-muted">Aucune semaine.</p>'; $('nav-label').textContent=''; return; }
+  const wd = wk.days;
+  $('nav-label').textContent = `Sem. du ${wk.monday.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}`;
+  renderGrid(wd, false);
+}
+
+/** Grille horaire pour une liste de jours (semaine, ou toute la période). */
+function renderGrid(wd, tout) {
+  const auj = new Date();
+  let html = `<table class="pp-grid${tout ? ' all' : ''}"><thead><tr><th class="corner"></th>`;
+  wd.forEach(d => {
+    html += `<th class="${sameDay(d, auj) ? 'today' : ''}" data-jour="${days.indexOf(d)}" tabindex="0" role="button"
+      title="Copier la liste des entretiens de ce jour">${d.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})}<span class="pp-copy-ico" aria-hidden="true">📋</span></th>`;
+  });
+  html += '</tr></thead><tbody>';
+
+  SLOTS.forEach(slot => {
+    html += `<tr><td class="time">${slot.label}</td>`;
+    wd.forEach(d => {
+      const cell = interviews.filter(iv => {
+        const s = iv.datetimeStart.toDate();
+        // Rangé dans la ligne où il commence, même hors de l'heure ronde.
+        return sameDay(s, d) && ligneDuPlanning(s, PAS_LIGNES) === slot.label;
+      });
+      html += '<td>' + cell.map(iv => {
+        const x = ivData(iv);
+        return `<div class="pp-iv ${involves(iv)?'':'dimmed'}">
+          <div class="who">${esc(x.who)}</div>
+          <div class="meta">${[x.room ? esc(x.room) : '', x.jurors.map(n => esc(nomCourt(n, Object.values(nameMap)))).join(', ')].filter(Boolean).join(' · ')}</div>
+        </div>`;
+      }).join('') + '</td>';
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  $('view-week').innerHTML = html;
+  $('view-week').dataset.mode = tout ? 'all' : 'week';
+}
+
+// ─── Copier la liste des entretiens d'un jour ─────────────────────
+// Pour la coller dans le groupe du staff : cooptant, horaire, salle, jury.
+// Si un filtre par personne est actif, seuls ses entretiens sont copiés.
+function texteDuJour(day) {
+  const hm = d => d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const duJour = interviews.filter(iv => sameDay(iv.datetimeStart.toDate(), day) && involves(iv));
+  const titre = day.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+  const lignes = duJour.map(iv => {
+    const x = ivData(iv);
+    // Juré sans nom connu : on le signale plutôt que de l'omettre.
+    const jury = x.juryIds.map(id => nameMap[id] ? prenomInitiale(nameMap[id]) : 'juré ?');
+    return [
+      `• ${x.who}`,
+      `  ${hm(x.s)} - ${hm(x.e)}`,
+      `  Salle : ${x.room || 'à définir'}`,
+      `  Jury : ${jury.length ? jury.join(', ') : 'à définir'}`,
+    ].join('\n');
+  });
+  return { n: duJour.length, texte: `${titre.charAt(0).toUpperCase()}${titre.slice(1)}\n\n${lignes.join('\n\n')}` };
+}
+
+async function copierJour(idx) {
+  const day = days[idx];
+  if (!day) return;
+  const { n, texte } = texteDuJour(day);
+  if (!n) return showToast(personId ? 'Aucun entretien ce jour pour cette personne.' : 'Aucun entretien ce jour.', 'info');
+  try {
+    await navigator.clipboard.writeText(texte);
+    showToast(`${n} entretien${n > 1 ? 's' : ''} copié${n > 1 ? 's' : ''} dans le presse-papier.`, 'success');
+  } catch {
+    showToast('Impossible de copier : ton navigateur a bloqué le presse-papier.', 'error');
+  }
+}
+
+// Délégation : les grilles sont redessinées à chaque changement de vue.
+document.addEventListener('click', e => {
+  const cible = e.target.closest('th[data-jour], [data-copier-jour]');
+  if (cible) copierJour(Number(cible.dataset.jour ?? cible.dataset.copierJour));
+});
+document.addEventListener('keydown', e => {
+  const th = e.target.closest?.('th[data-jour]');
+  if (th && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); copierJour(Number(th.dataset.jour)); }
+});
+
+init().catch(e => showError('Erreur de chargement : ' + e.message));
+</script>
+</body>
+</html>

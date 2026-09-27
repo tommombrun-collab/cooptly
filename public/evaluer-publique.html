@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Évaluer un cooptant · Cooptly</title>
+  <!-- Connexions ouvertes d'avance : sans elles, chaque serveur (polices,
+       SDK, base de données) coûtait sa propre poignée de main réseau au
+       moment où la page en avait besoin. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin />
+  <!-- Le SDK est préchargé dès l'en-tête. Sinon le navigateur ne le
+       découvre qu'en arrivant au script, tout en bas de la page. -->
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js" />
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js" />
+  <!-- Polices en <link> et non plus en @import dans main.css : l'@import
+       obligeait à télécharger la feuille de style avant même de découvrir
+       les polices, trois allers-retours à la suite avant le texte. -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Antic&family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;600;700&display=swap" />
+  <link rel="stylesheet" href="/css/main.css" />
+  <style>
+    .eval-criterion { padding:14px 0; border-bottom:1px solid var(--border); }
+    .eval-criterion:last-child { border-bottom:none; }
+    .eval-criterion-label { font-weight:600; margin-bottom:8px; }
+    .required-dot { display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--red); margin-left:4px; vertical-align:middle; }
+    .scale-wrap { display:flex; gap:8px; flex-wrap:wrap; }
+    .scale-btn { width:40px; height:40px; border-radius:8px; border:1.5px solid var(--border); background:#fff; cursor:pointer; font-weight:700; font-size:15px; color:var(--text); transition:all .12s; }
+    .scale-btn:hover { border-color:var(--indigo); }
+    .scale-btn.selected { background:var(--indigo); border-color:var(--indigo); color:#fff; }
+    .note-wrap { display:flex; align-items:center; gap:8px; }
+    .note-input { max-width:90px; }
+    .note-max { color:var(--text-muted); font-size:14px; }
+    .eval-textarea { width:100%; }
+  </style>
+</head>
+<body>
+
+<header class="postuler-header" id="page-header">
+  <div id="org-logo-wrap" style="margin-bottom:12px;"></div>
+  <div style="font-size:13px;font-weight:600;opacity:.85;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px;" id="org-name">Chargement…</div>
+  <h1>🎙 Évaluer un cooptant</h1>
+  <p>Donne ton avis sur un cooptant après son entretien.</p>
+</header>
+
+<div class="postuler-body">
+  <div id="loading-state" class="card" style="text-align:center;padding:48px;">
+    <div class="spinner" style="margin:0 auto 16px;"></div><p>Chargement…</p>
+  </div>
+  <div id="error-state" class="card" style="display:none;text-align:center;padding:48px;color:var(--red);">
+    <div style="font-size:40px;margin-bottom:12px;">⚠️</div><p id="error-msg"></p>
+  </div>
+
+  <div id="content" style="display:none;">
+    <!-- Consignes & guide de questions de l'asso (masqués si non renseignés).
+         Placés avant le choix du cooptant : ce sont des règles générales,
+         à lire avant de commencer. -->
+    <div class="brief-block" id="brief-block" style="display:none;">
+      <div class="brief-panel" id="brief-consignes" style="display:none;">
+        <div class="brief-title">📌 Consignes</div>
+        <div class="brief-text" id="brief-consignes-text"></div>
+      </div>
+      <details class="brief-details" id="brief-guide" style="display:none;">
+        <summary>💡 Guide de questions</summary>
+        <div class="brief-text" id="brief-guide-text"></div>
+      </details>
+    </div>
+
+    <!-- Choix du cooptant -->
+    <div class="card mb-16">
+      <h2 style="margin-bottom:4px;">Quel cooptant évalues-tu&nbsp;?</h2>
+      <div class="form-group" style="max-width:420px;margin-top:10px;">
+        <select class="form-select" id="candidate-select"><option value="">Sélectionne un cooptant</option></select>
+      </div>
+    </div>
+
+    <!-- Formulaire d'évaluation (masqué tant qu'aucun cooptant choisi) -->
+    <div id="eval-section" style="display:none;">
+      <div class="card mb-16">
+        <div class="flex-between mb-16">
+          <h2 style="margin:0;">Critères d'évaluation</h2>
+          <span id="criteria-count" class="text-sm text-muted"></span>
+        </div>
+        <div id="criteria-container"></div>
+        <div id="no-criteria" style="display:none;" class="text-muted text-sm">Aucun critère configuré par l'association , utilise le bilan global ci-dessous.</div>
+      </div>
+
+      <div class="card mb-16">
+        <h2 class="mb-16">Bilan global</h2>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="note-globale">Note globale (optionnel)</label>
+            <div class="note-wrap"><input class="form-input note-input" type="number" id="note-globale" min="0" max="20" step="0.5" placeholder="·" /><span class="note-max">/ 20</span></div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="decision">Ton avis</label>
+            <select class="form-select" id="decision">
+              <option value="">À décider</option>
+              <option value="accepte">✅ Favorable</option>
+              <option value="refuse">❌ Défavorable</option>
+              <option value="reserve">🔄 Mitigé</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="commentaire">Commentaire</label>
+          <textarea class="form-textarea eval-textarea" id="commentaire" rows="3" placeholder="Points forts, axes d'amélioration, impression générale…"></textarea>
+        </div>
+      </div>
+
+      <div class="flex-gap mb-24">
+        <button class="btn btn-primary btn-lg" id="btn-save">✅ Envoyer l'évaluation</button>
+        <span id="saved-info" class="text-sm text-muted" style="align-self:center;"></span>
+      </div>
+    </div>
+
+    <p class="text-sm text-muted" style="text-align:center;margin-top:8px;">Évaluation collective · envoyée directement à votre association.</p>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getFirestore, collection, query, where, getDocs, getDoc, doc, setDoc, updateDoc, serverTimestamp }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { firebaseConfig } from '/js/firebase-config.js';
+import { showToast, paramLien } from '/js/utils.js';
+import { resolveOrg as resolveOrgShared } from '/js/org-lookup.js';
+
+const app = initializeApp(firebaseConfig);
+const db  = getFirestore(app);
+const params = new URLSearchParams(location.search);
+const orgParam = paramLien('org');
+
+let org = null, campaign = null, criteria = [], candidates = [];
+
+const $ = id => document.getElementById(id);
+function showError(m){ $('loading-state').style.display='none'; $('content').style.display='none'; $('error-state').style.display=''; $('error-msg').textContent=m; }
+function darken(hex,t){ const h=(hex||'').replace('#',''); if(h.length!==6)return hex; const r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16); const d=v=>Math.max(0,Math.round(v*(1-t))); return `rgb(${d(r)},${d(g)},${d(b)})`; }
+
+// Résolution partagée : ID, slug courant, ou ancien slug après renommage.
+const resolveOrg = param => resolveOrgShared(db, param);
+
+async function init(){
+  org = await resolveOrg(orgParam);
+  if(!org) return showError("Association introuvable. Vérifie le lien partagé.");
+  $('org-name').textContent = org.name || "Cooptly";
+  if (org.logoBase64) {
+    $('org-logo-wrap').innerHTML =
+      `<img src="${org.logoBase64}" style="width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.6);box-shadow:0 2px 8px rgba(0,0,0,.12);" alt="${org.name}" />`;
+  }
+  if (org.primaryColor) {
+    const hdr = $('page-header');
+    hdr.style.background = `linear-gradient(135deg,${org.primaryColor} 0%,${darken(org.primaryColor,.2)} 100%)`;
+    hdr.style.color = '#fff';
+    const h1 = hdr.querySelector('h1');
+    if (h1) h1.style.color = '#fff';
+    const p = hdr.querySelector('p');
+    if (p) p.style.color = 'rgba(255,255,255,.78)';
+  }
+
+  // Espace de recrutement (campagne unique)
+  const cSnap = await getDocs(query(collection(db,'campaigns'), where('organizationId','==',org.id)));
+  const camps = cSnap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.createdAt?.toMillis?.()??0)-(a.createdAt?.toMillis?.()??0));
+  if(!camps.length) return showError("Le recrutement de cette association n'est pas encore configuré.");
+  campaign = camps[0];
+  criteria = campaign.interviewCriteria || [];
+  renderBrief(campaign);
+
+  // Cooptants
+  const candSnap = await getDocs(query(collection(db,'candidates'), where('campaignId','==',campaign.id)));
+  candidates = candSnap.docs.map(d=>({id:d.id,...d.data()}))
+    .sort((a,b)=>`${a.prenom} ${a.nom}`.localeCompare(`${b.prenom} ${b.nom}`));
+  const candSel = $('candidate-select');
+  candidates.forEach(c=>{ const o=document.createElement('option'); o.value=c.id; o.textContent=`${c.prenom||''} ${c.nom||''}`.trim()||c.email; candSel.appendChild(o); });
+  candSel.addEventListener('change', ()=>{ $('eval-section').style.display = candSel.value ? '' : 'none'; });
+
+  buildCriteriaForm();
+  $('btn-save').onclick = save;
+
+  $('loading-state').style.display='none';
+  $('content').style.display='';
+}
+
+function buildCriteriaForm(){
+  const container = $('criteria-container');
+  container.innerHTML='';
+  if(!criteria.length){ $('no-criteria').style.display=''; $('criteria-count').textContent=''; return; }
+  $('no-criteria').style.display='none';
+  $('criteria-count').textContent = `${criteria.length} critère${criteria.length>1?'s':''}`;
+  criteria.forEach(cr=>{
+    const block=document.createElement('div'); block.className='eval-criterion'; block.dataset.criterionId=cr.id;
+    const lab=document.createElement('div'); lab.className='eval-criterion-label';
+    lab.innerHTML = `${CRIT_ICON[cr.type]||'⭐'} ${cr.label} ${cr.required?'<span class="required-dot" title="Obligatoire"></span>':''}`;
+    block.appendChild(lab);
+    if(cr.type==='echelle'){
+      const wrap=document.createElement('div'); wrap.className='scale-wrap';
+      for(let v=1; v<=(cr.max||5); v++){
+        const b=document.createElement('button'); b.type='button'; b.className='scale-btn'; b.textContent=v; b.dataset.value=v;
+        b.addEventListener('click',()=>{ wrap.querySelectorAll('.scale-btn').forEach(x=>x.classList.remove('selected')); b.classList.add('selected'); });
+        wrap.appendChild(b);
+      }
+      block.appendChild(wrap);
+      const hint=document.createElement('div'); hint.className='text-sm text-muted'; hint.style.marginTop='6px'; hint.textContent=`1 = Faible · ${cr.max||5} = Excellent`; block.appendChild(hint);
+    } else if(cr.type==='yesno'){
+      const wrap=document.createElement('div'); wrap.className='scale-wrap';
+      [{label:'✅ Oui',value:'oui'},{label:'❌ Non',value:'non'}].forEach(opt=>{
+        const b=document.createElement('button'); b.type='button'; b.className='scale-btn';
+        b.style.width='auto'; b.style.padding='0 16px'; b.textContent=opt.label; b.dataset.value=opt.value;
+        b.addEventListener('click',()=>{ wrap.querySelectorAll('.scale-btn').forEach(x=>x.classList.remove('selected')); b.classList.add('selected'); });
+        wrap.appendChild(b);
+      });
+      block.appendChild(wrap);
+    } else if(cr.type==='note'){
+      const wrap=document.createElement('div'); wrap.className='note-wrap';
+      const inp=document.createElement('input'); inp.type='number'; inp.className='form-input note-input'; inp.min='0'; inp.max=cr.max||10; inp.step='0.5'; inp.placeholder='·';
+      const mx=document.createElement('span'); mx.className='note-max'; mx.textContent=`/ ${cr.max||10}`;
+      wrap.appendChild(inp); wrap.appendChild(mx); block.appendChild(wrap);
+    } else if(cr.type==='check'){
+      // Case a cocher simple : cochee = vrai, decochee = non renseigne.
+      const lab=document.createElement('label'); lab.className='checkbox-wrap'; lab.style.cursor='pointer';
+      const box=document.createElement('input'); box.type='checkbox';
+      const txt=document.createElement('span'); txt.textContent=cr.label;
+      lab.appendChild(box); lab.appendChild(txt); block.appendChild(lab);
+    } else if(cr.type==='select' || cr.type==='multi'){
+      // Chips cliquables plutot qu'un menu deroulant : plus rapide a
+      // renseigner, et coherent avec Oui/Non.
+      const wrap=document.createElement('div'); wrap.className='scale-wrap'; wrap.style.flexWrap='wrap';
+      (cr.options||[]).forEach(opt=>{
+        const b=document.createElement('button'); b.type='button'; b.className='scale-btn';
+        b.style.width='auto'; b.style.padding='0 14px'; b.textContent=opt; b.dataset.value=opt;
+        b.addEventListener('click',()=>{
+          if(cr.type==='select'){ wrap.querySelectorAll('.scale-btn').forEach(x=>x.classList.remove('selected')); b.classList.add('selected'); }
+          else { b.classList.toggle('selected'); }
+        });
+        wrap.appendChild(b);
+      });
+      block.appendChild(wrap);
+      if(cr.type==='multi'){
+        const hint=document.createElement('div'); hint.className='text-sm text-muted';
+        hint.style.marginTop='6px'; hint.textContent='Plusieurs choix possibles.'; block.appendChild(hint);
+      }
+    } else {
+      const ta=document.createElement('textarea'); ta.className='form-textarea eval-textarea'; ta.rows=2; ta.placeholder='Commentaire libre…'; block.appendChild(ta);
+    }
+    container.appendChild(block);
+  });
+}
+
+/**
+ * Consignes & guide de questions de l'asso. Texte libre : injecte via
+ * textContent (jamais innerHTML) et rendu en pre-wrap : retours a la ligne
+ * conserves, aucun risque d'injection. Chaque bloc reste masque si vide.
+ */
+function renderBrief(campaign){
+  const consignes=(campaign?.consignesEntretien||'').trim();
+  const guide=(campaign?.guideQuestions||'').trim();
+  if(consignes){
+    $('brief-consignes-text').textContent=consignes;
+    $('brief-consignes').style.display='';
+  }
+  if(guide){
+    $('brief-guide-text').textContent=guide;
+    $('brief-guide').style.display='';
+  }
+  if(consignes||guide) $('brief-block').style.display='';
+}
+
+const CRIT_ICON={echelle:'⭐',note:'🔢',yesno:'✅',select:'📋',multi:'☑️',check:'✔️',texte:'💬'};
+
+function getFormValues(){
+  const values={};
+  criteria.forEach(cr=>{
+    const block=document.querySelector(`.eval-criterion[data-criterion-id="${cr.id}"]`); if(!block) return;
+    if(cr.type==='echelle'){ const s=block.querySelector('.scale-btn.selected'); values[cr.id]=s?parseInt(s.dataset.value):null; }
+    else if(cr.type==='yesno'){ const s=block.querySelector('.scale-btn.selected'); values[cr.id]=s?s.dataset.value:null; }
+    else if(cr.type==='note'){ const i=block.querySelector('input'); values[cr.id]=i?.value!==''?parseFloat(i.value):null; }
+    else if(cr.type==='check'){ const b=block.querySelector('input[type=checkbox]'); values[cr.id]=b?.checked?true:null; }
+    else if(cr.type==='select'){ const s=block.querySelector('.scale-btn.selected'); values[cr.id]=s?s.dataset.value:null; }
+    else if(cr.type==='multi'){ const a=[...block.querySelectorAll('.scale-btn.selected')].map(b=>b.dataset.value); values[cr.id]=a.length?a:null; }
+    else { const t=block.querySelector('textarea'); values[cr.id]=t?.value.trim()||null; }
+  });
+  return values;
+}
+
+async function save(){
+  const btn=$('btn-save');
+  const candidateId=$('candidate-select').value;
+  if(!candidateId) return showToast('Sélectionne un cooptant.','error');
+
+  const values=getFormValues();
+  const missing=criteria.filter(cr=>cr.required && (values[cr.id]===null||values[cr.id]===undefined||values[cr.id]===''));
+  if(missing.length) return showToast(`Critère(s) obligatoire(s) : ${missing.map(c=>c.label).join(', ')}`,'error');
+
+  btn.disabled=true; btn.innerHTML='<span class="spinner" style="width:14px;height:14px;border-width:2px;margin-right:6px;"></span>Envoi…';
+  try{
+    const noteVal=$('note-globale').value;
+    const payload={
+      candidateId,
+      campaignId: campaign.id,
+      organizationId: org.id,
+      criteria: values,
+      noteGlobale: noteVal!==''?parseFloat(noteVal):null,
+      decision: $('decision').value||null,
+      commentaire: $('commentaire').value.trim()||null,
+      updatedAt: serverTimestamp(),
+    };
+    // Upsert sur un ID deterministe : 1 seule evaluation collective par
+    // cooptant. Indispensable ici car un jure sans compte ne peut PAS lire la
+    // collection : chercher le doc existant echouait en permission-denied et
+    // empechait tout envoi. setDoc(merge) n'a besoin d'aucune lecture.
+    await setDoc(
+      doc(db,'interview_evaluations', `${campaign.id}_${candidateId}`),
+      payload,
+      { merge: true }
+    );
+    // Le cooptant passe a « entretien fait ». Sans ca, une asso qui n'utilise
+    // que le lien public voyait ses cooptants rester « Place » indefiniment et
+    // son compteur d'entretiens faits bloque a zero.
+    const ORDRE = ['recu', 'place', 'entretien_fait'];
+    const cand  = candidates.find(c => c.id === candidateId);
+    if (ORDRE.indexOf(cand?.statut || 'recu') < ORDRE.indexOf('entretien_fait')) {
+      try {
+        await updateDoc(doc(db, 'candidates', candidateId), { statut: 'entretien_fait' });
+        if (cand) cand.statut = 'entretien_fait';
+      } catch (e) {
+        // L'evaluation est deja enregistree : on ne fait pas echouer l'envoi
+        // pour un statut. Le bureau pourra le corriger a la main.
+        console.warn('Statut non mis a jour :', e);
+      }
+    }
+
+    $('saved-info').textContent='Évaluation envoyée ✓';
+    showToast('Évaluation enregistrée. 🎉','success');
+    $('candidate-select').value=''; $('eval-section').style.display='none';
+    $('note-globale').value=''; $('decision').value=''; $('commentaire').value='';
+    buildCriteriaForm();
+  }catch(err){ showToast('Erreur : '+err.message,'error'); }
+  finally{ btn.disabled=false; btn.textContent="✅ Envoyer l'évaluation"; }
+}
+
+init().catch(e=>showError('Erreur de chargement : '+e.message));
+</script>
+</body>
+</html>

@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <script>(function(){var t=localStorage.getItem("_theme");if(t)document.documentElement.setAttribute("data-theme",t);})();</script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aide · Cooptly</title>
+  <!-- Connexions ouvertes d'avance : sans elles, chaque serveur (polices,
+       SDK, base de données) coûtait sa propre poignée de main réseau au
+       moment où la page en avait besoin. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin />
+  <!-- Le SDK est préchargé dès l'en-tête. Sinon le navigateur ne le
+       découvre qu'en arrivant au script, tout en bas de la page. -->
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js" />
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js" />
+  <!-- Polices en <link> et non plus en @import dans main.css : l'@import
+       obligeait à télécharger la feuille de style avant même de découvrir
+       les polices, trois allers-retours à la suite avant le texte. -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Antic&family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;600;700&display=swap" />
+  <link rel="stylesheet" href="/css/main.css" />
+  <style>
+    .aide-layout {
+      display: grid;
+      grid-template-columns: 248px 1fr;
+      gap: 32px;
+      align-items: start;
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 32px 24px 80px;
+    }
+    @media (max-width: 860px) {
+      .aide-layout { grid-template-columns: 1fr; }
+      .aide-sidebar { display: none; }
+    }
+    .aide-sidebar {
+      position: sticky;
+      top: 88px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 0;
+      box-shadow: var(--shadow-sm);
+    }
+    .aide-sidebar-title {
+      font-size: 10px; font-weight: 700;
+      letter-spacing: .09em; text-transform: uppercase;
+      color: var(--text-light); padding: 0 20px 8px;
+    }
+    .aide-nav-link {
+      display: flex; align-items: center; gap: 8px;
+      padding: 7px 20px; font-size: 13px; color: var(--text-muted);
+      text-decoration: none; transition: background .1s, color .1s; font-weight: 450;
+    }
+    .aide-nav-link:hover { background: var(--bg); color: var(--text); }
+    .aide-nav-link.active { color: var(--indigo); font-weight: 600; background: var(--indigo-light); }
+    .aide-nav-sep { height: 1px; background: var(--border); margin: 8px 0; }
+    .aide-nav-sub {
+      padding: 5px 20px 5px 36px; font-size: 12.5px;
+      color: var(--text-muted); text-decoration: none; display: block; transition: color .1s;
+    }
+    .aide-nav-sub:hover { color: var(--indigo); }
+    .aide-content { min-width: 0; }
+    .aide-section {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 32px 36px;
+      margin-bottom: 24px; box-shadow: var(--shadow-sm);
+    }
+    .aide-section-header {
+      display: flex; align-items: center; gap: 14px;
+      margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--border);
+    }
+    .aide-section-icon {
+      width: 44px; height: 44px; border-radius: 11px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; flex-shrink: 0;
+    }
+    .aide-section h2 { font-size: 1.2rem; font-weight: 800; letter-spacing: -0.02em; color: var(--text); }
+    .aide-section-subtitle { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+    .aide-section h3 {
+      font-size: 14px; font-weight: 700; color: var(--text);
+      margin: 24px 0 8px; letter-spacing: -0.01em;
+    }
+    .aide-section h3:first-of-type { margin-top: 0; }
+    .aide-section p { font-size: 14px; color: var(--text-muted); line-height: 1.7; margin-bottom: 10px; }
+    .aide-section p:last-child { margin-bottom: 0; }
+    .aide-section ul, .aide-section ol { margin: 8px 0 10px 18px; font-size: 14px; color: var(--text-muted); line-height: 1.8; }
+    .aide-section li { margin-bottom: 2px; }
+    .aide-section strong { color: var(--text); font-weight: 600; }
+    .aide-section code {
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 5px; padding: 1px 6px; font-size: 12.5px;
+      font-family: monospace; color: var(--indigo);
+    }
+    .callout {
+      display: flex; gap: 12px; padding: 12px 16px;
+      border-radius: 9px; font-size: 13.5px; line-height: 1.6; margin: 12px 0;
+    }
+    .callout-icon { flex-shrink: 0; font-size: 16px; margin-top: 1px; }
+    .callout-indigo { background: var(--indigo-light); border: 1px solid var(--indigo-mid); color: var(--indigo); }
+    .callout-green  { background: var(--green-light);  border: 1px solid var(--green-mid);  color: var(--green); }
+    .callout-orange { background: var(--orange-light); border: 1px solid var(--orange-mid); color: var(--orange); }
+    .callout-gray   { background: var(--bg); border: 1px solid var(--border); color: var(--text-muted); }
+    .role-chip {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 11.5px; font-weight: 600; padding: 3px 9px;
+      border-radius: 99px; vertical-align: middle;
+    }
+    .role-admin  { background: var(--red-light);    color: var(--red);    border: 1px solid var(--red-mid); }
+    .role-secge  { background: var(--orange-light); color: var(--orange); border: 1px solid var(--orange-mid); }
+    .role-membre { background: var(--indigo-light); color: var(--indigo); border: 1px solid var(--indigo-mid); }
+    .steps { counter-reset: step; display: flex; flex-direction: column; gap: 14px; margin: 12px 0; }
+    .step  { display: flex; gap: 14px; align-items: flex-start; counter-increment: step; }
+    .step-num {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: var(--indigo); color: #fff;
+      font-size: 13px; font-weight: 800;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; margin-top: 1px;
+    }
+    .step-body { font-size: 13.5px; color: var(--text-muted); line-height: 1.65; padding-top: 3px; }
+    .step-body strong { color: var(--text); }
+    .status-table { width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 12px 0; }
+    .status-table th {
+      text-align: left; padding: 8px 12px;
+      font-size: 11px; font-weight: 700;
+      letter-spacing: .06em; text-transform: uppercase;
+      color: var(--text-light); border-bottom: 1px solid var(--border);
+    }
+    .status-table td {
+      padding: 9px 12px; border-bottom: 1px solid var(--bg);
+      vertical-align: top; color: var(--text-muted); line-height: 1.55;
+    }
+    .status-table tr:last-child td { border-bottom: none; }
+    .faq-item { border: 1px solid var(--border); border-radius: 9px; overflow: hidden; margin-bottom: 8px; }
+    .faq-q {
+      width: 100%; text-align: left; padding: 13px 16px;
+      background: var(--bg); border: none; cursor: pointer;
+      font-size: 13.5px; font-weight: 600; color: var(--text);
+      display: flex; justify-content: space-between; align-items: center;
+      font-family: inherit; letter-spacing: -0.005em;
+    }
+    .faq-q:hover { background: var(--bg); }
+    .faq-a {
+      display: none; padding: 12px 16px 14px;
+      font-size: 13.5px; color: var(--text-muted); line-height: 1.65;
+      background: var(--surface); border-top: 1px solid var(--border);
+    }
+    .faq-a.open { display: block; }
+    .faq-chevron { transition: transform .2s; font-size: 11px; color: var(--text-light); }
+    .faq-chevron.open { transform: rotate(180deg); }
+    .aide-hero {
+      background: linear-gradient(135deg, var(--indigo) 0%, #7C3AED 100%);
+      color: #fff; padding: 40px 36px; border-radius: var(--radius);
+      margin-bottom: 24px; position: relative; overflow: hidden;
+    }
+    .aide-hero::before {
+      content: ''; position: absolute; top: -40px; right: -40px;
+      width: 200px; height: 200px; border-radius: 50%;
+      background: rgba(255,255,255,.06);
+    }
+    .aide-hero::after {
+      content: ''; position: absolute; bottom: -60px; right: 60px;
+      width: 140px; height: 140px; border-radius: 50%;
+      background: rgba(255,255,255,.04);
+    }
+    .aide-hero h1 { color: #fff; font-size: 1.7rem; margin-bottom: 8px; position: relative; }
+    .aide-hero p  { color: rgba(255,255,255,.78); font-size: 14.5px; line-height: 1.6; position: relative; }
+    .aide-hero-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; position: relative; }
+    .aide-hero-chip {
+      background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.25);
+      color: #fff; font-size: 12px; font-weight: 600;
+      padding: 4px 12px; border-radius: 99px;
+      cursor: pointer; text-decoration: none; transition: background .15s;
+    }
+    .aide-hero-chip:hover { background: rgba(255,255,255,.25); }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 12px 0; }
+    @media (max-width: 600px) { .two-col { grid-template-columns: 1fr; } }
+    .mini-card {
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 9px; padding: 14px 16px;
+    }
+    .mini-card-title { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+    .mini-card-body  { font-size: 12.5px; color: var(--text-muted); line-height: 1.6; }
+    .path-divider {
+      display: flex; align-items: center; gap: 12px;
+      margin: 16px 0; font-size: 12px; font-weight: 700;
+      color: var(--text-light); letter-spacing: .06em; text-transform: uppercase;
+    }
+    .path-divider::before, .path-divider::after {
+      content: ''; flex: 1; height: 1px; background: var(--border);
+    }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="/" class="nav-brand">
+    <div class="nav-brand-icon">C</div>
+    <span class="nav-brand-name">Cooptly</span>
+  </a>
+  <div class="nav-links">
+    <span class="nav-link active" style="cursor:default;">📖 Documentation</span>
+  </div>
+  <div class="nav-right">
+    <button class="btn btn-ghost btn-sm" onclick="history.back()">← Retour</button>
+  </div>
+</nav>
+
+<div class="aide-layout">
+
+  <!-- SIDEBAR -->
+  <aside class="aide-sidebar">
+    <div class="aide-sidebar-title">Documentation</div>
+
+    <a class="aide-nav-link" href="#intro">🏠 Introduction</a>
+    <a class="aide-nav-sub"  href="#roles">Les rôles</a>
+    <a class="aide-nav-sub"  href="#modes">Les deux modes</a>
+    <a class="aide-nav-sub"  href="#jurys">Attribution des jurés</a>
+    <a class="aide-nav-sub"  href="#staff-libre">Sans dispos du staff</a>
+    <a class="aide-nav-sub"  href="#flow">Flux complet</a>
+
+    <div class="aide-nav-sep"></div>
+
+    <a class="aide-nav-link" href="#formulaire">📋 Formulaire & candidature</a>
+    <a class="aide-nav-sub"  href="#lien">Diffuser le formulaire</a>
+    <a class="aide-nav-sub"  href="#self-booking">Réservation directe</a>
+    <a class="aide-nav-sub"  href="#collectif">Entretien à plusieurs</a>
+    <a class="aide-nav-sub"  href="#deadline">Date limite</a>
+    <a class="aide-nav-sub"  href="#reschedule">Changer de créneau</a>
+
+    <div class="aide-nav-sep"></div>
+
+    <a class="aide-nav-link" href="#cooptants">👥 Gérer les cooptants</a>
+    <a class="aide-nav-sub"  href="#statuts">Statuts</a>
+    <a class="aide-nav-sub"  href="#delib">Mode délibération</a>
+    <a class="aide-nav-sub"  href="#score">Calcul du score</a>
+    <a class="aide-nav-sub"  href="#dossier">Consulter un dossier</a>
+    <a class="aide-nav-sub"  href="#export">Export CSV</a>
+
+    <div class="aide-nav-sep"></div>
+
+    <a class="aide-nav-link" href="#dispos">🗓 Disponibilités du staff</a>
+    <a class="aide-nav-sub"  href="#saisie-dispos">Déposer ses dispos (lien)</a>
+    <a class="aide-nav-sub"  href="#vue-dispos">Vue consolidée</a>
+
+    <div class="aide-nav-sep"></div>
+
+    <a class="aide-nav-link" href="#planning">📅 Planning des entretiens</a>
+    <a class="aide-nav-sub"  href="#generation">Générer le planning</a>
+    <a class="aide-nav-sub"  href="#manual">Placement manuel</a>
+
+    <div class="aide-nav-sep"></div>
+
+    <a class="aide-nav-link" href="#entretien">🎙 Évaluations</a>
+    <a class="aide-nav-sub"  href="#brief">Consignes aux jurés</a>
+
+    <div class="aide-nav-sep"></div>
+
+    <a class="aide-nav-link" href="#parametres">⚙️ Paramètres</a>
+    <a class="aide-nav-sub"  href="#param-campagne">Recrutement & règles</a>
+    <a class="aide-nav-sub"  href="#param-form">Formulaire</a>
+    <a class="aide-nav-sub"  href="#param-consignes">Consignes & guide</a>
+    <a class="aide-nav-sub"  href="#param-criteres">Critères</a>
+    <a class="aide-nav-sub"  href="#param-salles">Salles</a>
+    <a class="aide-nav-sub"  href="#param-codes">Codes d'accès</a>
+    <a class="aide-nav-sub"  href="#multi-asso">Plusieurs assos</a>
+
+    <div class="aide-nav-sep"></div>
+
+    <a class="aide-nav-link" href="#faq">❓ FAQ</a>
+  </aside>
+
+  <!-- CONTENU -->
+  <main class="aide-content">
+
+    <div class="aide-hero">
+      <h1>📖 Documentation Cooptly</h1>
+      <p>Tout ce qu'il faut savoir pour gérer une cooptation, de la réception des dossiers jusqu'à la décision finale.</p>
+      <div class="aide-hero-chips">
+        <a class="aide-hero-chip" href="#flow">Flux complet</a>
+        <a class="aide-hero-chip" href="#modes">Les deux modes</a>
+        <a class="aide-hero-chip" href="#delib">Délibérations</a>
+        <a class="aide-hero-chip" href="#dispos">Disponibilités</a>
+        <a class="aide-hero-chip" href="#planning">Planning</a>
+        <a class="aide-hero-chip" href="#param-codes">Codes d'accès</a>
+        <a class="aide-hero-chip" href="#faq">FAQ</a>
+      </div>
+    </div>
+
+    <!-- ─── INTRODUCTION ──────────────────────────────────────── -->
+    <div class="aide-section" id="intro">
+      <div class="aide-section-header">
+        <div class="aide-section-icon" style="background:var(--indigo-light);">🏠</div>
+        <div>
+          <h2>Introduction</h2>
+          <div class="aide-section-subtitle">Rôles, accès et flux complet d'une cooptation</div>
+        </div>
+      </div>
+
+      <p><strong>Cooptly</strong> centralise tout le processus de cooptation : réception des dossiers, prise de rendez-vous, planification des entretiens, évaluations et décisions finales, dans une interface sécurisée.</p>
+
+      <div class="callout callout-indigo">
+        <span class="callout-icon">▶️</span>
+        <span>Une <strong>présentation en six étapes</strong> s'affiche à votre première connexion. Pour la revoir, ouvrez le menu <strong>☰</strong> en haut à gauche et choisissez <strong>Revoir la présentation</strong>.</span>
+      </div>
+
+      <h3 id="roles">Les rôles</h3>
+      <table class="status-table">
+        <thead><tr><th>Rôle</th><th>Qui ?</th><th>Ce qu'il peut faire</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="role-chip role-secge">🟠 Sec-gé / Bureau</span></td>
+            <td>Secrétaire général·e, bureau (avec compte)</td>
+            <td>Règle les entretiens, ouvre/ferme le recrutement, suit les cooptants, gère le planning, partage les liens et crée les codes d'accès.</td>
+          </tr>
+          <tr>
+            <td><span class="role-chip role-membre">🔵 Membre / jury</span></td>
+            <td>Membres participant aux entretiens</td>
+            <td><strong>Sans compte.</strong> Dépose ses disponibilités et évalue les cooptants via des <strong>liens publics</strong> partagés par le bureau.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3 id="modes">Deux façons de caler les entretiens</h3>
+      <p>Toutes les assos ne s'organisent pas pareil. Le mode se choisit dans <em>Paramètres → Règles des entretiens</em>, et change ce que voit le cooptant :</p>
+      <div class="two-col">
+        <div class="mini-card">
+          <div class="mini-card-title">📅 Le cooptant choisit son créneau</div>
+          <div class="mini-card-body">
+            Le staff dépose ses disponibilités <strong>avant</strong> d'ouvrir le formulaire, et
+            le cooptant réserve directement un créneau libre. Rien à replacer ensuite.
+            le planning se remplit tout seul. <em>C'est le mode par défaut.</em>
+          </div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-card-title">✋ Le cooptant donne ses disponibilités</div>
+          <div class="mini-card-body">
+            Le cooptant coche quand il est libre, sans voir de créneau. Quand les
+            candidatures sont closes, vous <strong>générez tout le planning d'un coup</strong>
+            depuis le tableau de bord. Pratique si le staff ne peut pas s'organiser à l'avance.
+          </div>
+        </div>
+      </div>
+      <h3 id="staff-libre">Se passer des disponibilités du staff</h3>
+      <p>Faire remplir une grille à tout le bureau avant d'ouvrir le formulaire n'est pas toujours réaliste. Dans <em>Paramètres → Règles des entretiens</em>, cochez <strong>« Le staff n'a pas à déclarer ses disponibilités »</strong> : tout le bureau est alors réputé libre sur toute la période, de 8 h jusqu'à l'heure de fin des créneaux (19 h par défaut).</p>
+      <p>Par défaut, un cooptant ne peut pas réserver d'entretien pour aujourd'hui ni pour demain : le premier jour proposé est après-demain. Réglez <strong>« Délai minimum avant un entretien »</strong> dans le même onglet (de aucun délai à une semaine).</p>
+      <p>Pour des entretiens en visio le soir, réglez <strong>« Fin des créneaux »</strong> dans le même onglet (jusqu'à 23 h) : le formulaire de cooptation, la grille des dispos du staff et les plannings s'étendent d'eux-mêmes.</p>
+      <div class="steps">
+        <div class="step"><div class="step-num">1</div><div class="step-body">Les cooptants peuvent proposer <strong>n'importe quel créneau</strong> de la période, et non plus seulement ceux où assez de monde s'était déclaré.</div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-body">Le placement fonctionne <strong>sans aucune disponibilité déposée</strong>. Avant, l'algorithme refusait de placer qui que ce soit et affichait « aucune disponibilité staff exploitable ».</div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-body">Les jurés sont pris dans la <strong>liste du staff</strong> (onglet <em>Disponibilités</em>), avec les mêmes règles de continuité. Pensez donc à la remplir.</div></div>
+      </div>
+      <div class="callout callout-gray">
+        <span class="callout-icon">💡</span>
+        <span>C'est à vous de vous arranger ensuite : la plateforme suppose que tout le monde peut, elle ne le vérifie plus. Vous ajustez les jurys depuis le <a href="#planning">planning</a> si besoin.</span>
+      </div>
+
+      <p><strong>Ce qui ne change pas d'un mode à l'autre :</strong> dans les deux cas le staff dépose ses disponibilités au préalable, et dans les deux cas <strong>les jurés sont attribués automatiquement</strong>. La seule vraie différence est <em>qui fixe l'heure</em> : le cooptant lui-même, ou le bureau en générant tout le planning d'un coup.</p>
+
+      <h3 id="jurys">🎙 Comment les jurés sont attribués</h3>
+      <p>Que le cooptant réserve son créneau ou que vous génériez le planning, la règle est la même : <strong>les mêmes personnes enchaînent les créneaux qui se suivent</strong>. Mobiliser deux membres trois heures d'affilée coûte moins cher à une asso que déranger six personnes une heure chacune.</p>
+      <div class="steps">
+        <div class="step"><div class="step-num">1</div><div class="step-body">On écarte d'abord ceux qui sont <strong>déjà pris</strong> sur un créneau qui chevauche, battement compris.</div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-body">Priorité à ceux qui <strong>viennent de passer</strong> sur le créneau juste avant, pour qu'un binôme en place reste ensemble.</div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-body">Sinon, les <strong>moins sollicités</strong> jusqu'ici, pour répartir la charge sur l'ensemble du bureau.</div></div>
+        <div class="step"><div class="step-num">4</div><div class="step-body">Au-delà de <strong>N entretiens d'affilée</strong>, la relève est forcée. N se règle dans <em>Paramètres → Entretiens d'affilée par juré</em> (4 par défaut, <strong>0 = pas de limite</strong>).</div></div>
+      </div>
+
+      <div class="callout callout-indigo">
+        <span class="callout-icon">💡</span>
+        <span>Une pause dans la journée <strong>casse la chaîne</strong> : deux entretiens séparés d'une heure de creux ne comptent pas comme enchaînés, la personne a eu le temps de partir. Et rien n'est figé, vous pouvez changer n'importe quel jury depuis le <a href="#planning">planning</a>.</span>
+      </div>
+
+      <h3 id="flow">Flux complet d'une cooptation</h3>
+      <p>Le recrutement se règle par asso : soit sur une <strong>période d'entretiens</strong> que vous fixez, soit en continu sur les prochaines semaines si vous ne mettez aucune date. En pratique :</p>
+      <div class="steps">
+        <div class="step"><div class="step-num">1</div><div class="step-body"><strong>Réglages</strong> : le sec-gé choisit le <em>mode</em> et ses <em>règles d'entretien</em> dans <em>Paramètres</em> (période, durée, battement, nombre de jurys, questions, critères, salles), puis active le <strong>recrutement</strong>.</div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-body"><strong>Disponibilités du staff</strong> : le sec-gé partage le <strong>lien de disponibilités</strong> ; chaque membre y dépose ses créneaux <strong>sans compte</strong>. En mode « le cooptant choisit son créneau », <strong>à faire avant de diffuser le formulaire</strong>. Sans dispos, aucun créneau n'apparaît.</div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-body"><strong>Diffusion du formulaire</strong> : le sec-gé partage le <strong>lien de cooptation</strong> (email, réseau, QR code). Public, sans compte.</div></div>
+        <div class="step"><div class="step-num">4</div><div class="step-body"><strong>Réception</strong> : selon le mode, le cooptant <strong>réserve son créneau</strong> (et reçoit une confirmation avec ajout à l'agenda) ou <strong>dépose ses disponibilités</strong>.</div></div>
+        <div class="step"><div class="step-num">5</div><div class="step-body"><strong>Planning</strong> : en mode « dispos », vous lancez la <strong>génération du planning</strong>. Dans les deux modes, le sec-gé assigne les jurés et les salles, et place manuellement les exceptions.</div></div>
+        <div class="step"><div class="step-num">6</div><div class="step-body"><strong>Entretiens &amp; évaluations</strong> : après les entretiens, les jurés notent les cooptants via le <strong>lien d'évaluation</strong> (sans compte). Les fiches sont visibles par le bureau.</div></div>
+        <div class="step"><div class="step-num">7</div><div class="step-body"><strong>Délibérations</strong> : quand tous les entretiens sont passés, le bureau se réunit et arrête le classement en <a href="#delib">mode délibération</a>.</div></div>
+      </div>
+    </div>
+
+    <!-- ─── FORMULAIRE & CANDIDATURE ─────────────────────────── -->
+    <div class="aide-section" id="formulaire">
+      <div class="aide-section-header">
+        <div class="aide-section-icon" style="background:var(--green-light);">📋</div>
+        <div>
+          <h2>Formulaire & candidature</h2>
+          <div class="aide-section-subtitle">Diffusion, réservation directe et modification de créneau</div>
+        </div>
+      </div>
+
+      <h3 id="lien">Diffuser le formulaire</h3>
+      <p>En haut à droite du <strong>tableau de bord sec-gé</strong>, deux actions :</p>
+      <ul>
+        <li><strong>🔗 Copier le lien</strong> : URL à partager par email ou messagerie.</li>
+        <li><strong>📱 QR Code</strong> : image téléchargeable à afficher en affiche ou en story.</li>
+      </ul>
+      <p>Le formulaire est entièrement public (pas de compte requis). Il affiche le nom et les couleurs de l'association, ainsi que les questions personnalisées configurées dans Paramètres. Le lien est <strong>permanent</strong> (<code>?org=…</code>) : pas besoin de le régénérer.</p>
+
+      <h3 id="self-booking">Réservation directe de créneau</h3>
+      <p>Lorsque des membres ont renseigné leurs disponibilités, le formulaire affiche automatiquement une <strong>liste de créneaux disponibles</strong> que le cooptant peut choisir directement.</p>
+      <div class="callout callout-indigo">
+        <span class="callout-icon">💡</span>
+        <span>Un créneau n'est proposé que si <strong>au moins N membres sont disponibles en même temps</strong> (N = nombre de jurys configuré dans Paramètres → Règles des entretiens). Les créneaux déjà pris par d'autres cooptants sont automatiquement grisés.</span>
+      </div>
+      <p>Après avoir sélectionné un créneau et soumis le formulaire, le cooptant est redirigé vers une <strong>page de confirmation</strong> qui :</p>
+      <ul>
+        <li>Récapitule la date et l'heure de l'entretien.</li>
+        <li>Propose d'ajouter le rendez-vous à <strong>Google Agenda</strong> ou de télécharger un fichier <strong>.ics</strong> (Apple Calendar, Outlook).</li>
+      </ul>
+
+      <div class="callout callout-orange">
+        <span class="callout-icon">⚠️</span>
+        <span>En mode « le cooptant choisit son créneau », si <strong>aucun membre</strong> n'a déposé ses disponibilités, il n'y a rien à réserver : le formulaire bascule sur une grille de disponibilités et le planning devra être fait à la main. Pense à diffuser le lien de dispos <em>avant</em> le formulaire.</span>
+      </div>
+
+      <h3 id="dispos-cooptant">Quand le cooptant dépose ses disponibilités</h3>
+      <p>En mode <em>« le cooptant donne ses disponibilités »</em>, le formulaire ne montre aucun créneau : le cooptant coche simplement les heures où il est libre sur la période d'entretiens. Aucun entretien n'est créé à ce moment : c'est la <a href="#generation">génération du planning</a> qui s'en charge ensuite.</p>
+
+      <h3 id="collectif">Passer l'entretien à plusieurs</h3>
+      <p>Si l'asso active <strong>les entretiens à plusieurs</strong> (Paramètres → Règles des entretiens), un cooptant qui vient de réserver voit apparaître sur sa page de confirmation un <strong>lien à transmettre</strong>. L'ami qui l'ouvre atterrit sur le formulaire avec le <strong>créneau déjà fixé</strong> : ils passeront l'entretien ensemble.</p>
+      <div class="callout callout-indigo">
+        <span class="callout-icon">💡</span>
+        <span>Personne n'est jamais mis en binôme automatiquement : il faut avoir reçu le lien. C'est pensé pour deux amis qui veulent passer ensemble, pas pour regrouper des inconnus.</span>
+      </div>
+      <ul>
+        <li>Le groupe <strong>ne consomme qu'un seul créneau</strong> et un seul jury : deux amis ensemble ne prennent pas deux places dans le planning.</li>
+        <li>Vous fixez le nombre maximum de cooptants par entretien (2 à 4).</li>
+        <li>Si le groupe est complet, si le lien n'est plus valide ou si le créneau est passé, l'ami est prévenu et peut simplement postuler normalement.</li>
+        <li>Chaque cooptant garde sa <strong>propre fiche d'évaluation</strong> : le classement reste individuel.</li>
+      </ul>
+
+      <h3 id="deadline">Date limite de candidature</h3>
+      <p>Vous pouvez fixer une <strong>clôture des candidatures</strong> dans les paramètres. Passé cette date, le formulaire affiche un message de fermeture. C'est optionnel : sans date limite, le formulaire reste ouvert tant que le recrutement l'est.</p>
+
+      <h3 id="reschedule">Modifier son créneau (cooptant)</h3>
+      <p>Un cooptant qui veut changer d'horaire a deux façons de faire :</p>
+      <div class="steps">
+        <div class="step"><div class="step-num">1</div><div class="step-body"><strong>Par son lien personnel</strong>, le bouton « changer de créneau » de sa page de confirmation ou de suivi. Le formulaire se rouvre <strong>entièrement prérempli</strong>, réponses comprises, et son créneau actuel est présélectionné.</div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-body"><strong>En retapant son adresse email</strong> dans le formulaire. La plateforme retrouve sa candidature et son entretien. Ses réponses sont <strong>conservées sans être réaffichées</strong> : il n'a rien à retaper pour changer de créneau, et peut les ressaisir s'il le souhaite.</div></div>
+      </div>
+      <div class="callout callout-gray">
+        <span class="callout-icon">🔒</span>
+        <span>Pourquoi ne pas réafficher les réponses dans le second cas ? Parce qu'une adresse emlyon se devine. Sans cette précaution, n'importe qui pourrait lire le téléphone ou la lettre de motivation d'un camarade en tapant son nom.</span>
+      </div>
+    </div>
+
+    <!-- ─── COOPTANTS ─────────────────────────────────────────── -->
+    <div class="aide-section" id="cooptants">
+      <div class="aide-section-header">
+        <div class="aide-section-icon" style="background:var(--indigo-light);">👥</div>
+        <div>
+          <h2>Gérer les cooptants</h2>
+          <div class="aide-section-subtitle">Liste, filtres, statuts et export</div>
+        </div>
+      </div>
+
+      <p>L'onglet <strong>Cooptants</strong> liste tous les dossiers reçus. Trois vues disponibles via les onglets en haut :</p>
+      <div class="two-col" style="margin-bottom:10px;">
+        <div class="mini-card">
+          <div class="mini-card-title">📋 Liste</div>
+          <div class="mini-card-body">Toutes les fiches avec statut, score, notes, disponibilités. Dépliez une fiche pour voir le détail complet et changer le statut.</div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-card-title">🏆 Classement</div>
+          <div class="mini-card-body">Tri automatique par score ou réordonnancement manuel. Définissez le nombre de places pour voir qui est retenu/refusé à la ligne de coupure.</div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-card-title">📊 Évaluations</div>
+          <div class="mini-card-body">Vue rapide : qui a été évalué, combien de jurés ont rempli une fiche, accès direct au formulaire d'évaluation.</div>
+        </div>
+      </div>
+
+      <h3>Filtrer et rechercher</h3>
+      <ul>
+        <li><strong>Barre de recherche</strong> : filtre par prénom, nom ou email en temps réel.</li>
+        <li><strong>Filtre Statut</strong> : affiche uniquement les cooptants dans un état donné.</li>
+      </ul>
+
+      <h3 id="statuts">Statuts des cooptants</h3>
+      <table class="status-table">
+        <thead><tr><th>Statut</th><th>Signification</th><th>Mis à jour par</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="badge badge-orange">Reçu</span></td>
+            <td>Dossier soumis, pas encore traité.</td>
+            <td>Automatique à la soumission</td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-blue">Placé</span></td>
+            <td>Créneau d'entretien réservé ou assigné.</td>
+            <td>Réservation directe ou planning</td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-green">Entretien fait</span></td>
+            <td>Entretien réalisé, décision en attente ou prise.</td>
+            <td>Sec-gé / automatique après évaluation</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="callout callout-gray">
+        <span class="callout-icon">ℹ️</span>
+        <span>La décision finale (accepté / refusé) est gérée en dehors de la plateforme et communiquée aux cooptants directement. Utilisez les <strong>notes internes</strong> pour suivre vos délibérations.</span>
+      </div>
+
+      <div class="callout callout-indigo">
+        <span class="callout-icon">💡</span>
+        <span>Pour changer le statut : dépliez la fiche du cooptant → modifiez le menu déroulant Statut → cliquez <strong>Mettre à jour</strong>.</span>
+      </div>
+
+      <h3>Score et visualisation</h3>
+      <p>Dès qu'un cooptant a au moins une évaluation, un <strong>anneau de score</strong> (0 à 100 %) apparaît sur sa fiche. La couleur indique le niveau : <strong style="color:var(--green);">vert ≥ 70 %</strong>, <strong style="color:var(--orange);">orange ≥ 45 %</strong>, <strong style="color:var(--red);">rouge &lt; 45 %</strong>.</p>
+      <p>En dépliant la fiche, vous voyez le détail par critère (barres de progression), les réponses Oui/Non avec comptage, et les commentaires libres des jurés.</p>
+      <p>Dans la <strong>vue Classement</strong>, les cooptants sont triés automatiquement par score. Vous pouvez :</p>
+      <ul>
+        <li>Passer en <strong>tri manuel</strong> pour réordonner selon votre appréciation, à la souris ou avec les flèches ↑↓.</li>
+        <li>Saisir le nombre de <strong>places disponibles</strong> pour faire apparaître une ligne de coupure visuelle.</li>
+      </ul>
+
+      <h3 id="delib">🗳 Mode délibération</h3>
+      <p>Quand tous les entretiens sont passés, le bureau se réunit pour arrêter le classement. Le bouton <strong>🗳 Délibérer</strong> (en haut du classement) passe l'écran en <strong>plein écran de réunion</strong> : le reste de l'interface disparaît, les lignes et le texte grossissent pour être lisibles à plusieurs, et un bandeau rappelle en permanence combien de cooptants sont retenus.</p>
+      <div class="steps">
+        <div class="step"><div class="step-num">1</div><div class="step-body">Renseignez le nombre de <strong>places disponibles</strong> : une ligne de coupure sépare les retenus de ceux qui ne le sont pas.</div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-body">Le classement part du <strong>score des évaluations</strong> : c'est un point de départ, pas une décision.</div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-body"><strong>Attrapez une ligne et déplacez-la</strong> pour faire passer quelqu'un au-dessus d'un autre. Un trait indique où la personne va se poser.</div></div>
+        <div class="step"><div class="step-num">4</div><div class="step-body">Chaque déplacement est <strong>enregistré aussitôt</strong> : vous pouvez quitter et revenir, le classement est conservé. <strong>Échap</strong> ou <strong>✕ Quitter</strong> pour sortir.</div></div>
+      </div>
+      <div class="callout callout-indigo">
+        <span class="callout-icon">💡</span>
+        <span><strong>↺ Réinitialiser l'ordre</strong> revient au tri par score si vous voulez repartir de zéro. Et le classement final se retrouve dans l'<a href="#export">export CSV</a>, colonne <em>Rang</em>.</span>
+      </div>
+
+      <h3 id="dossier">📄 Consulter un dossier pendant la délibération</h3>
+      <p>Le classement n'affiche que le nom, le score et les critères. Pour relire une candidature sans quitter la réunion, cliquez sur le <strong>nom d'un cooptant</strong> (ou sur le bouton <strong>📄</strong> à droite de sa ligne) : un panneau s'ouvre sur le côté avec ses <strong>réponses au formulaire</strong>, les <strong>réponses libres des jurés</strong> et leurs <strong>commentaires</strong>.</p>
+      <div class="steps">
+        <div class="step"><div class="step-num">1</div><div class="step-body">Sur un grand écran, le panneau <strong>pousse le classement</strong> au lieu de le recouvrir : vous continuez à réordonner tout en lisant.</div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-body">Les flèches <strong>↑ ↓</strong> du panneau, ou celles du clavier, passent au cooptant suivant dans l'ordre affiché. Le compteur <em>4/46</em> suit le classement en cours.</div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-body">Le bouton <strong>×</strong> referme le panneau. Le même dossier est accessible depuis la liste normale, bouton <strong>📄 Dossier</strong>.</div></div>
+      </div>
+
+      <h3 id="score">Comment le score est calculé</h3>
+      <p>Chaque critère chiffré est ramené sur <strong>0 à 100 %</strong>, et le score global est la <strong>moyenne de ces pourcentages</strong>. Une échelle de 1 à 5 part de 0 % à 1 et va à 100 % à 5 ; une note de 0 à 20 part de 0 % à 0. Les deux types sont donc comparables entre eux.</p>
+      <div class="callout callout-orange">
+        <span class="callout-icon">⚠️</span>
+        <span><strong>Pas de score tant que la grille n'est pas remplie en entier.</strong> Un 5/5 sur un seul critère ne vaut pas 100 % : il repose sur bien moins de matière qu'une moyenne sur cinq critères, et les deux ne se comparent pas. Tant qu'il manque une case, l'anneau reste vide et un badge orange <strong>« 2/5 critères »</strong> dit ce qui manque, dans la liste, dans le classement et dans le dossier. Une colonne <em>Critères notés</em> figure aussi dans l'export CSV.</span>
+      </div>
+
+      <h3>Notes internes</h3>
+      <p>Chaque fiche dispose d'un champ <strong>Notes internes</strong>, visible uniquement par le bureau. Utile pour consigner des impressions ou des décisions en cours de délibération.</p>
+
+      <h3 id="export">Export CSV</h3>
+      <p>Le bouton <strong>⬇ Exporter CSV</strong> génère un fichier contenant tous les dossiers : identité, statut, date de soumission, créneau d'entretien et réponses aux questions personnalisées.</p>
+    </div>
+
+    <!-- ─── DISPONIBILITÉS ───────────────────────────────────── -->
+    <div class="aide-section" id="dispos">
+      <div class="aide-section-header">
+        <div class="aide-section-icon" style="background:var(--green-light);">🗓</div>
+        <div>
+          <h2>Disponibilités du staff</h2>
+          <div class="aide-section-subtitle">Saisie individuelle et vue consolidée</div>
+        </div>
+      </div>
+
+      <div class="callout callout-orange">
+        <span class="callout-icon">⚠️</span>
+        <span><strong>À faire en priorité avant de diffuser le formulaire.</strong> Sans disponibilités renseignées, les cooptants ne verront aucun créneau à réserver.</span>
+      </div>
+
+      <h3 id="saisie-dispos">Déposer ses disponibilités (via le lien public)</h3>
+      <p>Les membres <strong>n'ont pas de compte</strong>. Le sec-gé partage le <strong>lien de disponibilités</strong> (bouton <em>📅 Dispos (staff)</em> sous les statistiques du tableau de bord). Chacun ouvre le lien et :</p>
+      <div class="steps">
+        <div class="step"><div class="step-num">1</div><div class="step-body"><strong>Choisit son nom</strong> dans la liste (ou l'ajoute s'il n'y est pas). Aucun mot de passe.</div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-body">Coche ses créneaux sur la grille des <strong>prochaines semaines</strong> (heure par heure, de 8 h jusqu'à l'heure de fin réglée par l'asso, 19 h par défaut). Clic sur un <strong>jour</strong> ou une <strong>heure</strong> pour tout basculer.</div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-body">Clique sur <strong>Envoyer</strong>. C'est immédiatement pris en compte dans le formulaire cooptant et le planning.</div></div>
+      </div>
+      <div class="callout callout-indigo">
+        <span class="callout-icon">💡</span>
+        <span>Les créneaux où un entretien est <strong>déjà réservé</strong> sont signalés et protégés : on est prévenu avant de les retirer.</span>
+      </div>
+
+      <h3 id="vue-dispos">Vue consolidée (sec-gé)</h3>
+      <p>Dans la page <strong>Planning</strong>, l'onglet <strong>👥 Dispos membres</strong> affiche une carte de chaleur des disponibilités de tout le staff sur les prochaines semaines :</p>
+      <ul>
+        <li><strong>Plus la case est verte</strong>, plus il y a de membres disponibles sur ce créneau.</li>
+        <li>Les créneaux avec le plus de disponibilités sont mis en avant comme <em>Meilleurs créneaux</em>.</li>
+        <li>Les entretiens déjà planifiés sont indiqués en superposition.</li>
+        <li><strong>Cliquez sur une case</strong> (ou sur une pastille des <em>Meilleurs créneaux</em>) pour voir <strong>qui</strong> est disponible sur ce créneau, qui ne l'est pas, et ce qui y est déjà planifié.</li>
+      </ul>
+      <p>Cette vue permet au sec-gé d'identifier rapidement les meilleurs créneaux pour les cooptants à placer manuellement.</p>
+    </div>
+
+    <!-- ─── PLANNING ──────────────────────────────────────────── -->
+    <div class="aide-section" id="planning">
+      <div class="aide-section-header">
+        <div class="aide-section-icon" style="background:var(--green-light);">📅</div>
+        <div>
+          <h2>Planning des entretiens</h2>
+          <div class="aide-section-subtitle">Placement automatique, manuel et visualisation</div>
+        </div>
+      </div>
+
+      <p>La page <strong>Planning</strong> a trois onglets : <em>Grille de planning</em> (vue des entretiens), <em>Allocation manuelle</em> et <em>Dispos membres</em> (carte de chaleur). La grille couvre les <strong>prochaines semaines</strong>.</p>
+
+      <div class="callout callout-indigo">
+        <span class="callout-icon">💡</span>
+        <span>En mode « le cooptant choisit son créneau », les entretiens se planifient <strong>tout seuls</strong>. Le planning sert alors surtout à <strong>visualiser</strong>, à assigner les jurés et les salles, et à placer les exceptions.</span>
+      </div>
+
+      <h3 id="generation">⚡ Générer le planning (mode « dispos »)</h3>
+      <p>Si vos cooptants déposent leurs disponibilités, une carte <strong>Générer le planning</strong> apparaît sur le tableau de bord. Un clic croise les disponibilités des cooptants et celles du staff, et place tout le monde d'un coup.</p>
+      <p>La répartition n'est pas faite au hasard :</p>
+      <ul>
+        <li>Les cooptants qui ont <strong>le moins de disponibilités</strong> sont placés en premier : ce sont les plus difficiles à caser, et cela maximise le nombre de personnes placées.</li>
+        <li>La <strong>charge des jurés est équilibrée</strong> : le membre le moins sollicité passe en premier.</li>
+        <li>Une <strong>salle n'accueille qu'un entretien à la fois</strong>.</li>
+        <li>Un journal détaille le résultat et, pour chaque cooptant non placé, <strong>la raison</strong> (aucune disponibilité renseignée, ou aucun créneau commun avec le staff).</li>
+      </ul>
+      <div class="callout callout-orange">
+        <span class="callout-icon">⚠️</span>
+        <span>Relancer la génération <strong>remplace</strong> les entretiens pas encore passés, pratique quand de nouvelles candidatures arrivent. Les entretiens déjà réalisés ne sont jamais touchés.</span>
+      </div>
+
+      <h3 id="manual">✋ Placement manuel</h3>
+      <div class="steps">
+        <div class="step"><div class="step-num">1</div><div class="step-body">Dans l'onglet <em>Allocation manuelle</em>, sélectionnez un cooptant dans la liste de gauche.</div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-body">Les créneaux disponibles s'affichent en <strong style="color:var(--green);">vert</strong>, les conflits en <strong style="color:var(--red);">rouge</strong>, les indisponibilités en gris.</div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-body">Cliquez sur un créneau vert pour placer le cooptant. Renseignez une salle si besoin.</div></div>
+        <div class="step"><div class="step-num">4</div><div class="step-body">Pour retirer un entretien : sélectionnez le cooptant et cliquez sur <strong>Désassigner</strong>. Il repasse en statut <em>Reçu</em>.</div></div>
+      </div>
+
+      <h3>📋 Fiche d'entretien (popup)</h3>
+      <p>Cliquez sur n'importe quel bloc occupé dans la grille pour ouvrir la fiche de l'entretien : informations du cooptant, jury, salle, notes. La salle et les notes sont modifiables directement depuis ce popup.</p>
+
+      <h3>📤 Exporter les liens cooptants</h3>
+      <p>Le bouton <strong>📤 Liens cooptants</strong> génère la liste de tous les cooptants placés avec leur lien de confirmation personnel, pratique pour les notifier par email.</p>
+    </div>
+
+    <!-- ─── ÉVALUATIONS ───────────────────────────────────────── -->
+    <div class="aide-section" id="entretien">
+      <div class="aide-section-header">
+        <div class="aide-section-icon" style="background:var(--orange-light);">🎙</div>
+        <div>
+          <h2>Évaluations des cooptants</h2>
+          <div class="aide-section-subtitle">Fiches d'entretien pour les membres jury</div>
+        </div>
+      </div>
+
+      <h3 id="brief">📌 Consignes affichées aux jurés</h3>
+      <p>En haut de chaque fiche d'entretien, vos <a href="#param-consignes">consignes et votre guide de questions</a> s'affichent : pour le bureau comme pour les jurés sans compte. C'est le moyen de rappeler à tout le monde <strong>ce qu'on ne demande pas</strong> et de donner de quoi relancer quand la conversation retombe.</p>
+      <div class="callout callout-indigo">
+        <span class="callout-icon">💡</span>
+        <span>Un juré qui découvre l'entretien n'a souvent que cette page sous les yeux : ce que vous écrivez là est votre seul moyen de le cadrer. Tant que rien n'est saisi, rien ne s'affiche.</span>
+      </div>
+
+      <h3>Évaluer un cooptant (via le lien public)</h3>
+      <p>Les jurés <strong>n'ont pas de compte</strong>. Le sec-gé partage le <strong>lien d'évaluation</strong> (bouton <em>🎙 Lien évaluation</em> sous les statistiques du tableau de bord). Chaque juré l'ouvre et :</p>
+      <div class="steps">
+        <div class="step"><div class="step-num">1</div><div class="step-body"><strong>Choisit son nom</strong> dans la liste (ou l'ajoute). Aucun mot de passe.</div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-body">Lit les <strong>consignes</strong> de l'asso, affichées avant même le choix du cooptant.</div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-body">Sélectionne le <strong>cooptant</strong> à évaluer.</div></div>
+        <div class="step"><div class="step-num">4</div><div class="step-body">Renseigne les <strong><a href="#param-criteres">critères</a></strong> configurés par le bureau + une note globale, un avis et un commentaire.</div></div>
+        <div class="step"><div class="step-num">5</div><div class="step-body">Envoie. Il peut enchaîner sur un autre cooptant.</div></div>
+      </div>
+
+      <div class="callout callout-indigo">
+        <span class="callout-icon">ℹ️</span>
+        <span>Les évaluations sont <strong>créables publiquement</strong> mais <strong>lisibles uniquement par le bureau</strong> connecté : notes et avis ne sont jamais exposés.</span>
+      </div>
+
+      <h3>Consulter les évaluations (sec-gé)</h3>
+      <p>Dans <em>Cooptants → Liste</em>, dépliez la fiche d'un cooptant évalué : la section <em>Évaluations</em> affiche la <strong>moyenne par critère</strong> (barres colorées), les réponses Oui/Non (comptage ✓/✗), les commentaires libres, et la note globale moyenne. Les scores sont agrégés sur l'ensemble des jurés.</p>
+      <p>L'onglet <em>📊 Évaluations</em> donne une vue d'ensemble : qui a été évalué, combien de jurés ont rempli une fiche, et un accès direct au formulaire pour en ajouter une.</p>
+    </div>
+
+    <!-- ─── PARAMÈTRES ────────────────────────────────────────── -->
+    <div class="aide-section" id="parametres">
+      <div class="aide-section-header">
+        <div class="aide-section-icon" style="background:var(--bg);">⚙️</div>
+        <div>
+          <h2>Paramètres</h2>
+          <div class="aide-section-subtitle">Configuration de votre espace association</div>
+        </div>
+      </div>
+
+      <h3 id="param-campagne">🟢 Recrutement & règles d'entretien</h3>
+      <p>Chaque association règle <strong>son</strong> recrutement comme elle s'organise. Dans l'onglet <em>Campagne</em> :</p>
+      <ul>
+        <li><strong>Recrutement ouvert / fermé</strong> : ouvert, le formulaire accepte les candidatures ; fermé, il affiche un message d'attente.</li>
+        <li><strong>Organiser des entretiens</strong> : décochez si votre asso recrute <strong>uniquement sur dossier</strong>. Le formulaire ne demande alors ni créneau ni disponibilité, et tous les réglages ci-dessous disparaissent.</li>
+        <li><strong>Mode de prise de rendez-vous</strong> : qui choisit le créneau, voir <a href="#modes">les deux façons de caler les entretiens</a>.</li>
+        <li><strong>Début et fin des entretiens</strong> : la période sur laquelle tout se joue (dispos du staff, créneaux proposés, planning). Laissez vide pour travailler en continu sur les 4 prochaines semaines. Les deux dates vont ensemble : une seule ne suffit pas.</li>
+        <li><strong>Clôture des candidatures</strong> : date limite optionnelle. Vide = pas de date limite.</li>
+        <li><strong>Durée d'entretien</strong> : en minutes.</li>
+        <li><strong>Battement entre entretiens</strong> : pause imposée entre deux entretiens, pour ne pas les enchaîner sans respirer. 0 = à la suite.</li>
+        <li><strong>Jurys par entretien</strong> : nombre de membres présents simultanément (1 à 3). Détermine aussi combien de membres doivent être disponibles pour qu'un créneau apparaisse dans le formulaire.</li>
+        <li><strong>Entretiens à plusieurs</strong> : permet à un cooptant d'inviter un ami sur son créneau, voir <a href="#collectif">passer l'entretien à plusieurs</a>.</li>
+        <li><strong>Places disponibles</strong> : seuil utilisé pour la ligne de coupure du classement et des <a href="#delib">délibérations</a>.</li>
+      </ul>
+      <div class="callout callout-orange">
+        <span class="callout-icon">⚠️</span>
+        <span>Changer de <strong>mode de prise de rendez-vous</strong> en cours de recrutement ne supprime rien, mais les cooptants déjà passés par l'ancien mode ne seront pas convertis : ceux qui ont réservé gardent leur créneau, ceux qui ont donné leurs dispos attendent la génération du planning. Mieux vaut choisir le mode avant de diffuser le formulaire.</span>
+      </div>
+
+      <h3 id="param-form">📝 Formulaire</h3>
+      <p>Ajoutez des <strong>questions personnalisées</strong> au formulaire de cooptation :</p>
+      <div class="two-col">
+        <div class="mini-card"><div class="mini-card-title">📝 Texte</div><div class="mini-card-body"><strong>Court</strong> pour une ligne (ville, filière, promo), <strong>long</strong> pour une motivation ou un projet associatif.</div></div>
+        <div class="mini-card"><div class="mini-card-title">📞 Champs guidés</div><div class="mini-card-body">Téléphone, email, nombre, date, lien. Ils ouvrent le <strong>bon clavier</strong> sur téléphone.</div></div>
+        <div class="mini-card"><div class="mini-card-title">📋 Liste de choix</div><div class="mini-card-body">Menu déroulant. Pour : campus, pôle, année d'études…</div></div>
+        <div class="mini-card"><div class="mini-card-title">✔️ Case à cocher</div><div class="mini-card-body">Pour un engagement ou une charte à accepter.</div></div>
+      </div>
+      <p>Chaque question peut être rendue obligatoire.</p>
+
+      <h4 style="margin-top:16px;">Changer l'ordre des questions</h4>
+      <p>Attrapez une question par sa <strong>poignée ⋮⋮</strong>, à gauche, et glissez-la à sa nouvelle place : un trait indique où elle va se poser. Les <strong>flèches ↑ ↓</strong> font la même chose d'un cran, et ce sont elles qu'on utilise sur téléphone, où le glisser ne fonctionne pas. Le nouvel ordre est enregistré aussitôt et s'applique au formulaire des cooptants.</p>
+      <div class="callout callout-gray">
+        <span class="callout-icon">💡</span>
+        <span>Réordonner ne mélange pas les réponses déjà reçues : chaque réponse reste attachée à sa question, et le dossier d'un cooptant les affiche dans le nouvel ordre.</span>
+      </div>
+
+      <h3 id="param-consignes">📌 Consignes & guide de questions</h3>
+      <p>Dans l'onglet <em>Entretien</em>, deux zones de texte libre que vous écrivez comme vous voulez. Elles s'affichent <strong>en haut de la fiche d'entretien</strong>, pour le bureau comme pour le jury.</p>
+      <ul>
+        <li><strong>Consignes</strong> : toujours visibles. C'est l'endroit pour les <strong>interdits</strong> (une question qu'on n'a pas le droit de poser), ce qu'il faut penser à faire, et les infos à avoir sous la main. Un juré qui découvre le formulaire doit pouvoir s'y fier.</li>
+        <li><strong>Guide de questions</strong> : replié par défaut, à ouvrir d'un clic. De quoi relancer quand plus aucune question ne vient.</li>
+      </ul>
+      <div class="callout callout-indigo">
+        <span class="callout-icon">💡</span>
+        <span>Les deux sont <strong>vides au départ</strong> et n'apparaissent pas du tout dans la fiche tant que vous n'avez rien écrit. Rien n'est prérempli : chaque asso a ses propres règles.</span>
+      </div>
+
+      <h3 id="param-criteres">🎙 Critères d'évaluation</h3>
+      <p>Définissez ce que les jurés évalueront pendant les entretiens. Les critères peuvent être réordonnés et supprimés. <strong>Deux familles</strong>, et c'est la distinction importante :</p>
+
+      <h4 style="font-size:13px;font-weight:700;color:var(--text);margin:18px 0 6px;">Comptent dans le score</h4>
+      <div class="two-col">
+        <div class="mini-card">
+          <div class="mini-card-title">⭐ Échelle</div>
+          <div class="mini-card-body">Des <strong>boutons</strong> de 1 à la valeur max, en nombres entiers. Pour un ressenti rapide : <em>Motivation 1→5</em>.</div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-card-title">🔢 Note</div>
+          <div class="mini-card-body">Un <strong>champ à remplir</strong>, de 0 à la valeur max, <strong>demi-points acceptés</strong>. Pour une notation fine : <em>14,5/20</em>.</div>
+        </div>
+      </div>
+      <p style="margin-top:10px;">Ces deux types sont ramenés à un pourcentage, puis moyennés pour donner le <a href="#delib">score du classement</a>.</p>
+
+      <h4 style="font-size:13px;font-weight:700;color:var(--text);margin:18px 0 6px;">Ne comptent pas dans le score</h4>
+      <ul>
+        <li><strong>✅ Oui / Non</strong> : deux boutons. Affiché comme un décompte : <em>✓ 3 · ✗ 1</em>.</li>
+        <li><strong>📋 Liste de choix</strong> : une seule réponse parmi vos options. Utile pour une question qui n'est pas une note : <em>« Quel pôle lui irait le mieux ? »</em>.</li>
+        <li><strong>☑️ Cases à cocher</strong> : plusieurs réponses possibles, par exemple <em>« Points forts observés »</em>.</li>
+        <li><strong>✔️ Case à cocher simple</strong> : cochée ou non renseignée, par exemple <em>« A préparé son entretien »</em>.</li>
+        <li><strong>💬 Texte libre</strong> : un commentaire. Toutes les réponses des jurés sont conservées.</li>
+      </ul>
+      <p>Pour les listes et les cases à cocher, vous saisissez vos options <strong>une par ligne</strong> (au moins deux).</p>
+      <div class="callout callout-indigo">
+        <span class="callout-icon">💡</span>
+        <span>Dans la fiche du cooptant, ces réponses s'affichent en <strong>distribution</strong> : chaque option avec le nombre de jurés qui l'ont retenue, la plus citée mise en avant. Elles figurent aussi dans l'<a href="#export">export CSV</a>.</span>
+      </div>
+
+      <h3 id="param-salles">🏫 Salles & Réservations</h3>
+      <p><strong>Salles</strong> : ajoutez les salles disponibles pour les entretiens. Dans le planning, vous pouvez aussi saisir un nom libre sans qu'il figure dans cette liste.</p>
+      <p><strong>Réservations</strong> : définissez les créneaux d'ouverture de chaque salle. Utile lors du placement des entretiens pour éviter de réserver une salle hors de ses disponibilités.</p>
+
+      <h3 id="param-codes">🔑 Codes d'accès</h3>
+      <p>Les codes d'invitation permettent à de nouveaux membres <strong>du bureau</strong> de créer un compte. (Les membres jury, eux, n'ont pas de compte : ils utilisent les liens publics.)</p>
+      <ul>
+        <li>Format : <code>ASSO1234</code> (préfixe de l'asso + 4 chiffres).</li>
+        <li>Un code est associé à un rôle : <em>Sec-gé / Bureau</em> ou <em>Président(e)</em>.</li>
+        <li>Chaque code peut être utilisé par plusieurs personnes.</li>
+        <li>Partagez-le par email ou messagerie privée, ne le rendez pas public.</li>
+      </ul>
+      <div class="callout callout-green">
+        <span class="callout-icon">✅</span>
+        <span>Pour les <strong>membres / jury</strong>, il n'y a rien à inviter : partagez simplement les liens <em>📅 disponibilités</em> et <em>🎙 évaluation</em> depuis le tableau de bord. Aucun compte n'est nécessaire.</span>
+      </div>
+
+      <h3 id="multi-asso">🏢 Être dans plusieurs assos</h3>
+      <p>Un même compte peut gérer <strong>plusieurs associations</strong> : inutile de créer un second compte si vous êtes dans deux bureaux.</p>
+      <div class="steps">
+        <div class="step"><div class="step-num">1</div><div class="step-body">Demandez le <a href="#param-codes">code d'accès</a> au bureau de la seconde asso.</div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-body">Menu ☰ → <strong>Rejoindre une autre asso</strong>, saisissez le code.</div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-body">Le menu ☰ affiche désormais une section <strong>Changer d'association</strong> pour basculer d'une à l'autre.</div></div>
+      </div>
+      <div class="callout callout-indigo">
+        <span class="callout-icon">💡</span>
+        <span>C'est le <strong>code</strong> qui détermine l'asso et votre rôle : vous pouvez être président(e) d'un côté et membre du bureau de l'autre. Les données des deux assos restent totalement séparées.</span>
+      </div>
+
+      <h3>👥 Staff & disponibilités</h3>
+      <p>L'onglet <em>Staff</em> liste les comptes du bureau (que vous pouvez ajouter/retirer) et permet de <strong>pré-remplir la liste des noms</strong> pour les liens publics (dispos & évaluation), ainsi que de copier le <strong>lien de disponibilités</strong>.</p>
+    </div>
+
+    <!-- ─── FAQ ───────────────────────────────────────────────── -->
+    <div class="aide-section" id="faq">
+      <div class="aide-section-header">
+        <div class="aide-section-icon" style="background:var(--green-light);">❓</div>
+        <div>
+          <h2>Questions fréquentes</h2>
+          <div class="aide-section-subtitle">Problèmes courants et solutions</div>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)">
+          Le formulaire n'affiche pas de créneaux à réserver
+          <span class="faq-chevron">▼</span>
+        </button>
+        <div class="faq-a">
+          Quatre causes possibles : <strong>(1)</strong> Le <strong>mode</strong> est réglé sur « le cooptant donne ses disponibilités », c'est alors normal, aucun créneau n'est proposé. <strong>(2)</strong> Aucun membre n'a renseigné ses disponibilités → partagez le <em>lien de disponibilités</em> et demandez aux membres d'y cocher leurs créneaux. <strong>(3)</strong> Le nombre de jurys requis est supérieur au nombre de membres dont les dispos se chevauchent → vérifiez que suffisamment de membres sont libres aux mêmes heures. <strong>(4)</strong> La <strong>période d'entretiens</strong> est terminée ou mal renseignée → vérifiez les dates de début et de fin dans Paramètres.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)">
+          Quelle différence entre un critère « Échelle » et un critère « Note » ?
+          <span class="faq-chevron">▼</span>
+        </button>
+        <div class="faq-a">
+          <strong>Échelle</strong> affiche des <strong>boutons</strong> de 1 à la valeur max, en nombres entiers, on clique, c'est immédiat. <strong>Note</strong> affiche un <strong>champ à remplir</strong> de 0 à la valeur max, et accepte les demi-points (14,5). En pratique : Échelle pour un ressenti rapide (Motivation 1→5), Note pour une notation fine type /20. Les deux comptent dans le score de la même façon, ramenés à un pourcentage.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)">
+          Comment rappeler aux jurés les questions à ne pas poser ?
+          <span class="faq-chevron">▼</span>
+        </button>
+        <div class="faq-a">
+          Écrivez-les dans <strong>Paramètres → Entretien → Consignes</strong>. Le texte s'affiche en haut de chaque fiche d'entretien, y compris pour les jurés sans compte qui passent par le lien public : souvent la seule page qu'ils ont sous les yeux. Ajoutez aussi un <strong>guide de questions</strong> pour ceux qui ne savent plus quoi demander : il reste replié et s'ouvre d'un clic. Les deux sont vides au départ et n'apparaissent pas tant que vous n'avez rien écrit.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)">
+          Quel mode de prise de rendez-vous choisir ?
+          <span class="faq-chevron">▼</span>
+        </button>
+        <div class="faq-a">
+          Si votre bureau peut déposer ses disponibilités <strong>avant</strong> d'ouvrir les candidatures, prenez « <strong>le cooptant choisit son créneau</strong> » : le planning se remplit tout seul et vous n'avez plus rien à organiser. Si c'est trop contraignant, ou si vous voulez d'abord voir combien de candidatures arrivent, prenez « <strong>le cooptant donne ses disponibilités</strong> » et générez le planning en une fois à la fin. Choisissez de préférence <em>avant</em> de diffuser le formulaire.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)">
+          Des cooptants n'ont pas été placés par la génération du planning
+          <span class="faq-chevron">▼</span>
+        </button>
+        <div class="faq-a">
+          Le journal affiché après la génération donne <strong>la raison pour chaque cooptant</strong>. Les deux cas : « <em>aucune disponibilité renseignée</em> » (il a soumis son dossier sans cocher de créneau, relancez-le) ou « <em>aucun créneau commun avec le staff</em> » (ses dispos ne croisent celles d'assez de jurés). Dans le second cas, demandez à quelques membres d'élargir leurs disponibilités et relancez la génération, ou placez la personne à la main depuis le planning.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)">
+          Deux cooptants peuvent-ils passer l'entretien ensemble ?
+          <span class="faq-chevron">▼</span>
+        </button>
+        <div class="faq-a">
+          Oui, si vous activez <strong>les entretiens à plusieurs</strong> dans Paramètres → Règles des entretiens. Celui qui réserve reçoit un lien à transmettre à son ami, qui rejoint alors son créneau. C'est toujours à l'initiative des cooptants : la plateforme ne met jamais des inconnus ensemble. Chacun garde sa propre fiche d'évaluation, donc le classement reste individuel.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)">
+          Un cooptant veut changer d'horaire après avoir soumis
+          <span class="faq-chevron">▼</span>
+        </button>
+        <div class="faq-a">
+          Il suffit que le cooptant <strong>rerouvre le formulaire</strong> (même lien de cooptation) et saisisse la <strong>même adresse email</strong>. La plateforme détecte son dossier existant, affiche son créneau actuel, et lui permet d'en sélectionner un autre. La soumission met à jour l'entretien sans créer de doublon.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)">
+          Comment un membre dépose-t-il ses disponibilités ou évalue-t-il un cooptant ?
+          <span class="faq-chevron">▼</span>
+        </button>
+        <div class="faq-a">
+          Les membres <strong>n'ont pas de compte</strong>. Le bureau partage deux liens depuis son tableau de bord (boutons sous les statistiques) : <em>📅 Dispos (staff)</em> et <em>🎙 Lien évaluation</em>. Le membre ouvre le lien, choisit son nom (ou l'ajoute), et remplit, sans connexion. Si quelqu'un essaie de se connecter en tant que « membre », un message le renvoie vers ces liens.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)">
+          Comment mettre le recrutement en pause ?
+          <span class="faq-chevron">▼</span>
+        </button>
+        <div class="faq-a">
+          Dans <strong>Paramètres → Campagne</strong>, décochez <em>Recrutement ouvert</em>. Le formulaire de cooptation affichera alors un message d'attente et n'acceptera plus de candidatures. Recochez pour rouvrir.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)">
+          Comment ajouter des questions personnalisées au formulaire ?
+          <span class="faq-chevron">▼</span>
+        </button>
+        <div class="faq-a">
+          Allez dans <strong>Paramètres → Formulaire</strong>, cliquez sur <em>+ Ajouter une question</em>, choisissez le type (texte court, texte long ou liste de choix) et cochez si la réponse est obligatoire. La question apparaît immédiatement dans le formulaire public.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)">
+          Comment supprimer un entretien planifié ?
+          <span class="faq-chevron">▼</span>
+        </button>
+        <div class="faq-a">
+          Dans le planning, onglet <em>Allocation manuelle</em> → sélectionnez le cooptant dans la liste → cliquez sur <strong>Désassigner</strong>. Le cooptant repasse au statut <em>Reçu</em> et redevient disponible pour un nouveau placement.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)">
+          J'ai supprimé un cooptant par erreur, je peux le récupérer ?
+          <span class="faq-chevron">▼</span>
+        </button>
+        <div class="faq-a">
+          Oui, pendant <strong>30 jours</strong>. Tout ce que le bureau supprime (un cooptant avec son entretien et son évaluation, ou tout un lot depuis la zone de danger) part dans <strong>Paramètres → Corbeille</strong>. Cliquez sur <em>Restaurer</em> pour tout remettre en place. Passé 30 jours, l'élément s'efface tout seul. Pour une demande d'effacement de données, utilisez <em>Supprimer définitivement</em>.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)">
+          La page de suivi d'un cooptant affiche toujours "Reçu" malgré la décision
+          <span class="faq-chevron">▼</span>
+        </button>
+        <div class="faq-a">
+          La page de suivi (<code>/candidat.html?token=…</code>) se met à jour dès que vous changez le statut dans la liste Cooptants : il s'enregistre tout seul, un message « Statut mis à jour » le confirme. Si le changement ne s'affiche pas, vérifiez qu'aucun message d'erreur n'est apparu.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)">
+          Puis-je faire des captures d'écran de la plateforme ?
+          <span class="faq-chevron">▼</span>
+        </button>
+        <div class="faq-a">
+          La plateforme affiche un <strong>filigrane discret</strong> (email + date) sur toutes les pages pour les rôles non-admin. Ce filigrane est peu visible à l'écran mais clairement lisible sur capture d'écran, permettant de tracer l'origine en cas de fuite de données. Ces mesures visent à protéger les informations personnelles des cooptants.
+        </div>
+      </div>
+
+    </div>
+
+    <div style="text-align:center;padding:16px 0 0;font-size:12px;color:var(--text-light);">
+      Cooptly · Documentation interne · Ne pas diffuser en dehors du staff
+    </div>
+
+  </main>
+</div>
+
+<script type="module">
+  // Applique le thème + logo de l'asso si on arrive depuis un contexte organisé
+  const { paramLien } = await import('/js/utils.js');
+  const orgId = paramLien('org') || sessionStorage.getItem('currentOrgId');
+  if (orgId) {
+    try {
+      const { initializeApp, getApps } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js');
+      const { getFirestore, getDoc, doc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+      const existing = getApps().find(a => a.name === '[DEFAULT]') || getApps()[0];
+      const { firebaseConfig } = await import('/js/firebase-config.js');
+      const app = existing || initializeApp(firebaseConfig);
+      const db = getFirestore(app);
+      const oDoc = await getDoc(doc(db, 'organizations', orgId));
+      if (oDoc.exists()) {
+        const org = oDoc.data();
+        // Logo dans la nav
+        const icon = document.querySelector('.nav-brand-icon');
+        if (icon) {
+          if (org.logoBase64) {
+            icon.innerHTML = `<img src="${org.logoBase64}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" alt="${org.name}" />`;
+            icon.style.background = 'transparent';
+            icon.style.padding = '0';
+          } else if (org.primaryColor) {
+            icon.style.background = org.primaryColor;
+          }
+        }
+        // Couleur primaire → variables CSS
+        if (org.primaryColor) {
+          const r = document.documentElement;
+          r.style.setProperty('--indigo', org.primaryColor);
+          r.style.setProperty('--indigo-hover', org.primaryColor);
+          r.style.setProperty('--indigo-dark', org.primaryColor);
+        }
+      }
+    } catch(e) { /* silently ignore */ }
+  }
+</script>
+<script>
+  function toggleFaq(btn) {
+    const answer  = btn.nextElementSibling;
+    const chevron = btn.querySelector('.faq-chevron');
+    const isOpen  = answer.classList.contains('open');
+    answer.classList.toggle('open', !isOpen);
+    chevron.classList.toggle('open', !isOpen);
+  }
+
+  const sections = document.querySelectorAll('.aide-section[id], h3[id]');
+  const navLinks  = document.querySelectorAll('.aide-nav-link, .aide-nav-sub');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        navLinks.forEach(l => l.classList.remove('active'));
+        const match = document.querySelector(`.aide-nav-link[href="#${entry.target.id}"], .aide-nav-sub[href="#${entry.target.id}"]`);
+        if (match) match.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-80px 0px -60% 0px', threshold: 0 });
+  sections.forEach(s => observer.observe(s));
+
+  document.querySelectorAll('.aide-nav-link, .aide-nav-sub, .aide-hero-chip').forEach(a => {
+    a.addEventListener('click', e => {
+      const href = a.getAttribute('href');
+      if (!href || !href.startsWith('#')) return;
+      e.preventDefault();
+      const target = document.querySelector(href);
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+</script>
+</body>
+</html>

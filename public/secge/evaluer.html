@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <script>(function(){var t=localStorage.getItem("_theme");if(t)document.documentElement.setAttribute("data-theme",t);})();</script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fiche d'entretien · Cooptly</title>
+  <!-- Connexions ouvertes d'avance : sans elles, chaque serveur (polices,
+       SDK, base de données) coûtait sa propre poignée de main réseau au
+       moment où la page en avait besoin. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin />
+  <!-- Le SDK est préchargé dès l'en-tête. Sinon le navigateur ne le
+       découvre qu'en arrivant au script, tout en bas de la page. -->
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js" />
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js" />
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js" />
+  <!-- Polices en <link> et non plus en @import dans main.css : l'@import
+       obligeait à télécharger la feuille de style avant même de découvrir
+       les polices, trois allers-retours à la suite avant le texte. -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Antic&family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;600;700&display=swap" />
+  <link rel="stylesheet" href="/css/main.css" />
+  <style>
+    body.panel-mode nav,
+    body.panel-mode .flex-between.mb-24 { display:none !important; }
+    body.panel-mode main.page { padding-top:16px; }
+
+    .eval-criterion {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 12px;
+    }
+    .eval-criterion-label {
+      font-weight: 700;
+      font-size: 15px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .eval-criterion-label .required-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--red); display: inline-block; flex-shrink: 0;
+    }
+
+    /* Échelle visuelle */
+    .scale-wrap { display: flex; gap: 6px; flex-wrap: wrap; }
+    .scale-btn {
+      width: 44px; height: 44px; border-radius: 8px;
+      border: 2px solid var(--border); background: var(--bg);
+      font-weight: 700; font-size: 15px; cursor: pointer;
+      transition: all .15s; display: flex; align-items: center; justify-content: center;
+    }
+    .scale-btn:hover { border-color: var(--indigo); background: var(--indigo-light); color: var(--indigo); }
+    .scale-btn.selected { background: var(--indigo); border-color: var(--indigo); color: #fff; }
+
+    /* Note */
+    .note-wrap { display: flex; align-items: center; gap: 10px; }
+    .note-input { width: 80px; }
+    .note-max { color: var(--text-muted); font-weight: 600; }
+
+    /* Texte */
+    .eval-textarea { width: 100%; resize: vertical; }
+
+    .candidate-header {
+      background: var(--indigo-light);
+      border: 1.5px solid var(--indigo-mid);
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .candidate-avatar {
+      width: 52px; height: 52px; border-radius: 12px;
+      background: var(--indigo); color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 20px; flex-shrink: 0;
+    }
+
+    .saved-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: var(--green-light); border: 1px solid var(--green-mid); border-radius: 99px;
+      color: var(--green); font-size: 12px; font-weight: 600;
+      padding: 4px 10px;
+    }
+
+    /* ── Existing-eval notice ────────────────────────────────────── */
+    #existing-eval-notice {
+      display: none;
+      background: var(--indigo-light); border: 1.5px solid var(--indigo-mid);
+      border-radius: 10px; padding: 12px 16px;
+      margin-bottom: 20px;
+      font-size: 13px; font-weight: 600; color: var(--indigo);
+      display: flex; align-items: center; gap: 10px;
+    }
+    #existing-eval-notice svg { flex-shrink: 0; }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="/secge/dashboard.html" class="nav-brand">
+    <div class="nav-brand-icon">C</div>
+    <span class="nav-brand-name">Cooptly</span>
+  </a>
+  <div style="display:flex;align-items:center;gap:4px;">
+    <span class="badge badge-indigo" style="font-size:11px;">Sec-gé</span>
+  </div>
+  <div class="nav-links">
+    <a href="/secge/dashboard.html" class="nav-link">Tableau de bord</a>
+    <a href="/secge/candidats.html" class="nav-link">Cooptants</a>
+    <a href="/planning.html"        class="nav-link">Planning</a>
+    <a href="/parametres.html"      class="nav-link">Paramètres</a>
+  </div>
+  <div class="nav-right">
+    <button class="btn btn-ghost btn-sm" id="btn-logout">Déconnexion</button>
+  </div>
+</nav>
+
+<main class="page" style="max-width:720px;">
+  <div class="flex-between mb-24">
+    <div>
+      <h1>🎙 Fiche d'entretien</h1>
+      <p>Évaluation confidentielle, visible uniquement par le bureau</p>
+    </div>
+    <a href="/secge/candidats.html" class="btn btn-ghost btn-sm">← Retour aux cooptants</a>
+  </div>
+
+  <div id="loading-state" style="padding:16px 0 24px;">
+    <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;">
+      <div class="skel skel-circ" style="width:52px;height:52px;flex-shrink:0;"></div>
+      <div style="flex:1;">
+        <div class="skel skel-h" style="width:45%;margin-bottom:8px;"></div>
+        <div class="skel skel-row" style="width:65%;"></div>
+      </div>
+    </div>
+    <div class="skel-list">
+      <div class="skel skel-card" style="height:76px;"></div>
+      <div class="skel skel-card" style="height:76px;opacity:.75;"></div>
+      <div class="skel skel-card" style="height:76px;opacity:.5;"></div>
+    </div>
+  </div>
+  <div id="error-state" class="empty-state" style="display:none;"><div class="empty-state-icon">⚠️</div><p id="error-msg">Erreur de chargement.</p></div>
+
+  <div id="main-content" style="display:none;">
+    <!-- En-tête candidat -->
+    <div class="candidate-header">
+      <div class="candidate-avatar" id="cand-avatar"></div>
+      <div>
+        <div style="font-weight:800;font-size:18px;" id="cand-name"></div>
+        <div class="text-sm text-muted" id="cand-meta"></div>
+      </div>
+      <div style="margin-left:auto;" id="saved-badge-wrap" style="display:none;"></div>
+    </div>
+
+    <!-- Notice : évaluation existante -->
+    <div id="existing-eval-notice" style="display:none;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <span id="existing-eval-text">Tu as déjà rempli une fiche pour ce cooptant : les champs ci-dessous sont pré-remplis.</span>
+    </div>
+
+    <!-- Consignes & guide de questions de l'asso (masqués si non renseignés) -->
+    <div class="brief-block" id="brief-block" style="display:none;">
+      <div class="brief-panel" id="brief-consignes" style="display:none;">
+        <div class="brief-title">📌 Consignes</div>
+        <div class="brief-text" id="brief-consignes-text"></div>
+      </div>
+      <details class="brief-details" id="brief-guide" style="display:none;">
+        <summary>💡 Guide de questions</summary>
+        <div class="brief-text" id="brief-guide-text"></div>
+      </details>
+    </div>
+
+    <!-- Critères d'évaluation -->
+    <div class="card mb-24">
+      <div class="flex-between mb-16">
+        <h2>Critères d'évaluation</h2>
+        <span id="criteria-count" class="text-sm text-muted"></span>
+      </div>
+      <div id="criteria-container"></div>
+      <div id="no-criteria" style="display:none;" class="text-muted text-sm">
+        Aucun critère configuré pour cette campagne. Configurez-les dans <a href="/parametres.html" style="color:var(--indigo);">Paramètres → Entretien</a>.
+      </div>
+    </div>
+
+    <!-- Note globale + commentaire -->
+    <div class="card mb-24">
+      <h2 class="mb-16">Bilan global</h2>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="note-globale">Note globale (optionnel)</label>
+          <div class="note-wrap">
+            <input class="form-input note-input" type="number" id="note-globale" min="0" max="20" step="0.5" placeholder="·" />
+            <span class="note-max">/ 20</span>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="decision">Remarque</label>
+          <select class="form-select" id="decision">
+            <option value="">·</option>
+            <option value="reserve">🔄 À revoir</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="commentaire">Commentaire général</label>
+        <textarea class="form-textarea eval-textarea" id="commentaire" rows="3" placeholder="Points forts, axes d'amélioration, impression générale…"></textarea>
+      </div>
+    </div>
+
+    <!-- Boutons d'action -->
+    <div class="flex-gap mb-24">
+      <button class="btn btn-primary" id="btn-save">💾 Enregistrer l'évaluation</button>
+      <button class="btn btn-ghost" id="btn-reset">Réinitialiser</button>
+      <div id="last-saved" class="text-sm text-muted" style="margin-left:auto;align-self:center;"></div>
+    </div>
+
+  </div>
+</main>
+
+<script type="module">
+import { requireSecge, logout, app } from '/js/auth.js';
+import { getFirestore, collection, query, where, getDocs, getDoc, addDoc, updateDoc, orderBy,
+  doc, serverTimestamp }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { showToast, confirmDialog, paramLien } from '/js/utils.js';
+import { initBurgerMenu } from '/js/nav.js';
+
+const db = getFirestore(app);
+const params = new URLSearchParams(location.search);
+const candidateId = paramLien('candidateId');
+const campaignId  = paramLien('campaignId');
+if (params.get('panel') === '1') document.body.classList.add('panel-mode');
+
+let user, candidate, campaign, criteria = [], currentEvalId = null;
+
+async function init() {
+  user = await requireSecge();
+  // Le menu se construit EN PARALLÈLE des données : l'attendre retardait
+  // tout l'affichage de la page, alors qu'il n'en conditionne rien.
+  initBurgerMenu(user).catch(e => console.warn('Menu non construit :', e));
+  document.getElementById('btn-logout').addEventListener('click', async () => {
+    await logout(); location.href = '/index.html';
+  });
+
+  if (!candidateId || !campaignId) return showError('Paramètres manquants (candidateId ou campaignId).');
+
+  try {
+    [candidate, campaign] = await Promise.all([
+      getDoc(doc(db, 'candidates', candidateId)).then(d => d.exists() ? {id:d.id,...d.data()} : null),
+      getDoc(doc(db, 'campaigns',  campaignId )).then(d => d.exists() ? {id:d.id,...d.data()} : null),
+    ]);
+    if (!candidate) return showError('Candidat introuvable.');
+    if (!campaign)  return showError('Campagne introuvable.');
+  } catch (err) { return showError(err.message); }
+
+  criteria = campaign.interviewCriteria || [];
+  renderBrief(campaign);
+
+  // En-tête candidat
+  const initials = `${(candidate.prenom||'?')[0]}${(candidate.nom||'?')[0]}`.toUpperCase();
+  document.getElementById('cand-avatar').textContent = initials;
+  document.getElementById('cand-name').textContent   = `${candidate.prenom || ''} ${candidate.nom || ''}`.trim();
+  document.getElementById('cand-meta').textContent   = `${candidate.email || ''} · Campagne : ${campaign.name || campaignId}`;
+
+  // Critères
+  buildCriteriaForm();
+
+  // Load existing evaluation
+  await loadExistingEval();
+
+
+  document.getElementById('loading-state').style.display = 'none';
+  document.getElementById('main-content').style.display  = '';
+
+  document.getElementById('btn-save').addEventListener('click', saveEval);
+  document.getElementById('btn-reset').addEventListener('click', async () => {
+    if (!await confirmDialog('Réinitialiser tous les champs ? Les données non sauvegardées seront perdues.', {
+      title: 'Réinitialiser', confirmLabel: 'Réinitialiser', danger: true
+    })) return;
+    buildCriteriaForm();
+    document.getElementById('note-globale').value = '';
+    document.getElementById('commentaire').value  = '';
+    document.getElementById('decision').value     = '';
+  });
+}
+
+function showError(msg) {
+  document.getElementById('loading-state').style.display = 'none';
+  document.getElementById('error-msg').textContent = msg;
+  document.getElementById('error-state').style.display = '';
+}
+
+function buildCriteriaForm() {
+  const container = document.getElementById('criteria-container');
+  container.innerHTML = '';
+
+  if (!criteria.length) {
+    document.getElementById('no-criteria').style.display = '';
+    document.getElementById('criteria-count').textContent = '';
+    return;
+  }
+
+  document.getElementById('no-criteria').style.display = 'none';
+  document.getElementById('criteria-count').textContent = `${criteria.length} critère${criteria.length > 1 ? 's' : ''}`;
+
+  criteria.forEach(cr => {
+    const block = document.createElement('div');
+    block.className = 'eval-criterion';
+    block.dataset.criterionId = cr.id;
+
+    const labelDiv = document.createElement('div');
+    labelDiv.className = 'eval-criterion-label';
+    labelDiv.innerHTML = `${CRIT_ICON[cr.type] || '⭐'} ${cr.label} ${cr.required ? '<span class="required-dot" title="Obligatoire"></span>' : ''}`;
+    block.appendChild(labelDiv);
+
+    if (cr.type === 'echelle') {
+      const wrap = document.createElement('div');
+      wrap.className = 'scale-wrap';
+      for (let v = 1; v <= (cr.max || 5); v++) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'scale-btn';
+        btn.textContent = v;
+        btn.dataset.value = v;
+        btn.addEventListener('click', () => {
+          wrap.querySelectorAll('.scale-btn').forEach(b => b.classList.remove('selected'));
+          btn.classList.add('selected');
+        });
+        wrap.appendChild(btn);
+      }
+      block.appendChild(wrap);
+      const hint = document.createElement('div');
+      hint.className = 'text-sm text-muted';
+      hint.style.marginTop = '6px';
+      hint.textContent = `1 = Faible · ${cr.max || 5} = Excellent`;
+      block.appendChild(hint);
+
+    } else if (cr.type === 'yesno') {
+      const wrap = document.createElement('div');
+      wrap.className = 'scale-wrap';
+      [{ label: '✅ Oui', value: 'oui' }, { label: '❌ Non', value: 'non' }].forEach(opt => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'scale-btn';
+        btn.style.width = 'auto';
+        btn.style.padding = '0 16px';
+        btn.textContent = opt.label;
+        btn.dataset.value = opt.value;
+        btn.addEventListener('click', () => {
+          wrap.querySelectorAll('.scale-btn').forEach(b => b.classList.remove('selected'));
+          btn.classList.add('selected');
+        });
+        wrap.appendChild(btn);
+      });
+      block.appendChild(wrap);
+
+    } else if (cr.type === 'note') {
+      const wrap = document.createElement('div');
+      wrap.className = 'note-wrap';
+      const input = document.createElement('input');
+      input.type = 'number'; input.className = 'form-input note-input';
+      input.min = '0'; input.max = cr.max || 10; input.step = '0.5';
+      input.placeholder = '·'; input.dataset.criterionId = cr.id;
+      const maxSpan = document.createElement('span');
+      maxSpan.className = 'note-max';
+      maxSpan.textContent = `/ ${cr.max || 10}`;
+      wrap.appendChild(input); wrap.appendChild(maxSpan);
+      block.appendChild(wrap);
+
+    } else if (cr.type === 'check') {
+      // Case à cocher simple : cochée = vrai, décochée = non renseigné.
+      const lab = document.createElement('label');
+      lab.className = 'checkbox-wrap';
+      lab.style.cursor = 'pointer';
+      const box = document.createElement('input');
+      box.type = 'checkbox'; box.dataset.criterionId = cr.id;
+      const txt = document.createElement('span');
+      txt.textContent = cr.label;
+      lab.appendChild(box); lab.appendChild(txt);
+      block.appendChild(lab);
+
+    } else if (cr.type === 'select' || cr.type === 'multi') {
+      // Chips cliquables plutôt qu'un menu déroulant : plus rapide à
+      // renseigner pendant un entretien, et cohérent avec Oui/Non.
+      const wrap = document.createElement('div');
+      wrap.className = 'scale-wrap';
+      wrap.style.flexWrap = 'wrap';
+      (cr.options || []).forEach(opt => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'scale-btn';
+        btn.style.width = 'auto';
+        btn.style.padding = '0 14px';
+        btn.textContent = opt;
+        btn.dataset.value = opt;
+        btn.addEventListener('click', () => {
+          if (cr.type === 'select') {
+            wrap.querySelectorAll('.scale-btn').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+          } else {
+            btn.classList.toggle('selected');   // choix multiples
+          }
+        });
+        wrap.appendChild(btn);
+      });
+      block.appendChild(wrap);
+      if (cr.type === 'multi') {
+        const hint = document.createElement('div');
+        hint.className = 'text-sm text-muted';
+        hint.style.marginTop = '6px';
+        hint.textContent = 'Plusieurs choix possibles.';
+        block.appendChild(hint);
+      }
+
+    } else {
+      const ta = document.createElement('textarea');
+      ta.className = 'form-textarea eval-textarea';
+      ta.rows = 2; ta.placeholder = 'Commentaire libre…';
+      ta.dataset.criterionId = cr.id;
+      block.appendChild(ta);
+    }
+
+    container.appendChild(block);
+  });
+}
+
+/**
+ * Consignes & guide de questions de l'asso, en haut de la fiche.
+ * Texte libre : injecté via textContent (jamais innerHTML) et rendu en
+ * pre-wrap, donc les retours à la ligne sont conservés sans risque
+ * d'injection. Chaque bloc reste masqué s'il n'est pas renseigné.
+ */
+function renderBrief(campaign) {
+  const consignes = (campaign?.consignesEntretien || '').trim();
+  const guide     = (campaign?.guideQuestions     || '').trim();
+
+  if (consignes) {
+    document.getElementById('brief-consignes-text').textContent = consignes;
+    document.getElementById('brief-consignes').style.display = '';
+  }
+  if (guide) {
+    document.getElementById('brief-guide-text').textContent = guide;
+    document.getElementById('brief-guide').style.display = '';
+  }
+  if (consignes || guide) document.getElementById('brief-block').style.display = '';
+}
+
+// Icône par type de critère : partagée par le rendu et l'affichage.
+const CRIT_ICON = { echelle: '⭐', note: '🔢', yesno: '✅', select: '📋', multi: '☑️', check: '✔️', texte: '💬' };
+
+function getFormValues() {
+  const values = {};
+  criteria.forEach(cr => {
+    const block = document.querySelector(`.eval-criterion[data-criterion-id="${cr.id}"]`);
+    if (!block) return;
+    if (cr.type === 'echelle') {
+      const sel = block.querySelector('.scale-btn.selected');
+      values[cr.id] = sel ? parseInt(sel.dataset.value) : null;
+    } else if (cr.type === 'yesno') {
+      const sel = block.querySelector('.scale-btn.selected');
+      values[cr.id] = sel ? sel.dataset.value : null;
+    } else if (cr.type === 'note') {
+      const inp = block.querySelector('input');
+      values[cr.id] = inp?.value !== '' ? parseFloat(inp.value) : null;
+    } else if (cr.type === 'check') {
+      const box = block.querySelector('input[type=checkbox]');
+      values[cr.id] = box?.checked ? true : null;   // null = non renseigné
+    } else if (cr.type === 'select') {
+      const sel = block.querySelector('.scale-btn.selected');
+      values[cr.id] = sel ? sel.dataset.value : null;
+    } else if (cr.type === 'multi') {
+      const sels = [...block.querySelectorAll('.scale-btn.selected')].map(b => b.dataset.value);
+      values[cr.id] = sels.length ? sels : null;
+    } else {
+      const ta = block.querySelector('textarea');
+      values[cr.id] = ta?.value.trim() || null;
+    }
+  });
+  return values;
+}
+
+function setFormValues(evalData) {
+  const criteriaValues = evalData.criteria || {};
+  criteria.forEach(cr => {
+    const block = document.querySelector(`.eval-criterion[data-criterion-id="${cr.id}"]`);
+    if (!block) return;
+    const val = criteriaValues[cr.id];
+    if (val === null || val === undefined) return;
+    if (cr.type === 'echelle') {
+      block.querySelectorAll('.scale-btn').forEach(b => {
+        b.classList.toggle('selected', parseInt(b.dataset.value) === val);
+      });
+    } else if (cr.type === 'yesno') {
+      block.querySelectorAll('.scale-btn').forEach(b => {
+        b.classList.toggle('selected', b.dataset.value === val);
+      });
+    } else if (cr.type === 'note') {
+      const inp = block.querySelector('input');
+      if (inp) inp.value = val;
+    } else if (cr.type === 'check') {
+      const box = block.querySelector('input[type=checkbox]');
+      if (box) box.checked = val === true;
+    } else if (cr.type === 'select') {
+      block.querySelectorAll('.scale-btn').forEach(b => {
+        b.classList.toggle('selected', b.dataset.value === val);
+      });
+    } else if (cr.type === 'multi') {
+      const arr = Array.isArray(val) ? val : [val];   // tolère une ancienne valeur simple
+      block.querySelectorAll('.scale-btn').forEach(b => {
+        b.classList.toggle('selected', arr.includes(b.dataset.value));
+      });
+    } else {
+      const ta = block.querySelector('textarea');
+      if (ta) ta.value = val;
+    }
+  });
+  document.getElementById('note-globale').value = evalData.noteGlobale ?? '';
+  document.getElementById('decision').value     = evalData.decision     || '';
+  document.getElementById('commentaire').value  = evalData.commentaire  || '';
+}
+
+async function loadExistingEval() {
+  // Filtre par asso indispensable : sans lui, Firestore refusait la requête à
+  // tout membre du bureau non admin (la règle de lecture dépend de
+  // organizationId), et la fiche ne retrouvait jamais une évaluation existante.
+  const filtres = [
+    where('candidateId', '==', candidateId),
+    where('campaignId',  '==', campaignId),
+  ];
+  if (campaign?.organizationId) filtres.unshift(where('organizationId', '==', campaign.organizationId));
+  const snap = await getDocs(query(collection(db, 'interview_evaluations'), ...filtres));
+  if (!snap.empty) {
+    const latest = snap.docs[snap.docs.length - 1];
+    currentEvalId = latest.id;
+    setFormValues(latest.data());
+    const savedAt = latest.data().updatedAt?.toDate?.() || latest.data().createdAt?.toDate?.();
+    const savedStr = savedAt
+      ? `${savedAt.toLocaleDateString('fr-FR')} à ${savedAt.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}`
+      : null;
+    if (savedStr) {
+      document.getElementById('last-saved').textContent = `Dernière sauvegarde : ${savedStr}`;
+    }
+    const notice = document.getElementById('existing-eval-notice');
+    document.getElementById('existing-eval-text').textContent =
+      `Fiche déjà remplie${savedStr ? ' · ' + savedStr : ''}, les champs sont pré-remplis.`;
+    notice.style.display = 'flex';
+  }
+}
+
+async function saveEval() {
+  const values = getFormValues();
+
+  // Vérifier critères obligatoires
+  const missing = criteria.filter(cr => cr.required && (values[cr.id] === null || values[cr.id] === undefined || values[cr.id] === ''));
+  if (missing.length) {
+    return showToast(`Critère(s) obligatoire(s) manquant(s) : ${missing.map(c => c.label).join(', ')}`, 'error');
+  }
+
+  const btn = document.getElementById('btn-save');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner" style="width:14px;height:14px;border-width:2px;margin-right:6px;"></span>Enregistrement…';
+
+  const noteVal = document.getElementById('note-globale').value;
+  const evalData = {
+    candidateId,
+    campaignId,
+    organizationId: campaign.organizationId,
+    evaluatedBy:   user.uid,
+    criteria:      values,
+    noteGlobale:   noteVal !== '' ? parseFloat(noteVal) : null,
+    decision:      document.getElementById('decision').value || null,
+    commentaire:   document.getElementById('commentaire').value.trim() || null,
+    updatedAt:     serverTimestamp(),
+  };
+
+  try {
+    if (currentEvalId) {
+      await updateDoc(doc(db, 'interview_evaluations', currentEvalId), evalData);
+    } else {
+      evalData.createdAt = serverTimestamp();
+      const ref = await addDoc(collection(db, 'interview_evaluations'), evalData);
+      currentEvalId = ref.id;
+    }
+
+    // Mettre à jour le statut seulement si on progresse dans l'ordre
+    const STATUS_ORDER = ['recu', 'place', 'entretien_fait'];
+    const newStatut = 'entretien_fait';
+    if (STATUS_ORDER.indexOf(newStatut) > STATUS_ORDER.indexOf(candidate?.statut || 'recu')) {
+      await updateDoc(doc(db, 'candidates', candidateId), { statut: newStatut });
+      if (candidate) candidate.statut = newStatut;
+    }
+
+    showToast('Évaluation enregistrée.', 'success');
+    document.getElementById('last-saved').textContent = `Sauvegardé à ${new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}`;
+    if (window.parent !== window) window.parent.postMessage('eval-saved', '*');
+  } catch (err) {
+    showToast('Erreur : ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '💾 Enregistrer l\'évaluation';
+  }
+}
+
+init();
+</script>
+</body>
+</html>

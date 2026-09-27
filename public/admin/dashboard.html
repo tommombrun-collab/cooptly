@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <script>(function(){var t=localStorage.getItem("_theme");if(t)document.documentElement.setAttribute("data-theme",t);})();</script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin · Cooptly</title>
+  <!-- Connexions ouvertes d'avance : sans elles, chaque serveur (polices,
+       SDK, base de données) coûtait sa propre poignée de main réseau au
+       moment où la page en avait besoin. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin />
+  <!-- Le SDK est préchargé dès l'en-tête. Sinon le navigateur ne le
+       découvre qu'en arrivant au script, tout en bas de la page. -->
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js" />
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js" />
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js" />
+  <!-- Polices en <link> et non plus en @import dans main.css : l'@import
+       obligeait à télécharger la feuille de style avant même de découvrir
+       les polices, trois allers-retours à la suite avant le texte. -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Antic&family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;600;700&display=swap" />
+  <link rel="stylesheet" href="/css/main.css" />
+</head>
+<body>
+
+<nav class="nav">
+  <a href="/admin/dashboard.html" class="nav-brand">
+    <div class="nav-brand-icon">C</div>
+    <span class="nav-brand-name">Cooptly</span>
+  </a>
+    <div class="nav-links">
+    <a href="/admin/dashboard.html" class="nav-link active">Vue d'ensemble</a>
+    <a href="/admin/organisations.html" class="nav-link">Organisations</a>
+    <a href="/admin/permissions.html" class="nav-link">Permissions</a>
+    <a href="/admin/data.html" class="nav-link">Base de données</a>
+  </div>
+  <div class="nav-right">
+    <span id="user-name" style="font-size:13px;color:var(--text-muted);"></span>
+    <button class="btn btn-ghost btn-sm" id="btn-logout">Déconnexion</button>
+  </div>
+</nav>
+
+<main class="page">
+
+  <div class="flex-between mb-24">
+    <div><h1>Vue d'ensemble</h1><p>Toutes les associations de la plateforme</p></div>
+    <a href="/admin/organisations.html" class="btn btn-primary">+ Nouvelle organisation</a>
+  </div>
+
+  <!-- Stats globales -->
+  <div class="stats-grid mb-24" id="global-stats">
+    <div class="stat-card"><div class="stat-value" id="stat-orgs">·</div><div class="stat-label">Associations</div></div>
+    <div class="stat-card"><div class="stat-value" id="stat-campaigns">·</div><div class="stat-label">Recrutements ouverts</div></div>
+    <div class="stat-card"><div class="stat-value" id="stat-candidates">·</div><div class="stat-label">Cooptations totales</div></div>
+    <div class="stat-card"><div class="stat-value" id="stat-users">·</div><div class="stat-label">Membres staff</div></div>
+  </div>
+
+  <!-- Liste des organisations -->
+  <div class="card">
+    <h2 class="mb-16">Associations</h2>
+    <div id="orgs-loading" style="text-align:center;padding:40px;"><div class="spinner" style="margin:auto;"></div></div>
+    <div id="orgs-list" style="display:none;"></div>
+  </div>
+
+</main>
+
+<script type="module">
+import { requireAdmin, logout } from '/js/auth.js';
+import { app } from '/js/auth.js';
+import { getFirestore, collection, getDocs, query, where }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { initBurgerMenu } from '/js/nav.js';
+
+const db = getFirestore(app);
+
+async function init() {
+  const user = await requireAdmin();
+  // Le menu se construit EN PARALLÈLE des données : l'attendre retardait
+  // tout l'affichage de la page, alors qu'il n'en conditionne rien.
+  initBurgerMenu(user).catch(e => console.warn('Menu non construit :', e));
+  document.getElementById('user-name').textContent = user.displayName || user.email.split('@')[0];
+  document.getElementById('btn-logout').addEventListener('click', async () => { await logout(); location.href='/index.html'; });
+
+  const [orgsSnap, campaignsSnap, candidatesSnap, membersSnap] = await Promise.all([
+    getDocs(collection(db, 'organizations')),
+    getDocs(collection(db, 'campaigns')),
+    getDocs(collection(db, 'candidates')),
+    getDocs(collection(db, 'memberships'))
+  ]);
+
+  const orgs = orgsSnap.docs.map(d => ({id:d.id,...d.data()}));
+  const campaigns = campaignsSnap.docs.map(d => ({id:d.id,...d.data()}));
+  const members = membersSnap.docs.map(d => ({id:d.id,...d.data()}));
+
+  document.getElementById('stat-orgs').textContent = orgs.length;
+  document.getElementById('stat-campaigns').textContent = campaigns.filter(c=>c.recrutementOuvert===true).length;
+  document.getElementById('stat-candidates').textContent = candidatesSnap.size;
+  document.getElementById('stat-users').textContent = members.length;
+
+  const list = document.getElementById('orgs-list');
+  list.style.display = '';
+  document.getElementById('orgs-loading').style.display = 'none';
+
+  if (!orgs.length) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🏢</div><p>Aucune organisation. <a href="/admin/organisations.html">Créez-en une.</a></p></div>';
+    return;
+  }
+
+  orgs.forEach(org => {
+    const orgCampaigns = campaigns.filter(c => c.organizationId === org.id);
+    const orgMembers   = members.filter(m => m.organizationId === org.id);
+    const openC = orgCampaigns.filter(c => c.statut === 'ouverte').length;
+
+    const card = document.createElement('div');
+    card.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:16px 0;border-bottom:1px solid var(--border);gap:12px;flex-wrap:wrap;';
+    card.innerHTML = `
+      <div style="display:flex;align-items:center;gap:14px;">
+        ${org.logoBase64
+          ? `<img src="${org.logoBase64}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0;" />`
+          : `<div style="width:40px;height:40px;border-radius:50%;background:${org.primaryColor||'var(--indigo)'};display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:16px;flex-shrink:0;">${(org.name||'?')[0]}</div>`
+        }
+        <div>
+          <div style="font-weight:700;font-size:15px;">${org.name}</div>
+          <div style="font-size:13px;color:var(--text-muted);">/${org.slug} · ${orgCampaigns.length} campagne(s) · ${orgMembers.length} membre(s)</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        ${openC > 0 ? `<span class="badge badge-green">${openC} ouverte(s)</span>` : '<span class="badge badge-gray">Aucune campagne ouverte</span>'}
+        <a href="/secge/dashboard.html?org=${org.id}" class="btn btn-ghost btn-sm">Gérer →</a>
+      </div>`;
+    list.appendChild(card);
+  });
+}
+
+init();
+</script>
+</body>
+</html>

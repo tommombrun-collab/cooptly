@@ -1,0 +1,1924 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <script>(function(){var t=localStorage.getItem("_theme");if(t)document.documentElement.setAttribute("data-theme",t);})();</script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Planning · Cooptly</title>
+  <!-- Connexions ouvertes d'avance : sans elles, chaque serveur (polices,
+       SDK, base de données) coûtait sa propre poignée de main réseau au
+       moment où la page en avait besoin. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin />
+  <!-- Le SDK est préchargé dès l'en-tête. Sinon le navigateur ne le
+       découvre qu'en arrivant au script, tout en bas de la page. -->
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js" />
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js" />
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js" />
+  <!-- Polices en <link> et non plus en @import dans main.css : l'@import
+       obligeait à télécharger la feuille de style avant même de découvrir
+       les polices, trois allers-retours à la suite avant le texte. -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Antic&family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;600;700&display=swap" />
+  <link rel="stylesheet" href="/css/main.css" />
+  <style>
+    /* ── Slot picker ────────────────────────────────────────────── */
+    .slot-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .slot-btn {
+      padding: 7px 4px;
+      border-radius: 8px;
+      border: 2px solid var(--border);
+      background: var(--bg);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+      transition: all .12s;
+      line-height: 1.3;
+      position: relative;
+    }
+    .slot-btn:hover:not(:disabled) { border-color: var(--indigo); }
+    .slot-btn.avail   { background: #F0FDF4; border-color: #86EFAC; color: #15803D; }
+    .slot-btn.unavail { background: #F8FAFC; color: var(--text-muted); }
+    .slot-btn.conflict{ background: #FEF2F2; border-color: #FECACA; color: var(--red); text-decoration: line-through; cursor: not-allowed; }
+    .slot-btn.selected{ background: var(--indigo) !important; border-color: var(--indigo) !important; color: #fff !important; }
+    .slot-btn .conflict-tip { font-size: 9px; font-weight: 400; display: block; opacity: .8; }
+
+    /* ── Candidate allocation list ──────────────────────────────── */
+    .alloc-cand-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 14px; border-radius: 8px; gap: 8px;
+      cursor: pointer; transition: background .12s;
+      border: 1.5px solid transparent;
+    }
+    .alloc-cand-item:hover { background: var(--bg); }
+    .alloc-cand-item.selected { background: var(--indigo-light); border-color: var(--indigo); }
+
+    /* ── Jury checkboxes ────────────────────────────────────────── */
+    .jury-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 12px; border-radius: 8px;
+      border: 1.5px solid var(--border);
+      cursor: pointer; transition: all .12s;
+      user-select: none;
+    }
+    .jury-item:hover { border-color: var(--indigo); background: var(--indigo-light); }
+    .jury-item.checked { border-color: var(--indigo); background: var(--indigo-light); }
+    .jury-item.unavail-jury { opacity: .55; }
+
+    /* ── Allocation panel ───────────────────────────────────────── */
+    #alloc-panel {
+      position: sticky; top: 80px;
+    }
+
+    /* ── Assignment summary row ─────────────────────────────────── */
+    .assign-row {
+      padding: 10px 0; border-bottom: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center; gap: 8px;
+    }
+    .assign-row .assign-info { flex: 1; min-width: 0; }
+    .assign-row .assign-time { font-weight: 700; color: var(--indigo); white-space: nowrap; }
+
+    /* ── Heatmap disponibilités ─────────────────────────────────── */
+    .dispo-cell-wrap { position:relative; text-align:center; padding:5px 4px; min-width:80px; transition:background .12s; }
+    .dispo-count     { font-weight:700; font-size:13px; line-height:1.2; }
+    .dispo-iv-badge  { font-size:9px; font-weight:600; background:var(--indigo); color:#fff; border-radius:3px;
+                       padding:1px 4px; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+                       max-width:100%; display:block; }
+
+    /* ── Détail d'un créneau de la heatmap ───────────────────────── */
+    /* La heatmap ne donnait qu'un compte (« 3/16 ») : savoir QUI est dispo
+       imposait de survoler chaque case une par une pour lire l'infobulle. */
+    .dispo-cell-clickable { cursor: pointer; transition: outline-color .12s; outline: 2px solid transparent; outline-offset: -2px; }
+    .dispo-cell-clickable:hover { outline-color: var(--indigo); }
+    .dispo-person {
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 10px; border-radius: 9px; background: var(--bg);
+    }
+    .dispo-person.absent { opacity: .62; }
+    .dispo-avatar {
+      width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700; color: #fff; background: var(--indigo);
+    }
+    .dispo-person.absent .dispo-avatar { background: var(--text-light); }
+    .dispo-group-title {
+      font-size: 11.5px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .07em; color: var(--text-muted); margin-bottom: 8px;
+    }
+
+    /* ── Interview detail popup ──────────────────────────────────── */
+    #iv-popup-overlay {
+      display: none;
+      position: fixed; inset: 0; z-index: 8000;
+      background: rgba(15,23,42,.45); backdrop-filter: blur(3px);
+      align-items: center; justify-content: center; padding: 24px;
+    }
+    #iv-popup-overlay.open { display: flex; }
+    #slot-popup-overlay {
+      display: none;
+      position: fixed; inset: 0; z-index: 8000;
+      background: rgba(15,23,42,.45); backdrop-filter: blur(3px);
+      align-items: center; justify-content: center; padding: 24px;
+    }
+    #slot-popup-overlay.open { display: flex; }
+    #slot-popup {
+      background: var(--surface); border-radius: 16px;
+      box-shadow: 0 24px 64px rgba(0,0,0,.22); width: 100%; max-width: 460px;
+      overflow: hidden; animation: popup-in .18s ease;
+    }
+    #slot-popup .popup-header {
+      padding: 20px 24px 16px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 14px;
+    }
+    #slot-popup .popup-body { padding: 20px 24px; display: flex; flex-direction: column; gap: 18px; }
+    /* En colonne, hauteur bornée à l'écran : l'en-tête et les boutons restent
+       en place et seul le corps défile. Avant, la liste des jurés avait son
+       propre défilement de 180 px dans la fenêtre : les noms du haut et du bas
+       apparaissaient coupés en deux, sans rien qui indique qu'on pouvait
+       faire défiler. */
+    #iv-popup {
+      background: var(--surface); border-radius: 16px;
+      box-shadow: 0 24px 64px rgba(0,0,0,.22); width: 100%; max-width: 560px;
+      max-height: calc(100vh - 48px); display: flex; flex-direction: column;
+      overflow: hidden; animation: popup-in .18s ease;
+    }
+    @keyframes popup-in { from { opacity:0; transform: translateY(12px) scale(.97); } }
+    #iv-popup .popup-header {
+      padding: 20px 24px 16px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 14px; flex-shrink: 0;
+    }
+    #iv-popup .popup-body {
+      padding: 20px 24px; display: flex; flex-direction: column; gap: 16px;
+      overflow-y: auto; min-height: 0;
+    }
+    /* Quatre boutons ne tenaient pas dans 480 px : « Supprimer » était coupé.
+       Fenêtre élargie, et passage à la ligne si l'écran est étroit. */
+    #iv-popup .popup-footer {
+      padding: 16px 24px; border-top: 1px solid var(--border);
+      display: flex; flex-wrap: wrap; gap: 10px; align-items: center; flex-shrink: 0;
+    }
+    .iv-info-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+    }
+    .iv-info-cell {
+      background: var(--bg); border-radius: 8px; padding: 10px 12px;
+    }
+    .iv-info-cell .label { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 3px; }
+    .iv-info-cell .value { font-size: 13px; font-weight: 600; }
+    /* Filtre par personne : estompe les entretiens hors sélection */
+    .planning-cell.dimmed { opacity: .15; filter: grayscale(.6); }
+    /* Réponses au formulaire, dans le popup d'entretien */
+    .iv-rep { background: var(--bg); border-radius: 10px; padding: 9px 12px; }
+    .iv-rep + .iv-rep { margin-top: 6px; }
+    .iv-rep .label { font-size: 11px; font-weight: 600; color: var(--text-muted); }
+    .iv-rep .value { font-size: 13px; margin-top: 2px; white-space: pre-wrap; overflow-wrap: anywhere; }
+    /* En-tête de jour cliquable : copie la liste des entretiens du jour */
+    #planning-table thead th[data-jour] { cursor: pointer; transition: background .12s, color .12s; }
+    #planning-table thead th[data-jour]:hover { background: var(--indigo-light); color: var(--indigo-dark); }
+    #planning-table thead th[data-jour]:focus-visible { outline: 2px solid var(--indigo); outline-offset: -2px; }
+    #planning-table thead th .jour-copie { opacity: 0; margin-left: 4px; transition: opacity .12s; }
+    #planning-table thead th[data-jour]:hover .jour-copie,
+    #planning-table thead th[data-jour]:focus-visible .jour-copie { opacity: .8; }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="/secge/dashboard.html" class="nav-brand">
+    <div class="nav-brand-icon">C</div>
+    <span class="nav-brand-name">Cooptly</span>
+  </a>
+  <div class="nav-links">
+    <a href="/secge/dashboard.html"  class="nav-link">Tableau de bord</a>
+    <a href="/secge/candidats.html"  class="nav-link">Cooptants</a>
+    <a href="/planning.html"         class="nav-link active">Planning</a>
+    <a href="/parametres.html"       class="nav-link">Paramètres</a>
+  </div>
+  <div class="nav-right">
+    <button class="btn btn-ghost btn-sm" id="btn-logout">Déconnexion</button>
+  </div>
+</nav>
+
+<main class="page-wide">
+
+  <!-- En-tête + sélecteur campagne -->
+  <div class="flex-between mb-24">
+    <div>
+      <h1>Planning des entretiens</h1>
+      <p id="campaign-dates-hint" style="color:var(--text-muted);font-size:14px;"></p>
+    </div>
+    <div class="flex-gap">
+      <select class="form-select" id="campaign-select" style="width:220px;font-size:14px;">
+        <option value="">Sélectionner une campagne</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs" style="margin-bottom:24px;">
+    <button class="tab-btn active" data-tab="grille">📅 Grille de planning</button>
+    <button class="tab-btn" data-tab="allocation">✋ Allocation manuelle</button>
+    <button class="tab-btn" data-tab="dispos">👥 Dispos membres</button>
+  </div>
+
+  <!-- ── Tab: Grille ──────────────────────────────────────────── -->
+  <div class="tab-panel active" id="tab-grille">
+
+    <div class="flex-between mb-16">
+      <div class="card" style="padding:10px 16px;flex:1;margin-right:16px;">
+        <div class="flex-gap" style="font-size:13px;">
+          <div style="display:flex;align-items:center;gap:6px;"><div style="width:10px;height:10px;border-radius:2px;background:var(--green);"></div>Complet</div>
+          <div style="display:flex;align-items:center;gap:6px;"><div style="width:10px;height:10px;border-radius:2px;background:var(--orange);"></div>Salle manquante</div>
+          <div style="display:flex;align-items:center;gap:6px;"><div style="width:10px;height:10px;border-radius:2px;background:var(--red);"></div>Jury manquant</div>
+        </div>
+      </div>
+      <div class="flex-gap">
+        <select class="form-select" id="planning-filter" style="max-width:210px;font-size:13px;">
+          <option value="">👤 Tout le monde</option>
+        </select>
+        <button class="btn btn-secondary" id="btn-copy-links" title="Planning en lecture seule, à partager au staff">🔗 Copier le lien du planning public</button>
+      </div>
+    </div>
+
+    <div id="loading-state" style="padding:16px 0 24px;">
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:12px;">
+        <div class="skel skel-row" style="height:28px;border-radius:6px;"></div>
+        <div class="skel skel-row" style="height:28px;border-radius:6px;opacity:.85;"></div>
+        <div class="skel skel-row" style="height:28px;border-radius:6px;opacity:.7;"></div>
+        <div class="skel skel-row" style="height:28px;border-radius:6px;opacity:.85;"></div>
+        <div class="skel skel-row" style="height:28px;border-radius:6px;opacity:.7;"></div>
+        <div class="skel skel-row" style="height:28px;border-radius:6px;opacity:.55;"></div>
+        <div class="skel skel-row" style="height:28px;border-radius:6px;opacity:.4;"></div>
+      </div>
+      <div class="skel-list">
+        <div class="skel skel-card" style="height:48px;"></div>
+        <div class="skel skel-card" style="height:48px;opacity:.7;"></div>
+        <div class="skel skel-card" style="height:48px;opacity:.45;"></div>
+      </div>
+    </div>
+    <div id="empty-state" class="empty-state" style="display:none;">
+      <div class="empty-state-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
+      <h3>Aucun entretien planifié</h3>
+      <p>Les créneaux sont réservés quand les cooptants soumettent leur formulaire.</p>
+      <a href="/secge/candidats.html" class="empty-state-action">Voir les cooptants</a>
+    </div>
+    <div class="grid-wrap" id="grid-wrap" style="display:none;">
+      <table class="planning-grid" id="planning-table"></table>
+    </div>
+  </div>
+
+  <!-- ── Tab: Allocation manuelle ─────────────────────────────── -->
+  <div class="tab-panel" id="tab-allocation">
+
+    <div id="alloc-no-campaign" class="empty-state">
+      <div class="empty-state-icon">📋</div>
+      <p>Sélectionne une campagne pour gérer les allocations.</p>
+    </div>
+
+    <div id="alloc-content" style="display:none;">
+
+      <div class="alloc-grid" style="display:grid;grid-template-columns:340px 1fr;gap:20px;align-items:start;">
+
+        <!-- ── Colonne gauche : liste candidats ── -->
+        <div>
+          <div class="card mb-16" style="padding:12px 16px;">
+            <div class="flex-gap" style="gap:8px;">
+              <input class="form-input" id="alloc-search" placeholder="Rechercher…" style="flex:1;font-size:14px;" />
+              <select class="form-select" id="alloc-filter" style="width:140px;font-size:13px;">
+                <option value="">Tous</option>
+                <option value="recu">Non placés</option>
+                <option value="place">Déjà placés</option>
+              </select>
+            </div>
+          </div>
+          <div class="card">
+            <div class="flex-between mb-12">
+              <h3 style="font-size:15px;">Cooptants</h3>
+              <span id="alloc-count" class="badge badge-indigo" style="font-size:11px;"></span>
+            </div>
+            <div id="alloc-cand-list">
+              <div class="spinner" style="margin:20px auto;display:block;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Colonne droite : panneau d'assignation ── -->
+        <div>
+          <div id="alloc-panel-empty" class="card" style="text-align:center;padding:48px;color:var(--text-muted);">
+            <div style="font-size:36px;margin-bottom:12px;">👈</div>
+            <p>Sélectionne un cooptant pour l'assigner à un créneau.</p>
+          </div>
+
+          <div id="alloc-panel" style="display:none;">
+
+            <!-- Info candidat -->
+            <div class="card mb-16">
+              <div style="display:flex;align-items:center;gap:14px;">
+                <div id="ap-avatar" style="width:48px;height:48px;border-radius:10px;background:var(--indigo);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;flex-shrink:0;"></div>
+                <div>
+                  <div id="ap-name" style="font-weight:800;font-size:17px;"></div>
+                  <div id="ap-meta" class="text-sm text-muted" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:3px;"></div>
+                </div>
+                <div style="margin-left:auto;">
+                  <span id="ap-statut-badge" class="badge"></span>
+                </div>
+              </div>
+              <!-- Dispo résumé -->
+              <div id="ap-dispo-summary" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
+                <div class="text-sm text-muted" style="font-weight:600;margin-bottom:8px;">📅 Disponibilités déclarées</div>
+                <div id="ap-dispo-chips" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+              </div>
+            </div>
+
+            <!-- Formulaire d'assignation -->
+            <div class="card">
+              <h3 style="font-size:15px;margin-bottom:16px;">Assigner un créneau</h3>
+
+              <!-- Date -->
+              <div class="form-group">
+                <label class="form-label" for="ap-date">Date <span class="required">*</span></label>
+                <select class="form-select" id="ap-date">
+                  <option value="">Sélectionner un jour</option>
+                </select>
+              </div>
+
+              <!-- Créneau horaire -->
+              <div class="form-group" id="ap-slot-group" style="display:none;">
+                <label class="form-label">
+                  Créneau de début <span class="required">*</span>
+                  <span class="form-hint" style="display:inline;font-weight:400;">
+                    · <span style="display:inline-flex;align-items:center;gap:3px;"><span style="width:8px;height:8px;border-radius:2px;background:#86EFAC;display:inline-block;"></span>disponible</span>
+                    <span style="display:inline-flex;align-items:center;gap:3px;margin-left:6px;"><span style="width:8px;height:8px;border-radius:2px;background:var(--red);display:inline-block;"></span>conflit</span>
+                  </span>
+                </label>
+                <div class="slot-grid" id="ap-slots"></div>
+              </div>
+
+              <!-- Salle -->
+              <div class="form-group" id="ap-room-group" style="display:none;">
+                <label class="form-label" for="ap-room">Salle</label>
+                <input type="text" class="form-input" id="ap-room"
+                  list="ap-room-list" autocomplete="off"
+                  placeholder="Saisir ou choisir une salle…" />
+                <datalist id="ap-room-list"></datalist>
+                <span class="form-hint" id="ap-room-hint"></span>
+              </div>
+
+              <!-- Jurys -->
+              <div class="form-group" id="ap-jury-group" style="display:none;">
+                <label class="form-label">
+                  Jurys
+                  <span id="ap-jury-hint" class="form-hint" style="display:inline;font-weight:400;"></span>
+                </label>
+                <div id="ap-jury-list" style="display:flex;flex-direction:column;gap:6px;"></div>
+              </div>
+
+              <!-- Actions -->
+              <div class="flex-gap mt-16" id="ap-actions" style="display:none;">
+                <button class="btn btn-primary" id="btn-assign">✅ Confirmer l'assignation</button>
+                <button class="btn btn-ghost" id="btn-assign-cancel">Annuler</button>
+                <button class="btn btn-danger btn-sm" id="btn-unassign" style="margin-left:auto;display:none;">🗑 Supprimer l'entretien</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── Tab: Disponibilités membres ──────────────────────────── -->
+  <div class="tab-panel" id="tab-dispos">
+    <div id="dispos-no-campaign" class="empty-state">
+      <div class="empty-state-icon">📅</div>
+      <p>Sélectionne une campagne pour voir les disponibilités.</p>
+    </div>
+    <div id="dispos-content" style="display:none;">
+      <!-- Légende + meilleurs créneaux -->
+      <div class="card mb-16" style="padding:12px 16px;">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:13px;">
+          <div>
+            <span style="font-weight:600;">Membres disponibles par créneau</span>
+            <div id="dispos-repondants" class="text-sm text-muted" style="margin-top:2px;"></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;margin-left:auto;font-size:12px;color:var(--text-muted);">
+            Aucun →
+            <div style="display:flex;gap:2px;">
+              <div style="width:16px;height:16px;border-radius:3px;background:rgba(34,197,94,.18);border:1px solid #e2e8f0;"></div>
+              <div style="width:16px;height:16px;border-radius:3px;background:rgba(34,197,94,.40);"></div>
+              <div style="width:16px;height:16px;border-radius:3px;background:rgba(34,197,94,.65);"></div>
+              <div style="width:16px;height:16px;border-radius:3px;background:rgba(34,197,94,.85);"></div>
+            </div>
+            → Tous
+          </div>
+          <div style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);">
+            <div style="width:10px;height:10px;border-radius:2px;background:var(--indigo);"></div>
+            Entretien planifié
+          </div>
+        </div>
+        <div style="margin-top:10px;">
+          <span style="font-size:12px;font-weight:600;color:var(--text-muted);">Meilleurs créneaux : </span>
+          <span id="dispos-best" style="display:inline-flex;gap:6px;flex-wrap:wrap;"></span>
+        </div>
+      </div>
+      <div class="grid-wrap">
+        <table class="planning-grid" id="dispos-table"></table>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- ── Détail d'un créneau de la heatmap ────────────────────────── -->
+<div id="slot-popup-overlay">
+  <div id="slot-popup">
+    <div class="popup-header">
+      <div id="slot-pop-badge" style="width:44px;height:44px;border-radius:10px;background:var(--indigo);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:800;font-size:15px;line-height:1;flex-shrink:0;"></div>
+      <div style="flex:1;min-width:0;">
+        <div id="slot-pop-title" style="font-weight:800;font-size:16px;"></div>
+        <div id="slot-pop-sub" style="font-size:12px;color:var(--text-muted);margin-top:2px;"></div>
+      </div>
+      <button onclick="closeSlotPopup()" aria-label="Fermer" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:20px;line-height:1;padding:4px;">✕</button>
+    </div>
+    <div class="popup-body" id="slot-pop-body" style="max-height:60vh;overflow-y:auto;"></div>
+  </div>
+</div>
+
+<!-- ── Interview detail popup ───────────────────────────────────── -->
+<div id="iv-popup-overlay">
+  <div id="iv-popup">
+    <div class="popup-header">
+      <div id="iv-avatar" style="width:44px;height:44px;border-radius:10px;background:var(--indigo);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;flex-shrink:0;"></div>
+      <div style="flex:1;min-width:0;">
+        <div id="iv-name" style="font-weight:800;font-size:16px;"></div>
+        <div id="iv-time" style="font-size:12px;color:var(--text-muted);margin-top:2px;"></div>
+      </div>
+      <button onclick="closeIvPopup()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:20px;line-height:1;padding:4px;">✕</button>
+    </div>
+    <div class="popup-body">
+      <!-- Info grid -->
+      <div class="iv-info-grid">
+        <div class="iv-info-cell"><div class="label">Email</div><div class="value" id="iv-email">·</div></div>
+        <div class="iv-info-cell"><div class="label">Téléphone</div><div class="value" id="iv-phone">·</div></div>
+        <div class="iv-info-cell"><div class="label">Salle</div>
+          <input type="text" class="form-input" id="iv-room-sel"
+            list="iv-room-list" autocomplete="off"
+            placeholder="Saisir ou choisir…"
+            style="font-size:13px;padding:5px 8px;height:auto;margin-top:4px;" />
+          <datalist id="iv-room-list"></datalist>
+        </div>
+      </div>
+      <!-- Réponses au formulaire de cooptation -->
+      <div id="iv-reponses-wrap" style="display:none;">
+        <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Réponses au formulaire</div>
+        <div id="iv-reponses"></div>
+      </div>
+      <!-- Jury editor -->
+      <div>
+        <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">
+          Jury <span id="iv-jury-hint" class="text-sm" style="font-size:10px;text-transform:none;font-weight:400;letter-spacing:0;"></span>
+        </div>
+        <div id="iv-jury-list" style="display:flex;flex-direction:column;gap:4px;"></div>
+      </div>
+      <!-- Notes -->
+      <div>
+        <label class="form-label" style="margin-bottom:6px;">Notes internes</label>
+        <textarea id="iv-notes" class="form-textarea" rows="3" placeholder="Notes visibles uniquement par le bureau…"></textarea>
+      </div>
+    </div>
+    <div class="popup-footer">
+      <button class="btn btn-primary btn-sm" id="iv-save-btn" onclick="saveIvPopup()">💾 Sauvegarder</button>
+      <button class="btn btn-ghost btn-sm" onclick="closeIvPopup()">Fermer</button>
+      <button class="btn btn-ghost btn-sm" id="iv-edit-btn" style="margin-left:auto;" onclick="editInAlloc()">✏️ Modifier créneau</button>
+      <button class="btn btn-danger btn-sm" id="iv-delete-btn" onclick="deleteIvFromPopup()">🗑 Supprimer</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { requireSecge, logout, app, resolveOrgContext } from '/js/auth.js';
+import { initBurgerMenu } from '/js/nav.js';
+import { getCampaignsByOrg, getOrCreateOrgCampaign, getInterviewsByCampaign, getCandidatesByCampaign,
+  getRoomsByOrg, getMembersByOrg, getOrg, getCampaign, createInterview, updateInterview } from '/js/db.js';
+import { getFirestore, collection, query, where, getDocs, doc, addDoc,
+  updateDoc, deleteDoc, serverTimestamp, Timestamp }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { showToast, getCampaignDays, getTimeSlots, esc, localDateStr, campaignConfig, confirmDialog, telephoneCooptant, nomCourt,
+  prenomInitiale, reponsesOrdonnees } from '/js/utils.js';
+import { heureFinValide, pasCreneauxValide, pasPlanning, ligneDuPlanning } from '/js/capacite.js';
+
+const db = getFirestore(app);
+let user, currentOrg, currentCampaignObj;
+let interviews = [], candidates = [], rooms = [], members = [], staffAvailabilities = [];
+
+/** Clé de comparaison d'un nom : minuscules, espaces normalisés. */
+const normNom = s => (s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+
+// Tout identifiant connu d'une personne → son identifiant de référence.
+let aliasVersCanon = new Map();
+/** Identifiant de référence d'une personne, quel que soit celui qu'on a. */
+const canon = id => (id && aliasVersCanon.get(id)) || id;
+
+/**
+ * Une seule identité par personne, même avec un compte ET une entrée roster.
+ *
+ * Les deux portent des identifiants différents (UID Firebase contre id du doc
+ * roster), et le lien public des dispos écrit l'id ROSTER : c'est lui que
+ * portent les disponibilités et les entretiens attribués automatiquement.
+ * On le garde donc comme référence, et le compte devient un alias.
+ *
+ * Avant, la déduplication gardait le compte et jetait l'entrée roster : les
+ * dispos et les entretiens de la personne ne correspondaient plus à personne,
+ * et elle disparaissait du popup d'entretien alors qu'elle y était jurée.
+ * Encore avant, rien n'était dédupliqué et elle apparaissait deux fois.
+ *
+ * Remplit `aliasVersCanon` au passage.
+ *
+ * @param {object[]} comptes membres avec compte (`{userId, displayName, …}`)
+ * @param {object[]} roster  noms de la liste du staff (`{userId: idRoster, …}`)
+ * @returns {object[]} une entrée par personne
+ */
+function fusionnerIdentites(comptes, roster) {
+  const parNom = new Map();
+  aliasVersCanon = new Map();
+
+  // Le roster d'abord : son id est celui des dispos et des entretiens.
+  [...roster, ...comptes].forEach(p => {
+    const cle = normNom(p.displayName) || `#${p.userId}`;
+    const deja = parNom.get(cle);
+    if (deja) {
+      aliasVersCanon.set(p.userId, deja.userId);
+      // Un compte apporte son rôle et, souvent, un nom mieux orthographié.
+      if (!p.rosterOnly) Object.assign(deja, { role: p.role || deja.role, rosterOnly: false });
+    } else {
+      parNom.set(cle, { ...p });
+      aliasVersCanon.set(p.userId, p.userId);
+    }
+  });
+  return [...parNom.values()];
+}
+
+/** Ramène les identifiants des jurés d'un entretien à leur référence. */
+function normaliserJures(iv) {
+  return {
+    ...iv,
+    jury1Id: iv.jury1Id ? canon(iv.jury1Id) : iv.jury1Id,
+    jury2Id: iv.jury2Id ? canon(iv.jury2Id) : iv.jury2Id,
+    jury3Id: iv.jury3Id ? canon(iv.jury3Id) : iv.jury3Id,
+  };
+}
+let currentCampaignId = null;
+
+// ── Allocation state ───────────────────────────────────────────
+let selectedCandId = null;
+let apDate = null, apSlot = null, apRoomId = null;
+let apJuryIds = new Set();
+let existingInterviewId = null; // interview being edited
+
+// ── Tabs ───────────────────────────────────────────────────────
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
+  });
+});
+
+// ── Init ───────────────────────────────────────────────────────
+async function init() {
+  user = await requireSecge();
+  // Le menu se construit EN PARALLÈLE des données : l'attendre retardait
+  // tout l'affichage de la page, alors qu'il n'en conditionne rien.
+  initBurgerMenu(user).catch(e => console.warn('Menu non construit :', e));
+  document.getElementById('btn-logout').addEventListener('click', async () => {
+    await logout(); window.location.href = '/index.html';
+  });
+
+  // Contexte org partagé : respecte ?org= et l'asso mémorisée, et valide
+  // qu'elle appartient bien à l'utilisateur.
+  const orgId = await resolveOrgContext(user);
+
+  let campagne = null;
+  if (orgId) {
+    // Tout ce qui ne dépend que de l'asso part EN MÊME TEMPS. Avant : l'asso,
+    // puis salles et staff, puis l'espace de recrutement, chacun attendant la
+    // réponse du précédent.
+    const [org, r, m, rosterSnap, camp] = await Promise.all([
+      getOrg(orgId),
+      getRoomsByOrg(orgId),
+      getMembersByOrg(orgId),
+      getDocs(query(collection(db, 'roster_members'), where('organizationId', '==', orgId))),
+      getOrCreateOrgCampaign(orgId),
+    ]);
+    currentOrg = org;
+    rooms = r;
+    campagne = camp;
+    // Membres avec compte + membres "roster" (dispos déposées sans compte).
+    // Les seconds sont identifiés par l'id de leur doc roster_members (= userId
+    // dans staff_availabilities) pour que leur nom s'affiche dans le planning.
+    const rosterMembers = rosterSnap.docs.map(d => ({ userId: d.id, displayName: d.data().displayName, role: 'member', rosterOnly: true }));
+    members = fusionnerIdentites(m, rosterMembers);
+  }
+
+  populatePlanningFilter();
+  // Espace de recrutement unique de l'asso : plus de sélecteur.
+  const select = document.getElementById('campaign-select');
+  if (select) select.style.display = 'none';
+  // Après fusionnerIdentites : loadCampaignData ramène dispos et jurés à
+  // l'identité de référence de chaque personne.
+  if (campagne) await loadCampaignData(campagne.id, campagne);
+
+  // Allocation search/filter
+  document.getElementById('alloc-search').addEventListener('input', renderAllocCandList);
+  document.getElementById('alloc-filter').addEventListener('change', renderAllocCandList);
+}
+
+// ── Campaign loading ───────────────────────────────────────────
+/**
+ * Charge l'espace de recrutement et tout ce qui en dépend.
+ *
+ * @param {string} campaignId
+ * @param {object} [dejaCharge] campagne déjà lue : évite de la relire. Au
+ *   premier chargement, elle venait d'être lue par getOrCreateOrgCampaign et
+ *   l'était une seconde fois ici, pour rien.
+ */
+async function loadCampaignData(campaignId, dejaCharge = null) {
+  currentCampaignId = campaignId;
+
+  // Campagne, dispos, entretiens et cooptants EN MÊME TEMPS : ils ne dépendent
+  // que de l'identifiant. Avant, la campagne puis les dispos puis le reste
+  // s'attendaient les uns les autres.
+  const [camp, saSnap, ivsBruts, cands] = await Promise.all([
+    dejaCharge ? Promise.resolve(dejaCharge) : getCampaign(campaignId),
+    getDocs(query(collection(db, 'staff_availabilities'), where('campaignId', '==', campaignId))),
+    getInterviewsByCampaign(campaignId),
+    getCandidatesByCampaign(campaignId),
+  ]);
+  currentCampaignObj = camp;
+
+  if (currentCampaignObj) {
+    document.getElementById('campaign-dates-hint').textContent =
+      `Prochaines semaines · ${cfg().dureeMinutes} min/entretien`;
+  }
+  // Identifiants ramenés à la référence de chaque personne (voir
+  // fusionnerIdentites) : qu'une dispo ou un entretien porte l'id du compte ou
+  // celui de la liste du staff, il retombe sur la même personne.
+  staffAvailabilities = saSnap.docs.map(d => {
+    const sa = { id: d.id, ...d.data() };
+    return { ...sa, userId: canon(sa.userId) };
+  });
+
+  interviews = ivsBruts.map(normaliserJures);
+  candidates = cands;
+
+  // ── Grille tab ──
+  renderPlanningGrid();
+
+  // ── Dispos tab ──
+  renderDisposGrid();
+
+  // ── Allocation tab ──
+  document.getElementById('alloc-no-campaign').style.display = 'none';
+  document.getElementById('alloc-content').style.display = '';
+  resetAllocPanel();
+  renderAllocCandList();
+  populateDateSelector();
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  GRILLE DE PLANNING (tab 1)
+// ═══════════════════════════════════════════════════════════════
+function renderPlanningGrid() {
+  document.getElementById('loading-state').style.display = 'none';
+  if (!interviews.length) {
+    document.getElementById('empty-state').style.display = '';
+    document.getElementById('grid-wrap').style.display = 'none';
+    return;
+  }
+  document.getElementById('empty-state').style.display = 'none';
+
+  const campaign = currentCampaignObj;
+  if (!campaign) return;
+
+  const days  = getCampaignDays(currentCampaignObj);  // période de l'asso
+  // Plage et pas réglés par l'asso ; lignes de 15 min si les créneaux sont au quart d'heure.
+  const pasLignes = pasPlanning(cfg().pasCreneauxMinutes);
+  const slots = getTimeSlots(8, heureFinValide(cfg().heureFin), pasLignes);
+
+  const intMap = {};
+  interviews.forEach(iv => {
+    const dt = iv.datetimeStart?.toDate ? iv.datetimeStart.toDate() : new Date(iv.datetimeStart);
+    // Rangé dans la ligne où il commence : un entretien à 10:15 dans une grille
+    // à la demi-heure tombait sinon hors de toute ligne et disparaissait.
+    const key = `${localDateStr(dt)}T${ligneDuPlanning(dt, pasLignes)}`;
+    if (!intMap[key]) intMap[key] = [];
+    intMap[key].push(iv);
+  });
+
+  // Entretiens simultanés (même jour, même heure de début, jurys différents) :
+  // affichés côte à côte. La colonne du jour s'élargit d'autant.
+  const maxSimultanes = {};
+  Object.entries(intMap).forEach(([key, ivs]) => {
+    const jour = key.slice(0, 10);
+    maxSimultanes[jour] = Math.max(maxSimultanes[jour] || 1, ivs.length);
+  });
+  const LARGEUR_CARTE = 150;   // px par entretien, comme le min-width d'une colonne
+
+  const candidateMap = {}, roomMap = {}, memberMap = {};
+  candidates.forEach(c => { candidateMap[c.id] = c; });
+  rooms.forEach(r => { roomMap[r.id] = r; });
+  members.forEach(m => { memberMap[m.userId] = m; });
+
+  const table = document.getElementById('planning-table');
+  table.innerHTML = '';
+  const thead = table.createTHead();
+  const hr = thead.insertRow();
+  const th0 = document.createElement('th'); th0.textContent = 'Heure'; th0.style.minWidth = '60px'; hr.appendChild(th0);
+  days.forEach((day, di) => {
+    const th = document.createElement('th');
+    th.innerHTML = `${esc(day.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }))}<span class="jour-copie" aria-hidden="true">📋</span>`;
+    // Un clic copie la liste des entretiens du jour, à coller au staff.
+    th.dataset.jour = di;
+    th.tabIndex = 0;
+    th.setAttribute('role', 'button');
+    th.title = 'Copier la liste des entretiens de ce jour';
+    th.addEventListener('click', () => copierJour(day));
+    th.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); copierJour(day); } });
+    const n = maxSimultanes[localDateStr(day)] || 1;
+    if (n > 1) th.style.minWidth = `${n * LARGEUR_CARTE}px`;
+    hr.appendChild(th);
+  });
+
+  const dureeMin  = cfg().dureeMinutes;
+  const cellSpan  = Math.max(1, Math.ceil(dureeMin / pasLignes)); // lignes couvertes par un entretien
+  const spanned   = new Set(); // "slotIdx-dayIdx" cells already covered by a rowspan
+
+  const tbody = table.createTBody();
+  slots.forEach((slot, si) => {
+    const tr = tbody.insertRow();
+    const timeTh = document.createElement('th');
+    timeTh.textContent = slot.label;
+    timeTh.style.cssText = 'text-align:right;padding-right:10px;font-size:12px;color:var(--text-muted);white-space:nowrap;';
+    tr.appendChild(timeTh);
+    days.forEach((day, di) => {
+      if (spanned.has(`${si}-${di}`)) return; // cell consumed by rowspan above : skip
+      const td = tr.insertCell();
+      const key = `${localDateStr(day)}T${slot.label}`;
+      const cellInterviews = intMap[key] || [];
+      if (cellInterviews.length && cellSpan > 1) {
+        td.rowSpan = cellSpan;
+        td.style.verticalAlign = 'top';
+        for (let s = 1; s < cellSpan; s++) spanned.add(`${si + s}-${di}`);
+      }
+      // Plusieurs entretiens au même créneau : rangés côte à côte.
+      let cote = null;
+      if (cellInterviews.length > 1) {
+        cote = document.createElement('div');
+        cote.className = 'pc-cote';
+        td.appendChild(cote);
+      }
+      cellInterviews.forEach(iv => {
+        const cand = candidateMap[iv.candidateId];
+        // Entretien dont le cooptant n'existe plus : il s'affichait comme un
+        // simple « . », impossible a comprendre. On le nomme pour que le bureau
+        // sache quoi en faire (un clic permet de le supprimer).
+        const orphelin = !cand;
+        const room = iv.roomId ? roomMap[iv.roomId] : null;
+        const jures = [iv.jury1Id, iv.jury2Id, iv.jury3Id].filter(Boolean)
+          .map(id => memberMap[id]).filter(Boolean);
+        const nbVoulus = Math.min(3, cfg().nbJurys);
+        // Une salle saisie à la main (hors liste) n'a pas de roomId mais un
+        // salleNom : elle comptait pourtant comme « salle manquante ».
+        const roomLabel = room?.code || iv.salleNom || '';
+        const hasRoom = !!roomLabel;
+        // Un jury incomplet (1 juré sur 2) passait pour complet : seul
+        // jury1Id était testé.
+        const juryComplet = jures.length >= nbVoulus;
+        const cls = orphelin || !juryComplet ? 'missing-jury' : (!hasRoom ? 'missing-room' : 'complete');
+        const cell = document.createElement('div'); cell.className = `planning-cell ${cls}`;
+        cell.style.cursor = 'pointer';
+        const endDt = iv.datetimeEnd?.toDate ? iv.datetimeEnd.toDate() : new Date(iv.datetimeEnd);
+        const endLabel = endDt ? endDt.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) : '';
+
+        // Même lecture que le planning public : nom complet, prénoms des jurés,
+        // et du texte là où quelque chose manque (la couleur seule ne suffit pas).
+        const tousLesNoms = members.map(m => m.displayName);
+        const nomAffiche = orphelin
+          ? '<em>Cooptant supprimé</em>'
+          : esc(`${cand.prenom || ''} ${cand.nom || ''}`.trim() || cand.email || 'Cooptant');
+        const ligneJury = orphelin ? '<span class="pc-manque">À supprimer</span>'
+          : !jures.length ? '<span class="pc-manque">Jury à définir</span>'
+          : esc(jures.map(m => nomCourt(m.displayName, tousLesNoms)).join(', '))
+            + (juryComplet ? '' : ` <span class="pc-manque">(${jures.length}/${nbVoulus})</span>`);
+        const ligneHeure = `${slot.label}${endLabel ? '-' + endLabel : ''}`
+          + (hasRoom ? ` · ${esc(roomLabel)}` : (orphelin ? '' : ' · <span class="pc-manque-salle">salle à définir</span>'));
+        cell.innerHTML = `
+          <div class="pc-nom">${nomAffiche}</div>
+          <div class="pc-jury">${ligneJury}</div>
+          <div class="pc-meta">${ligneHeure}</div>`;
+        cell.title = orphelin ? 'Cooptant supprimé' : `${cand.prenom || ''} ${cand.nom || ''}`.trim();
+        cell.dataset.ivId = iv.id;
+        cell.dataset.jury = [iv.jury1Id, iv.jury2Id, iv.jury3Id].filter(Boolean).join(',');
+        cell.addEventListener('click', () => openIvPopup(iv.id, candidateMap, roomMap, memberMap));
+        (cote || td).appendChild(cell);
+      });
+    });
+  });
+
+  document.getElementById('grid-wrap').style.display = '';
+  applyPlanningFilter();
+}
+
+// ─── Copier la liste des entretiens d'un jour ─────────────────────
+// Même format que le planning public : cooptant, horaire, salle, jury en
+// « Prénom N. ». Si le filtre par personne est actif, seuls ses entretiens.
+function texteDuJour(day) {
+  const hm = d => d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const filtre = document.getElementById('planning-filter')?.value || '';
+  const jour = localDateStr(day);
+  const debut = iv => iv.datetimeStart?.toDate ? iv.datetimeStart.toDate() : new Date(iv.datetimeStart);
+  const duJour = interviews
+    .filter(iv => localDateStr(debut(iv)) === jour
+      && (!filtre || [iv.jury1Id, iv.jury2Id, iv.jury3Id].includes(filtre)))
+    .sort((a, b) => debut(a) - debut(b));
+  const lignes = duJour.map(iv => {
+    const s = debut(iv);
+    const e = iv.datetimeEnd?.toDate?.() || new Date(s.getTime() + cfg().dureeMinutes * 60000);
+    const cand = candidates.find(c => c.id === iv.candidateId);
+    const nom = cand ? (`${cand.prenom || ''} ${cand.nom || ''}`.trim() || cand.email || 'Cooptant') : 'Cooptant supprimé';
+    const room = iv.roomId ? rooms.find(r => r.id === iv.roomId) : null;
+    const salle = room?.code || iv.salleNom || 'à définir';
+    // Juré sans nom connu : signalé plutôt qu'omis.
+    const jury = [iv.jury1Id, iv.jury2Id, iv.jury3Id].filter(Boolean)
+      .map(id => { const m = members.find(x => x.userId === id); return m?.displayName ? prenomInitiale(m.displayName) : 'juré ?'; });
+    return [
+      `• ${nom}`,
+      `  ${hm(s)} - ${hm(e)}`,
+      `  Salle : ${salle}`,
+      `  Jury : ${jury.length ? jury.join(', ') : 'à définir'}`,
+    ].join('\n');
+  });
+  const titre = day.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+  return { n: duJour.length, filtre, texte: `${titre.charAt(0).toUpperCase()}${titre.slice(1)}\n\n${lignes.join('\n\n')}` };
+}
+
+async function copierJour(day) {
+  const { n, filtre, texte } = texteDuJour(day);
+  if (!n) return showToast(filtre ? 'Aucun entretien ce jour pour cette personne.' : 'Aucun entretien ce jour.', 'info');
+  try {
+    await navigator.clipboard.writeText(texte);
+    showToast(`${n} entretien${n > 1 ? 's' : ''} copié${n > 1 ? 's' : ''} dans le presse-papier.`, 'success');
+  } catch {
+    showToast('Impossible de copier : ton navigateur a bloqué le presse-papier.', 'error');
+  }
+}
+
+// Filtre « afficher une personne » : estompe les entretiens où elle n'est pas jurée
+function applyPlanningFilter() {
+  const id = document.getElementById('planning-filter')?.value || '';
+  document.querySelectorAll('#planning-table .planning-cell').forEach(c => {
+    const jury = (c.dataset.jury || '').split(',');
+    c.classList.toggle('dimmed', !!id && !jury.includes(id));
+  });
+}
+
+function populatePlanningFilter() {
+  const sel = document.getElementById('planning-filter');
+  if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">👤 Tout le monde</option>';
+  [...members].sort((a, b) => (a.displayName || '').localeCompare(b.displayName || '')).forEach(m => {
+    const o = document.createElement('option');
+    o.value = m.userId; o.textContent = m.displayName || m.userId;
+    sel.appendChild(o);
+  });
+  sel.value = cur;
+  sel.onchange = applyPlanningFilter;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  INTERVIEW DETAIL POPUP (grid click)
+// ═══════════════════════════════════════════════════════════════
+
+let popupIvId = null; // interview id currently shown
+let popupJuryIds = new Set();
+
+function openIvPopup(ivId, candidateMap, roomMap, memberMap) {
+  const iv = interviews.find(i => i.id === ivId);
+  if (!iv) return;
+
+  // Cooptant supprimé : on ouvre quand même, avec un libellé de repli. Sortir
+  // ici rendait l'entretien orphelin impossible à supprimer depuis le planning,
+  // donc impossible à faire disparaître de la grille.
+  const cand = candidateMap[iv.candidateId]
+    || { prenom: 'Cooptant', nom: 'supprimé', email: null, telephone: null, _orphelin: true };
+
+  popupIvId = ivId;
+
+  const dt  = iv.datetimeStart?.toDate ? iv.datetimeStart.toDate() : new Date(iv.datetimeStart);
+  const end = iv.datetimeEnd?.toDate   ? iv.datetimeEnd.toDate()   : new Date(iv.datetimeEnd);
+  const dateStr  = localDateStr(dt);
+  const slotTime = `${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+  const initS = `${(cand.prenom||'?')[0]}${(cand.nom||'?')[0]}`.toUpperCase();
+
+  document.getElementById('iv-avatar').textContent = initS;
+  document.getElementById('iv-name').textContent   = `${cand.prenom||''} ${cand.nom||''}`.trim();
+  document.getElementById('iv-time').textContent   =
+    dt.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'}) + ' · ' +
+    dt.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) + '-' +
+    end.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+  document.getElementById('iv-email').textContent  = cand.email || '·';
+  // Le téléphone vient d'une question du formulaire, plus du champ fixe
+  // `telephone` : lire ce seul champ affichait « · » pour tout le monde.
+  document.getElementById('iv-phone').textContent  =
+    telephoneCooptant(cand, currentCampaignObj?.formConfig?.customQuestions) || 'Non renseigné';
+  // « Modifier créneau » passe par la fiche du cooptant : sans cooptant, elle
+  // ne mène nulle part. Seule la suppression a du sens sur un orphelin.
+  document.getElementById('iv-edit-btn').style.display = cand._orphelin ? 'none' : '';
+
+  // Réponses au formulaire : pour préparer l'entretien sans changer de page.
+  // Même lecture que la page Cooptants (ordre actuel des questions, anciennes
+  // réponses rangées par index). Vides et téléphone (déjà au-dessus) masqués.
+  const questions = currentCampaignObj?.formConfig?.customQuestions || [];
+  const tel = telephoneCooptant(cand, questions);
+  const reps = cand._orphelin ? [] : reponsesOrdonnees(cand, questions).filter(({ value }) => {
+    const v = String(value ?? '').trim();
+    return v !== '' && v !== tel;
+  });
+  document.getElementById('iv-reponses-wrap').style.display = reps.length ? '' : 'none';
+  document.getElementById('iv-reponses').innerHTML = reps.map(({ label, value }) =>
+    `<div class="iv-rep"><div class="label">${esc(label)}</div><div class="value">${esc(value)}</div></div>`).join('');
+
+  // Jury picker
+  popupJuryIds = new Set([iv.jury1Id, iv.jury2Id, iv.jury3Id].filter(Boolean));
+  const nbJurys = Math.min(3, cfg().nbJurys);
+  document.getElementById('iv-jury-hint').textContent = `· ${nbJurys} recommandé(s)`;
+  renderPopupJuryList(dateStr, slotTime);
+
+  // Room input + datalist
+  const roomInput = document.getElementById('iv-room-sel');
+  const roomList  = document.getElementById('iv-room-list');
+  roomList.innerHTML = '';
+  rooms.forEach(r => {
+    const opt = document.createElement('option');
+    opt.value = r.code || r.id;
+    roomList.appendChild(opt);
+  });
+  // Pre-fill: prefer known room code, then custom name
+  const knownRoom = iv.roomId ? rooms.find(r => r.id === iv.roomId) : null;
+  roomInput.value = knownRoom ? (knownRoom.code || knownRoom.id) : (iv.salleNom || '');
+
+  // Notes
+  document.getElementById('iv-notes').value = iv.notes || '';
+
+  document.getElementById('iv-popup-overlay').classList.add('open');
+}
+
+function renderPopupJuryList(dateStr, slotTime) {
+  const container = document.getElementById('iv-jury-list');
+  container.innerHTML = '';
+  const juryMembers = juresListables();
+  if (!juryMembers.length) {
+    container.innerHTML = '<p class="text-sm text-muted">Aucun membre n\'a encore soumis ses dispos.</p>';
+    return;
+  }
+  const durée = getDurée();
+  const batt  = getBattement();
+  const startMin = timeToMinutes(slotTime);
+  juryMembers.forEach(m => {
+    const userId = m.userId;
+    const avail  = isMemberAvailable(userId, dateStr, slotTime);
+    const name   = m.displayName || userId;
+    const busy = dedupGroupes(interviews.filter(iv => iv.id !== popupIvId)).some(iv => {
+      const ivDt = iv.datetimeStart?.toDate ? iv.datetimeStart.toDate() : new Date(iv.datetimeStart);
+      if (localDateStr(ivDt) !== dateStr) return false;
+      const ivMin = ivDt.getHours() * 60 + ivDt.getMinutes();
+      return startMin < ivMin + durée + batt && startMin + durée + batt > ivMin &&
+             (iv.jury1Id === userId || iv.jury2Id === userId || iv.jury3Id === userId);
+    });
+    const checked = popupJuryIds.has(userId);
+    const item = document.createElement('label');
+    item.style.cssText = `display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;border:1.5px solid ${checked ? 'var(--indigo)' : 'var(--border)'};background:${checked ? 'var(--indigo-light)' : 'transparent'};cursor:pointer;transition:all .12s;${avail===false&&!checked?'opacity:.5;':''}`;
+    let badge = '';
+    if (avail === true)  badge = '<span class="badge badge-green"  style="font-size:10px;margin-left:auto;">Dispo</span>';
+    if (avail === false) badge = '<span class="badge badge-gray"   style="font-size:10px;margin-left:auto;">Non dispo</span>';
+    if (busy)            badge = '<span class="badge badge-red"    style="font-size:10px;margin-left:auto;">Occupé</span>';
+    item.innerHTML = `
+      <div style="width:28px;height:28px;border-radius:7px;background:var(--indigo);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;flex-shrink:0;">
+        ${name.split(' ').map(p=>p[0]||'').join('').slice(0,2).toUpperCase()}
+      </div>
+      <span style="font-size:13px;font-weight:600;">${name}</span>
+      ${badge}`;
+    item.addEventListener('click', e => {
+      e.preventDefault();
+      if (popupJuryIds.has(userId)) { popupJuryIds.delete(userId); }
+      else { popupJuryIds.add(userId); }
+      renderPopupJuryList(dateStr, slotTime);
+    });
+    container.appendChild(item);
+  });
+}
+
+function closeIvPopup() {
+  document.getElementById('iv-popup-overlay').classList.remove('open');
+  popupIvId = null;
+}
+window.closeIvPopup = closeIvPopup;
+
+async function saveIvPopup() {
+  if (!popupIvId) return;
+  const btn = document.getElementById('iv-save-btn');
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    const { roomId, salleNom } = resolveRoom(document.getElementById('iv-room-sel').value);
+    const notes = document.getElementById('iv-notes').value.trim();
+    const juryArr = [...popupJuryIds].slice(0, 3);
+    const jury1Id = juryArr[0] || null;
+    const jury2Id = juryArr[1] || null;
+    const jury3Id = juryArr[2] || null;
+    await updateDoc(doc(db, 'interviews', popupIvId), { roomId, salleNom, notes, jury1Id, jury2Id, jury3Id });
+    // Update local state
+    const iv = interviews.find(i => i.id === popupIvId);
+    if (iv) { iv.roomId = roomId; iv.salleNom = salleNom; iv.notes = notes; iv.jury1Id = jury1Id; iv.jury2Id = jury2Id; iv.jury3Id = jury3Id; }
+    showToast('Sauvegardé !', 'success');
+    renderPlanningGrid(); // refresh grid
+    closeIvPopup();
+  } catch(err) {
+    showToast('Erreur : ' + err.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = '💾 Sauvegarder';
+  }
+}
+window.saveIvPopup = saveIvPopup;
+
+/**
+ * Supprime l'entretien ouvert dans le popup.
+ *
+ * Seule voie de sortie pour un entretien orphelin (cooptant supprimé), qui
+ * sinon restait indéfiniment sur la grille en occupant un créneau.
+ * Quand le cooptant existe encore, il repasse au statut « reçu » : il n'a plus
+ * d'entretien, il attend d'être replacé.
+ */
+async function deleteIvFromPopup() {
+  if (!popupIvId) return;
+  const iv = interviews.find(i => i.id === popupIvId);
+  if (!iv) return;
+  const cand = candidates.find(c => c.id === iv.candidateId);
+  const nom  = cand ? `${cand.prenom || ''} ${cand.nom || ''}`.trim() : null;
+
+  if (!await confirmDialog(
+        nom ? `Supprimer l'entretien de ${nom} ? Le cooptant repassera au statut « reçu ».`
+            : 'Supprimer cet entretien ? Son cooptant a déjà été supprimé.',
+        { title: 'Supprimer l\'entretien', confirmLabel: 'Supprimer', danger: true })) return;
+
+  const btn = document.getElementById('iv-delete-btn');
+  btn.disabled = true;
+  try {
+    await deleteDoc(doc(db, 'interviews', popupIvId));
+    if (cand) await updateDoc(doc(db, 'candidates', cand.id), { statut: 'recu' });
+    closeIvPopup();
+    showToast('Entretien supprimé.', 'success');
+    await loadCampaignData(currentCampaignId);
+  } catch (err) {
+    showToast('Erreur : ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+window.deleteIvFromPopup = deleteIvFromPopup;
+
+function editInAlloc() {
+  if (!popupIvId) return;
+  const iv   = interviews.find(i => i.id === popupIvId);
+  const cand = iv ? candidates.find(c => c.id === iv.candidateId) : null;
+  closeIvPopup();
+  if (cand) {
+    document.querySelector('.tab-btn[data-tab="allocation"]').click();
+    openAllocPanel(cand);
+  }
+}
+window.editInAlloc = editInAlloc;
+
+// Close popup on overlay click
+document.getElementById('iv-popup-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('iv-popup-overlay')) closeIvPopup();
+});
+
+// Un seul lien, celui du planning public, plutôt que la liste des liens de
+// suivi de chaque cooptant (peu utile, et chacun donne accès à un dossier).
+document.getElementById('btn-copy-links').addEventListener('click', async () => {
+  if (!currentOrg) return showToast('Asso non chargée.', 'error');
+  const url = `${location.origin}/planning-public.html?org=${currentOrg.slug || currentOrg.id}`;
+  try {
+    await navigator.clipboard.writeText(url);
+    showToast('Lien du planning public copié !', 'success');
+  } catch {
+    showToast('Impossible de copier le lien.', 'error');
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════
+//  ALLOCATION MANUELLE (tab 2)
+// ═══════════════════════════════════════════════════════════════
+
+// ── Helpers ────────────────────────────────────────────────────
+
+/**
+ * Résout un texte de salle en { roomId, salleNom }.
+ * - Si le texte correspond au code d'une salle connue → roomId + salleNom = code
+ * - Sinon → roomId = null, salleNom = texte libre
+ * - Si vide → { roomId: null, salleNom: null }
+ */
+function resolveRoom(text) {
+  const t = (text || '').trim();
+  if (!t) return { roomId: null, salleNom: null };
+  // Strip trailing conflict indicator "⚠️" if the user accidentally kept it
+  const clean = t.replace(/\s*⚠️\s*$/, '').trim();
+  const known = rooms.find(r => (r.code || r.id) === clean);
+  return known
+    ? { roomId: known.id, salleNom: known.code || known.id }
+    : { roomId: null,     salleNom: clean };
+}
+
+function timeToMinutes(t) {
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + m;
+}
+
+function minutesToTime(m) {
+  return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+}
+
+function cfg() {
+  return campaignConfig(currentCampaignObj);
+}
+
+function getDurée() {
+  return cfg().dureeMinutes;
+}
+
+/**
+ * Pause imposée entre deux entretiens. Le réglage existait mais n'était lu que
+ * par postuler.html : le planning et l'algo collaient les entretiens malgré lui.
+ */
+function getBattement() {
+  return cfg().battementMinutes || 0;
+}
+
+/**
+ * Un entretien à plusieurs, c'est UNE occupation de créneau et UN seul jury
+ * pour tout le groupe. Sans ce filtre, deux potes sur le même créneau
+ * s'affichaient comme un conflit et chaque juré était marqué « Occupé » par
+ * lui-même.
+ */
+function dedupGroupes(ivs) {
+  const vus = new Set();
+  return ivs.filter(iv => {
+    if (!iv.groupId) return true;
+    if (vus.has(iv.groupId)) return false;
+    vus.add(iv.groupId);
+    return true;
+  });
+}
+
+/** Vérifie si un créneau date+time a un conflit dans les interviews existantes */
+function getSlotConflicts(dateStr, startTime, excludeId = null) {
+  const durée = getDurée();
+  const startMin = timeToMinutes(startTime);
+  const endMin   = startMin + durée;
+
+  const batt = getBattement();
+
+  return dedupGroupes(interviews.filter(iv => iv.id !== excludeId)).filter(iv => {
+    const ivStart = iv.datetimeStart?.toDate ? iv.datetimeStart.toDate() : new Date(iv.datetimeStart);
+    if (localDateStr(ivStart) !== dateStr) return false;
+    const ivH = ivStart.getHours(), ivM = ivStart.getMinutes();
+    const ivStartMin = ivH * 60 + ivM;
+    const ivEndMin   = ivStartMin + getDurée();
+    // Le battement s'ajoute de part et d'autre : deux entretiens doivent être
+    // séparés d'au moins `batt` minutes.
+    return startMin < ivEndMin + batt && endMin + batt > ivStartMin;
+  });
+}
+
+function isCandAvailable(cand, dateStr, slotTime) {
+  const dayDispo = cand.disponibilites?.find(d => d.jour === dateStr);
+  if (!dayDispo) return null; // no info
+  return dayDispo.creneaux?.includes(slotTime) || false;
+}
+
+/**
+ * Membres proposés comme jurés dans les listes du planning.
+ *
+ * D'ordinaire, ceux qui ont rempli leur grille de disponibilités. Mais quand
+ * l'asso ne demande pas de dispos (`staffToujoursDispo`), personne n'a de
+ * grille : filtrer dessus vidait les listes et empêchait de désigner quiconque
+ * à la main. On propose alors tout le staff.
+ */
+function juresListables() {
+  if (cfg().staffToujoursDispo) return members;
+  const ontRempli = new Set(staffAvailabilities.map(s => s.userId));
+  return members.filter(m => ontRempli.has(m.userId));
+}
+
+/**
+ * Disponibilité d'un membre sur un créneau.
+ * @returns {true|false|null} null seulement si la personne n'a JAMAIS rempli sa grille
+ */
+function isMemberAvailable(userId, dateStr, slotTime) {
+  // Asso qui ne demande pas de dispos : tout le monde est réputé libre.
+  if (cfg().staffToujoursDispo) return true;
+  const sa = staffAvailabilities.find(s => s.userId === userId);
+  if (!sa) return null; // n'a jamais rempli sa grille : on ne sait pas
+  const dayDispo = sa.creneaux?.find(d => d.jour === dateStr);
+  // Grille remplie mais ce jour laissé vide : c'est un « non », pas une absence
+  // d'information. Avant, ça rendait null : aucun badge, et on pouvait la
+  // désigner jurée sans le moindre avertissement.
+  if (!dayDispo) return false;
+  // Dispos stockées à l'heure pleine : normaliser le créneau vers le bas
+  const [h] = slotTime.split(':').map(Number);
+  const floorSlot = `${String(h).padStart(2, '0')}:00`;
+  return dayDispo.creneaux?.includes(floorSlot) || false;
+}
+
+// ── Candidate list ─────────────────────────────────────────────
+const STATUT_BADGES = {
+  recu:           ['badge-orange', 'Reçu'],
+  place:          ['badge-indigo', 'Placé 📅'],
+  entretien_fait: ['badge-green',  'Fait ✓'],
+  accepte:        ['badge-green',  'Accepté'],
+  refuse:         ['badge-gray',   'Refusé'],
+};
+
+function renderAllocCandList() {
+  const search = document.getElementById('alloc-search').value.toLowerCase();
+  const filter = document.getElementById('alloc-filter').value;
+
+  let filtered = candidates.filter(c => {
+    const matchSearch = !search || `${c.prenom} ${c.nom} ${c.email}`.toLowerCase().includes(search);
+    const matchFilter = !filter || (filter === 'recu' ? c.statut !== 'place' : c.statut === 'place');
+    return matchSearch && matchFilter;
+  });
+
+  document.getElementById('alloc-count').textContent = `${filtered.length} cooptant${filtered.length > 1 ? 's' : ''}`;
+
+  const el = document.getElementById('alloc-cand-list');
+  if (!filtered.length) {
+    el.innerHTML = '<p class="text-muted text-sm" style="padding:8px 0;">Aucun cooptant.</p>';
+    return;
+  }
+
+  el.innerHTML = '';
+  filtered.forEach(c => {
+    const [bc, label] = STATUT_BADGES[c.statut] || ['badge-gray', c.statut || '·'];
+    const iv = interviews.find(i => i.candidateId === c.id);
+    let slotInfo = '';
+    if (iv) {
+      const dt = iv.datetimeStart?.toDate ? iv.datetimeStart.toDate() : new Date(iv.datetimeStart);
+      slotInfo = dt.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'}) + ' ' +
+                 dt.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+    }
+
+    const item = document.createElement('div');
+    item.className = `alloc-cand-item${selectedCandId === c.id ? ' selected' : ''}`;
+    item.dataset.id = c.id;
+    item.innerHTML = `
+      <div style="min-width:0;">
+        <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.prenom||''} ${c.nom||''}</div>
+        ${slotInfo ? `<div class="text-sm" style="color:var(--indigo);">📅 ${slotInfo}</div>` : ''}
+        <span class="badge ${bc}" style="font-size:11px;">${label}</span>
+      </div>
+      <span style="font-size:18px;color:var(--text-muted);">›</span>`;
+    item.addEventListener('click', () => openAllocPanel(c));
+    el.appendChild(item);
+  });
+}
+
+// ── Panel d'assignation ────────────────────────────────────────
+function openAllocPanel(cand) {
+  selectedCandId = cand.id;
+  renderAllocCandList(); // refresh selection
+
+  // Reset state
+  apDate = null; apSlot = null; apRoomId = null; apJuryIds = new Set();
+
+  // Find existing interview
+  existingInterviewId = interviews.find(i => i.candidateId === cand.id)?.id || null;
+  const existingIv = existingInterviewId ? interviews.find(i => i.id === existingInterviewId) : null;
+
+  // Fill header
+  const initS = `${(cand.prenom||'?')[0]}${(cand.nom||'?')[0]}`.toUpperCase();
+  document.getElementById('ap-avatar').textContent = initS;
+  document.getElementById('ap-name').textContent   = `${cand.prenom||''} ${cand.nom||''}`.trim();
+  const metaEl = document.getElementById('ap-meta');
+  metaEl.innerHTML = [
+    cand.email    ? `<a href="mailto:${esc(cand.email)}"    style="color:var(--indigo);text-decoration:none;">✉️ ${esc(cand.email)}</a>`    : '',
+    cand.telephone ? `<a href="tel:${esc(cand.telephone)}"  style="color:var(--indigo);text-decoration:none;">📞 ${esc(cand.telephone)}</a>` : '',
+  ].filter(Boolean).join('');
+  const [bc, label] = STATUT_BADGES[cand.statut] || ['badge-gray', cand.statut || '·'];
+  const badge = document.getElementById('ap-statut-badge');
+  badge.className = `badge ${bc}`; badge.textContent = label;
+
+  // Dispo chips
+  const chips = document.getElementById('ap-dispo-chips');
+  chips.innerHTML = '';
+  if (cand.disponibilites?.length) {
+    cand.disponibilites.forEach(d => {
+      const dateObj = new Date(d.jour + 'T00:00:00');
+      const hasMatin = d.creneaux?.some(s => timeToMinutes(s) < 13 * 60);
+      const hasApm   = d.creneaux?.some(s => timeToMinutes(s) >= 13 * 60);
+      const label = dateObj.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'});
+      const sub   = [hasMatin ? 'Matin' : null, hasApm ? 'Après-midi' : null].filter(Boolean).join(' & ');
+      const chip = document.createElement('span');
+      chip.className = 'badge badge-indigo';
+      chip.style.cssText = 'font-size:11px;cursor:pointer;';
+      chip.title = sub;
+      chip.textContent = `${label}${sub ? ' · ' + sub : ''}`;
+      // Click to pre-select date
+      chip.addEventListener('click', () => {
+        document.getElementById('ap-date').value = d.jour;
+        document.getElementById('ap-date').dispatchEvent(new Event('change'));
+      });
+      chips.appendChild(chip);
+    });
+  } else {
+    chips.innerHTML = '<span class="text-muted text-sm">Aucune disponibilité déclarée.</span>';
+  }
+
+  // Pre-fill from existing interview
+  if (existingIv) {
+    const dt = existingIv.datetimeStart?.toDate ? existingIv.datetimeStart.toDate() : new Date(existingIv.datetimeStart);
+    const dateStr = localDateStr(dt);
+    const timeStr = `${dt.getHours().toString().padStart(2,'0')}:${dt.getMinutes().toString().padStart(2,'0')}`;
+    apDate = dateStr;
+    apSlot = timeStr;
+    apRoomId = existingIv.roomId || null;
+    if (existingIv.jury1Id) apJuryIds.add(existingIv.jury1Id);
+    if (existingIv.jury2Id) apJuryIds.add(existingIv.jury2Id);
+    if (existingIv.jury3Id) apJuryIds.add(existingIv.jury3Id);
+
+    document.getElementById('ap-date').value = dateStr;
+    renderSlotPicker(dateStr, timeStr);
+    renderRoomPicker(dateStr, timeStr);
+    renderJuryPicker(dateStr, timeStr);
+    document.getElementById('ap-slot-group').style.display = '';
+    document.getElementById('ap-room-group').style.display = '';
+    document.getElementById('ap-jury-group').style.display = '';
+    document.getElementById('ap-actions').style.display = '';
+  } else {
+    // Reset subforms
+    document.getElementById('ap-slot-group').style.display = 'none';
+    document.getElementById('ap-room-group').style.display = 'none';
+    document.getElementById('ap-jury-group').style.display = 'none';
+    document.getElementById('ap-actions').style.display = 'none';
+  }
+
+  document.getElementById('btn-unassign').style.display = existingInterviewId ? '' : 'none';
+  document.getElementById('alloc-panel-empty').style.display = 'none';
+  document.getElementById('alloc-panel').style.display = '';
+}
+
+function populateDateSelector() {
+  if (!currentCampaignObj) return;
+  const sel = document.getElementById('ap-date');
+  // Keep only the placeholder
+  sel.innerHTML = '<option value="">Sélectionner un jour</option>';
+
+  const days  = getCampaignDays(currentCampaignObj);  // période de l'asso
+
+  days.forEach(day => {
+    const opt = document.createElement('option');
+    opt.value = localDateStr(day);
+    opt.textContent = day.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+    sel.appendChild(opt);
+  });
+
+  sel.onchange = () => {
+    apDate = sel.value || null;
+    apSlot = null; apRoomId = null; apJuryIds.clear();
+    if (apDate) {
+      renderSlotPicker(apDate, null);
+      document.getElementById('ap-slot-group').style.display = '';
+    } else {
+      document.getElementById('ap-slot-group').style.display = 'none';
+    }
+    document.getElementById('ap-room-group').style.display = 'none';
+    document.getElementById('ap-jury-group').style.display = 'none';
+    document.getElementById('ap-actions').style.display = 'none';
+  };
+}
+
+function renderSlotPicker(dateStr, preselectedSlot = null) {
+  const cand = candidates.find(c => c.id === selectedCandId);
+  const durée = getDurée();
+  const container = document.getElementById('ap-slots');
+  container.innerHTML = '';
+
+  // Créneaux de 30 min à partir de 8 h, le dernier fini à l'heure de fin de l'asso.
+  const finMin = heureFinValide(cfg().heureFin) * 60;
+  const pas = pasCreneauxValide(cfg().pasCreneauxMinutes);
+  for (let m = 8 * 60; m + durée <= finMin; m += pas) {
+    const startTime  = minutesToTime(m);
+    const endTime    = minutesToTime(m + durée);
+
+    const conflicts = getSlotConflicts(dateStr, startTime, existingInterviewId);
+    const candAvail  = cand ? isCandAvailable(cand, dateStr, startTime) : null;
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'slot-btn';
+    btn.dataset.slot = startTime;
+    btn.innerHTML = `${startTime}<span class="conflict-tip">${endTime}</span>`;
+
+    if (conflicts.length > 0) {
+      btn.classList.add('conflict');
+      btn.disabled = true;
+      btn.title = `Conflit : ${conflicts.length} entretien(s) sur ce créneau`;
+    } else if (candAvail === true) {
+      btn.classList.add('avail');
+      btn.title = 'Cooptant disponible';
+    } else {
+      btn.classList.add('unavail');
+      btn.title = candAvail === false ? 'Cooptant non disponible' : 'Disponibilité inconnue';
+    }
+
+    if (startTime === preselectedSlot) {
+      btn.classList.add('selected');
+    }
+
+    btn.addEventListener('click', () => {
+      if (btn.disabled) return;
+      container.querySelectorAll('.slot-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      apSlot = startTime;
+      renderRoomPicker(dateStr, startTime);
+      renderJuryPicker(dateStr, startTime);
+      document.getElementById('ap-room-group').style.display = '';
+      document.getElementById('ap-jury-group').style.display = '';
+      document.getElementById('ap-actions').style.display = '';
+    });
+
+    container.appendChild(btn);
+  }
+}
+
+function renderRoomPicker(dateStr, slotTime) {
+  const input    = document.getElementById('ap-room');
+  const datalist = document.getElementById('ap-room-list');
+  const hint     = document.getElementById('ap-room-hint');
+  datalist.innerHTML = '';
+  hint.textContent   = '';
+
+  const durée    = getDurée();
+  const startMin = timeToMinutes(slotTime);
+  const endMin   = startMin + durée;
+
+  const conflicted = [];
+  rooms.forEach(r => {
+    const isConflict = interviews
+      .filter(iv => iv.id !== existingInterviewId && iv.roomId === r.id)
+      .some(iv => {
+        const dt = iv.datetimeStart?.toDate ? iv.datetimeStart.toDate() : new Date(iv.datetimeStart);
+        if (localDateStr(dt) !== dateStr) return false;
+        const ivMin = dt.getHours() * 60 + dt.getMinutes();
+        return startMin < ivMin + durée && endMin > ivMin;
+      });
+
+    const opt = document.createElement('option');
+    opt.value = isConflict ? `${r.code} ⚠️` : r.code;
+    datalist.appendChild(opt);
+    if (isConflict) conflicted.push(r.code);
+  });
+
+  if (conflicted.length) {
+    hint.textContent = `⚠️ Occupée sur ce créneau : ${conflicted.join(', ')}`;
+    hint.style.color = 'var(--red)';
+  }
+
+  // Pre-fill from existing interview
+  if (apRoomId) {
+    const known = rooms.find(r => r.id === apRoomId);
+    input.value = known ? (known.code || known.id) : '';
+  } else {
+    // Try salleNom from existing interview
+    const existingIv = existingInterviewId ? interviews.find(i => i.id === existingInterviewId) : null;
+    input.value = existingIv?.salleNom || '';
+  }
+}
+
+function renderJuryPicker(dateStr, slotTime) {
+  const container = document.getElementById('ap-jury-list');
+  container.innerHTML = '';
+  const nbJurys = Math.min(3, cfg().nbJurys);
+  document.getElementById('ap-jury-hint').textContent = ` · ${nbJurys} jury(s) recommandé(s)`;
+
+  juresListables().forEach(m => {
+    const userId = m.userId;
+    const avail  = isMemberAvailable(userId, dateStr, slotTime);
+    const name   = m.displayName || userId;
+
+    // Check if already busy (another interview at same slot, excluding current)
+    const busy = dedupGroupes(interviews.filter(iv => iv.id !== existingInterviewId)).some(iv => {
+      const dt = iv.datetimeStart?.toDate ? iv.datetimeStart.toDate() : new Date(iv.datetimeStart);
+      if (localDateStr(dt) !== dateStr) return false;
+      const ivMin = dt.getHours() * 60 + dt.getMinutes();
+      const startMin = timeToMinutes(slotTime);
+      const batt = getBattement();
+      return startMin < ivMin + getDurée() + batt && startMin + getDurée() + batt > ivMin &&
+             (iv.jury1Id === userId || iv.jury2Id === userId || iv.jury3Id === userId);
+    });
+
+    const item = document.createElement('label');
+    item.className = `jury-item${apJuryIds.has(userId) ? ' checked' : ''}${avail === false ? ' unavail-jury' : ''}`;
+
+    let availBadge = '';
+    if (avail === true)  availBadge = '<span class="badge badge-green" style="font-size:10px;">Dispo</span>';
+    if (avail === false) availBadge = '<span class="badge badge-gray"  style="font-size:10px;">Non dispo</span>';
+    if (busy)            availBadge = '<span class="badge badge-red"   style="font-size:10px;">Occupé</span>';
+
+    item.innerHTML = `
+      <input type="checkbox" style="display:none;" ${apJuryIds.has(userId) ? 'checked' : ''} />
+      <div style="width:32px;height:32px;border-radius:8px;background:var(--indigo);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;">
+        ${name.split(' ').map(p => p[0]).join('').slice(0,2).toUpperCase()}
+      </div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:600;font-size:14px;">${name}</div>
+        <div class="text-sm text-muted">${m.role || 'membre'}</div>
+      </div>
+      ${availBadge}`;
+
+    item.addEventListener('click', e => {
+      e.preventDefault();
+      if (apJuryIds.has(userId)) {
+        apJuryIds.delete(userId);
+        item.classList.remove('checked');
+      } else {
+        apJuryIds.add(userId);
+        item.classList.add('checked');
+      }
+    });
+
+    container.appendChild(item);
+  });
+
+  if (!members.length) {
+    container.innerHTML = '<p class="text-muted text-sm">Aucun membre staff enregistré.</p>';
+  }
+}
+
+// ── Save / Delete ──────────────────────────────────────────────
+document.getElementById('btn-assign').addEventListener('click', saveAllocation);
+document.getElementById('btn-assign-cancel').addEventListener('click', () => {
+  const cand = candidates.find(c => c.id === selectedCandId);
+  if (cand) openAllocPanel(cand); else resetAllocPanel();
+});
+document.getElementById('btn-unassign').addEventListener('click', deleteAllocation);
+
+async function saveAllocation() {
+  if (!selectedCandId || !apDate || !apSlot) {
+    return showToast('Sélectionne une date et un créneau.', 'error');
+  }
+
+  const btn = document.getElementById('btn-assign');
+  btn.disabled = true; btn.textContent = 'Enregistrement…';
+
+  try {
+    const duréeMin = getDurée();
+    const startH = parseInt(apSlot.split(':')[0]);
+    const startM = parseInt(apSlot.split(':')[1]);
+    const start  = new Date(apDate + 'T00:00:00');
+    start.setHours(startH, startM, 0, 0);
+    const end = new Date(start.getTime() + duréeMin * 60 * 1000);
+
+    const juryArr = [...apJuryIds];
+    const { roomId, salleNom } = resolveRoom(document.getElementById('ap-room').value);
+    const data = {
+      campaignId:     currentCampaignId,
+      organizationId: currentOrg?.id,
+      candidateId:    selectedCandId,
+      datetimeStart:  Timestamp.fromDate(start),
+      datetimeEnd:    Timestamp.fromDate(end),
+      roomId,
+      salleNom,
+      jury1Id:        juryArr[0] || null,
+      jury2Id:        juryArr[1] || null,
+      jury3Id:        juryArr[2] || null,
+      statut:         'planifie',
+    };
+
+    if (existingInterviewId) {
+      await updateDoc(doc(db, 'interviews', existingInterviewId), data);
+      showToast('Entretien mis à jour.', 'success');
+    } else {
+      await addDoc(collection(db, 'interviews'), { ...data, createdAt: serverTimestamp() });
+      showToast('Entretien créé.', 'success');
+    }
+
+    // Update candidate status
+    await updateDoc(doc(db, 'candidates', selectedCandId), { statut: 'place' });
+
+    // Refresh
+    await loadCampaignData(currentCampaignId);
+    resetAllocPanel();
+
+  } catch (err) {
+    showToast('Erreur : ' + err.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = '✅ Confirmer l\'assignation';
+  }
+}
+
+async function deleteAllocation() {
+  if (!existingInterviewId) return;
+  const cand = candidates.find(c => c.id === selectedCandId);
+  if (!await confirmDialog(
+        `Supprimer l'entretien de ${cand?.prenom || ''} ${cand?.nom || ''} ?`,
+        { title: 'Supprimer l\'entretien', confirmLabel: 'Supprimer', danger: true })) return;
+  try {
+    await deleteDoc(doc(db, 'interviews', existingInterviewId));
+    await updateDoc(doc(db, 'candidates', selectedCandId), { statut: 'recu' });
+    showToast('Entretien supprimé.', 'success');
+    await loadCampaignData(currentCampaignId);
+    resetAllocPanel();
+  } catch (err) {
+    showToast('Erreur : ' + err.message, 'error');
+  }
+}
+
+function resetAllocPanel() {
+  selectedCandId = null;
+  existingInterviewId = null;
+  apDate = null; apSlot = null; apRoomId = null; apJuryIds.clear();
+  document.getElementById('alloc-panel').style.display = 'none';
+  document.getElementById('alloc-panel-empty').style.display = '';
+  renderAllocCandList();
+}
+
+// ── Résumé interviews ──────────────────────────────────────────
+
+// ═══════════════════════════════════════════════════════════════
+//  DISPONIBILITÉS MEMBRES : heatmap (tab 3)
+// ═══════════════════════════════════════════════════════════════
+/**
+ * Les personnes qui ont réellement déposé des disponibilités.
+ *
+ * C'est la bonne base de comparaison pour la carte de chaleur : compter sur
+ * l'ensemble des membres mélangeait les comptes qui n'ont rien rempli, les
+ * comptes de service et les doublons roster/compte, et affichait « 3/16 » là
+ * où seules trois personnes avaient répondu.
+ *
+ * @returns {{userId: string, nom: string}[]} triés par nom, un seul par personne
+ */
+function repondantsDispos() {
+  const parNom = new Map();
+  staffAvailabilities.forEach(sa => {
+    const membre = members.find(m => m.userId === sa.userId);
+    const nom = membre?.displayName || sa.displayName || sa.userId;
+    const cle = normNom(nom);
+    if (!cle || parNom.has(cle)) return;
+    parNom.set(cle, { userId: sa.userId, nom });
+  });
+  return [...parNom.values()].sort((a, b) => a.nom.localeCompare(b.nom));
+}
+
+function renderDisposGrid() {
+  if (!currentCampaignObj) {
+    document.getElementById('dispos-no-campaign').style.display = '';
+    document.getElementById('dispos-content').style.display = 'none';
+    return;
+  }
+  document.getElementById('dispos-no-campaign').style.display = 'none';
+  document.getElementById('dispos-content').style.display = '';
+
+  const campaign    = currentCampaignObj;
+  const days        = getCampaignDays(currentCampaignObj);  // période de l'asso
+  const slots       = getTimeSlots(8, heureFinValide(cfg().heureFin));
+  // Base de comparaison : les personnes qui ont répondu, pas tout l'annuaire.
+  const repondants   = repondantsDispos();
+  const totalMembers = repondants.length;
+
+  const compteurEl = document.getElementById('dispos-repondants');
+  if (compteurEl) {
+    compteurEl.textContent = totalMembers
+      ? `${totalMembers} membre${totalMembers > 1 ? 's ont' : ' a'} renseigné ses disponibilités`
+      : 'Personne n\'a encore renseigné ses disponibilités';
+  }
+
+  // ── Availability map: "YYYY-MM-DDTHH:MM" → [memberName, ...] ──
+  // On ne garde que les dates DANS la fenêtre glissante (ignore les anciennes dispos)
+  const validDates = new Set(days.map(localDateStr));
+  const availMap = {};
+  staffAvailabilities.forEach(sa => {
+    const member = members.find(m => m.userId === sa.userId);
+    const name = member?.displayName || sa.displayName || sa.userId;
+    sa.creneaux?.forEach(dayEntry => {
+      if (!validDates.has(dayEntry.jour)) return;   // hors fenêtre → ignoré
+      dayEntry.creneaux?.forEach(t => {
+        const key = `${dayEntry.jour}T${t}`;
+        if (!availMap[key]) availMap[key] = [];
+        // Deux fiches pour la même personne (doublon roster résorbé depuis)
+        // la feraient compter double dans le ratio.
+        if (!availMap[key].includes(name)) availMap[key].push(name);
+      });
+    });
+  });
+
+  // ── Interview overlay: "YYYY-MM-DDTHH:MM" → [candidateName, ...] ──
+  const ivOverlay = {};
+  interviews.forEach(iv => {
+    const dt = iv.datetimeStart?.toDate ? iv.datetimeStart.toDate() : new Date(iv.datetimeStart);
+    const k  = `${localDateStr(dt)}T${dt.getHours().toString().padStart(2,'0')}:${dt.getMinutes().toString().padStart(2,'0')}`;
+    const cand = candidates.find(c => c.id === iv.candidateId);
+    if (!ivOverlay[k]) ivOverlay[k] = [];
+    ivOverlay[k].push(cand ? `${cand.prenom||''} ${(cand.nom||'')[0]||''}.` : '?');
+  });
+
+  // ── Best slots chips ──────────────────────────────────────────
+  const bestEl = document.getElementById('dispos-best');
+  bestEl.innerHTML = '';
+  const bestSlots = Object.entries(availMap)
+    .sort((a, b) => b[1].length - a[1].length)
+    .slice(0, 6);
+  if (bestSlots.length) {
+    bestSlots.forEach(([key, names]) => {
+      const [dateStr, timeStr] = key.split('T');
+      const d = new Date(dateStr + 'T00:00:00');
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'badge badge-green';
+      chip.style.cssText = 'font-size:11.5px;cursor:pointer;border:none;font-family:inherit;';
+      chip.title = 'Voir qui est disponible';
+      chip.textContent = `${d.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})} ${timeStr} · ${names.length}/${totalMembers}`;
+      // Même détail que sur la grille : ces pastilles n'étaient survolables
+      // qu'à la souris, et la liste des noms ne tenait pas dans l'infobulle.
+      chip.addEventListener('click', () => openSlotPopup(d, timeStr, names, ivOverlay[key] || []));
+      bestEl.appendChild(chip);
+    });
+  } else {
+    bestEl.innerHTML = '<span class="text-muted text-sm">Aucune disponibilité déclarée par les membres pour les prochaines semaines.</span>';
+  }
+
+  // ── Build heatmap table ───────────────────────────────────────
+  const table = document.getElementById('dispos-table');
+  table.innerHTML = '';
+
+  const thead = table.createTHead();
+  const hr = thead.insertRow();
+  const th0 = document.createElement('th');
+  th0.textContent = 'Heure'; th0.style.minWidth = '60px'; hr.appendChild(th0);
+  days.forEach(day => {
+    const th = document.createElement('th');
+    th.textContent = day.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+    hr.appendChild(th);
+  });
+
+  const tbody = table.createTBody();
+  slots.forEach(slot => {
+    const tr = tbody.insertRow();
+    const timeTh = document.createElement('th');
+    timeTh.textContent = slot.label;
+    timeTh.style.cssText = 'text-align:right;padding-right:10px;font-size:12px;color:var(--text-muted);white-space:nowrap;';
+    tr.appendChild(timeTh);
+
+    days.forEach(day => {
+      const td = tr.insertCell();
+      const key = `${localDateStr(day)}T${slot.label}`;
+      // Dispos stockées à l'heure pleine : lire le créneau H:00 pour les lignes H:30
+      const [sh] = slot.label.split(':').map(Number);
+      const floorKey = `${localDateStr(day)}T${String(sh).padStart(2,'0')}:00`;
+      const names   = availMap[floorKey] || [];
+      const ivCands = ivOverlay[key]     || [];
+      const count   = names.length;
+      const ratio   = totalMembers > 0 ? count / totalMembers : 0;
+
+      td.style.cssText = 'position:relative;text-align:center;padding:5px 4px;min-width:76px;';
+
+      // Un clic ouvre le détail : qui est disponible, qui ne l'est pas, et ce
+      // qui est déjà planifié là. L'infobulle ne servait qu'au survol, donc
+      // inutilisable au doigt et illisible dès qu'il y a plus de deux noms.
+      td.classList.add('dispo-cell-clickable');
+      td.addEventListener('click', () => openSlotPopup(day, slot.label, names, ivCands));
+
+      if (count > 0) {
+        const alpha = (0.15 + ratio * 0.72).toFixed(2);
+        td.style.background = `rgba(34,197,94,${alpha})`;
+        td.title = `${count}/${totalMembers} dispo${count>1?'s':''} : ${names.join(', ')}`;
+        td.innerHTML = `<div class="dispo-count" style="color:${ratio > 0.55 ? '#15803D' : '#374151'};">${count}<span style="font-size:10px;font-weight:400;opacity:.75;">/${totalMembers}</span></div>`;
+      }
+
+      // Overlay scheduled interviews
+      ivCands.forEach(name => {
+        const badge = document.createElement('span');
+        badge.className = 'dispo-iv-badge';
+        badge.title = name + ' · entretien planifié';
+        badge.textContent = '📅 ' + name;
+        td.appendChild(badge);
+      });
+    });
+  });
+}
+
+// ─── Détail d'un créneau de la heatmap ───────────────────────────
+
+/** Initiales d'un nom complet, pour l'avatar du popup. */
+function initialesNom(nom) {
+  return (nom || '?').split(/\s+/).filter(Boolean).map(p => p[0]).join('').slice(0, 2).toUpperCase();
+}
+
+/**
+ * Ouvre le détail d'une case de la heatmap.
+ *
+ * @param {Date}     day        jour de la case
+ * @param {string}   heure      'HH:MM' de la ligne
+ * @param {string[]} dispos     noms des membres disponibles sur ce créneau
+ * @param {string[]} entretiens cooptants déjà planifiés à cette heure exacte
+ */
+function openSlotPopup(day, heure, dispos, entretiens) {
+  const titre = document.getElementById('slot-pop-title');
+  const sousTitre = document.getElementById('slot-pop-sub');
+  const badge = document.getElementById('slot-pop-badge');
+  const corps = document.getElementById('slot-pop-body');
+
+  // On ne compare qu'aux personnes qui ont renseigné leurs dispos. Lister tous
+  // les membres faisait apparaître les comptes qui n'ont jamais répondu, les
+  // comptes de service, et la même personne deux fois quand elle avait un
+  // compte ET une entrée dans la liste du staff.
+  const repondants = repondantsDispos();
+  const total = repondants.length;
+  const presents = new Set(dispos);
+  // Les dispos sont stockées à l'heure pleine : une case 09:30 lit le créneau
+  // 09:00, on le dit pour que le bureau ne croie pas à une erreur.
+  const demiHeure = heure.endsWith(':30');
+
+  badge.innerHTML = `<span>${dispos.length}</span><span style="font-size:10px;font-weight:600;opacity:.8;">/${total}</span>`;
+  badge.style.background = dispos.length ? 'var(--indigo)' : 'var(--text-light)';
+
+  titre.textContent = `${day.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })} · ${heure}`;
+  sousTitre.textContent = total
+    ? `${dispos.length} disponible${dispos.length > 1 ? 's' : ''} sur ${total} membre${total > 1 ? 's' : ''} ayant répondu`
+    : 'Personne n\'a encore renseigné ses disponibilités';
+
+  const ligne = (nom, absent) => `
+    <div class="dispo-person${absent ? ' absent' : ''}">
+      <div class="dispo-avatar">${esc(initialesNom(nom))}</div>
+      <span style="font-size:13.5px;font-weight:${absent ? '500' : '600'};">${esc(nom)}</span>
+    </div>`;
+
+  const absents = repondants
+    .map(r => r.nom)
+    .filter(n => !presents.has(n))
+    .sort((a, b) => a.localeCompare(b));
+
+  let html = '';
+
+  if (entretiens.length) {
+    html += `<div><div class="dispo-group-title">Déjà planifié ici</div>
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        ${entretiens.map(n => `<div class="dispo-person"><div class="dispo-avatar" style="background:var(--orange);">📅</div>
+          <span style="font-size:13.5px;font-weight:600;">${esc(n)}</span></div>`).join('')}
+      </div></div>`;
+  }
+
+  html += `<div><div class="dispo-group-title">Disponibles${demiHeure ? ' (créneau de ' + heure.replace(':30', ':00') + ')' : ''}</div>`;
+  html += dispos.length
+    ? `<div style="display:flex;flex-direction:column;gap:6px;">${[...dispos].sort((a, b) => a.localeCompare(b)).map(n => ligne(n, false)).join('')}</div>`
+    : '<div class="text-muted text-sm">Aucun membre sur ce créneau.</div>';
+  html += '</div>';
+
+  if (absents.length) {
+    html += `<div><div class="dispo-group-title">Pas dispo sur ce créneau (${absents.length})</div>
+      <div style="display:flex;flex-direction:column;gap:6px;">${absents.map(n => ligne(n, true)).join('')}</div></div>`;
+  }
+
+  corps.innerHTML = html;
+  document.getElementById('slot-popup-overlay').classList.add('open');
+}
+
+function closeSlotPopup() {
+  document.getElementById('slot-popup-overlay').classList.remove('open');
+}
+window.closeSlotPopup = closeSlotPopup;
+
+document.getElementById('slot-popup-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('slot-popup-overlay')) closeSlotPopup();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeSlotPopup();
+});
+
+init();
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && currentCampaignId) loadCampaignData(currentCampaignId);
+});
+</script>
+</body>
+</html>

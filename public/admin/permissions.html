@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <script>(function(){var t=localStorage.getItem("_theme");if(t)document.documentElement.setAttribute("data-theme",t);})();</script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Permissions · Admin Cooptly</title>
+  <!-- Connexions ouvertes d'avance : sans elles, chaque serveur (polices,
+       SDK, base de données) coûtait sa propre poignée de main réseau au
+       moment où la page en avait besoin. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin />
+  <!-- Le SDK est préchargé dès l'en-tête. Sinon le navigateur ne le
+       découvre qu'en arrivant au script, tout en bas de la page. -->
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js" />
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js" />
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js" />
+  <!-- Polices en <link> et non plus en @import dans main.css : l'@import
+       obligeait à télécharger la feuille de style avant même de découvrir
+       les polices, trois allers-retours à la suite avant le texte. -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Antic&family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;600;700&display=swap" />
+  <link rel="stylesheet" href="/css/main.css" />
+</head>
+<body>
+
+<nav class="nav">
+  <a href="/admin/dashboard.html" class="nav-brand">
+    <div class="nav-brand-icon">C</div>
+    <span class="nav-brand-name">Cooptly</span>
+  </a>
+    <div class="nav-links">
+    <a href="/admin/dashboard.html" class="nav-link">Vue d'ensemble</a>
+    <a href="/admin/organisations.html" class="nav-link">Organisations</a>
+    <a href="/admin/permissions.html" class="nav-link active">Permissions</a>
+    <a href="/admin/data.html" class="nav-link">Base de données</a>
+  </div>
+  <div class="nav-right">
+    <button class="btn btn-ghost btn-sm" id="btn-logout">Déconnexion</button>
+  </div>
+</nav>
+
+<main class="page">
+  <div class="flex-between mb-24">
+    <div>
+      <h1>Permissions</h1>
+      <p>Attribuer les rôles sec-gé / président aux membres d'une association</p>
+    </div>
+  </div>
+
+  <!-- Ajouter un rôle -->
+  <div class="card mb-24">
+    <h2 class="mb-16">➕ Attribuer un rôle</h2>
+    <div class="stack">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="perm-email">Email de l'utilisateur <span class="required">*</span></label>
+          <input class="form-input" type="email" id="perm-email" placeholder="email@example.com" />
+          <span class="form-hint">L'utilisateur doit avoir créé un compte au préalable.</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="perm-org">Organisation <span class="required">*</span></label>
+          <select class="form-select" id="perm-org">
+            <option value="">Sélectionner</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="perm-role">Rôle <span class="required">*</span></label>
+          <select class="form-select" id="perm-role">
+            <option value="secge">Bureau (sec-gé)</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <button class="btn btn-primary" id="btn-add-perm">Attribuer le rôle</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rechercher un utilisateur -->
+  <div class="card mb-24">
+    <h2 class="mb-16">🔍 Utilisateurs enregistrés</h2>
+    <div class="form-group mb-16">
+      <input class="form-input" type="text" id="search-users" placeholder="Rechercher par email…" style="max-width:320px;" />
+    </div>
+    <div id="users-loading" style="text-align:center;padding:24px;"><div class="spinner" style="margin:auto;"></div></div>
+    <div class="table-wrap" id="users-table-wrap" style="display:none;">
+      <table>
+        <thead><tr><th>Nom</th><th>Email</th><th>Organisation</th><th>Rôle</th><th>Actions</th></tr></thead>
+        <tbody id="users-tbody"></tbody>
+      </table>
+      <p class="text-sm text-muted" style="margin-top:8px;">💡 Le bouton "Réinit. MDP" ouvre Firebase Console pour réinitialiser le mot de passe directement (les emails Firebase sont bloqués par emlyon).</p>
+    </div>
+  </div>
+
+  <!-- Administrateurs plateforme -->
+  <div class="card">
+    <div class="flex-between mb-16">
+      <div>
+        <h2>🔐 Administrateurs plateforme</h2>
+        <p class="text-sm text-muted mt-4">Accès complet à toutes les organisations, campagnes et permissions.</p>
+      </div>
+    </div>
+
+    <!-- Ajouter un admin -->
+    <div class="stack mb-20" style="background:var(--indigo-light);border:1.5px solid var(--indigo-mid);border-radius:10px;padding:16px;">
+      <h3 style="color:var(--indigo);margin-bottom:12px;font-size:14px;">➕ Ajouter un administrateur</h3>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="admin-email">Email du nouvel admin <span class="required">*</span></label>
+          <input class="form-input" type="email" id="admin-email" placeholder="email@example.com" />
+          <span class="form-hint">L'utilisateur doit avoir créé un compte et s'être connecté au moins une fois.</span>
+        </div>
+      </div>
+      <div>
+        <button class="btn btn-primary" id="btn-add-admin">Ajouter comme admin</button>
+      </div>
+    </div>
+
+    <!-- Liste des admins -->
+    <div id="admins-loading" style="text-align:center;padding:20px;"><div class="spinner" style="margin:auto;"></div></div>
+    <div id="admins-list" style="display:none;"></div>
+  </div>
+
+</main>
+
+<script type="module">
+import { requireAdmin, logout, auth } from '/js/auth.js';
+import { app } from '/js/auth.js';
+import { getFirestore, collection, getDocs, addDoc, setDoc, deleteDoc, updateDoc, doc, query, where, serverTimestamp }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { showToast, confirmDialog, regrouperMembres } from '/js/utils.js';
+import { initBurgerMenu } from '/js/nav.js';
+import { firebaseConfig } from '/js/firebase-config.js';
+
+const db = getFirestore(app);
+let allMembers = [], orgs = [];
+
+const ROLE_LABELS = { secge:'Sec-gé', president:'Président(e)', member:'Bureau' };
+const ROLE_BADGES = { secge:'badge-indigo', president:'badge-indigo', member:'badge-gray' };
+
+let currentUser, adminUids = new Set(), adminEmails = new Set();
+
+async function init() {
+  currentUser = await requireAdmin();
+  // Le menu se construit EN PARALLÈLE des données : l'attendre retardait
+  // tout l'affichage de la page, alors qu'il n'en conditionne rien.
+  initBurgerMenu(currentUser).catch(e => console.warn('Menu non construit :', e));
+  document.getElementById('btn-logout').addEventListener('click', async()=>{ await logout(); location.href='/index.html'; });
+
+  // Load orgs
+  const orgSnap = await getDocs(collection(db,'organizations'));
+  orgs = orgSnap.docs.map(d=>({id:d.id,...d.data()}));
+  const sel = document.getElementById('perm-org');
+  orgs.forEach(o => { const opt=document.createElement('option'); opt.value=o.id; opt.textContent=o.name; sel.appendChild(opt); });
+
+  await loadAdmins();
+  await loadMembers();
+
+  document.getElementById('btn-add-perm').addEventListener('click', addPerm);
+  document.getElementById('btn-add-admin').addEventListener('click', addAdmin);
+  document.getElementById('search-users').addEventListener('input', e => renderTable(
+    allMembers.filter(m => m.email?.toLowerCase().includes(e.target.value.toLowerCase()) || m.userId?.toLowerCase().includes(e.target.value.toLowerCase()))
+  ));
+}
+
+async function loadMembers() {
+  document.getElementById('users-loading').style.display='';
+  document.getElementById('users-table-wrap').style.display='none';
+  const snap = await getDocs(collection(db,'memberships'));
+  // Une personne pré-ajoutée puis connectée a deux documents par asso : on les
+  // regroupe (une ligne par personne et par asso), voir regrouperMembres.
+  const parOrg = new Map();
+  snap.docs.forEach(d => {
+    const m = { id: d.id, ...d.data() };
+    const k = m.organizationId || '';
+    if (!parOrg.has(k)) parOrg.set(k, []);
+    parOrg.get(k).push(m);
+  });
+  allMembers = [...parOrg.entries()].flatMap(([orgId, docs]) => regrouperMembres(docs, orgId));
+  document.getElementById('users-loading').style.display='none';
+  renderTable(allMembers);
+}
+
+function renderTable(members) {
+  const tbody = document.getElementById('users-tbody');
+  tbody.innerHTML='';
+  if (!members.length) { tbody.innerHTML='<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--text-muted);">Aucun membre.</td></tr>'; }
+  members.forEach(m => {
+    const org = orgs.find(o=>o.id===m.organizationId);
+    const tr=document.createElement('tr');
+    const email = m.email || m.userId;
+    const fullName = m.displayName || [m.firstName, m.lastName].filter(Boolean).join(' ') || '·';
+    const isAdmin = adminUids.has(m.userId) || adminEmails.has((m.email||'').toLowerCase());
+    const roleLabel = isAdmin ? 'Admin' : (ROLE_LABELS[m.role] || m.role);
+    const roleBadge = isAdmin ? 'badge-red' : (ROLE_BADGES[m.role] || 'badge-gray');
+    tr.innerHTML=`
+      <td><strong>${fullName}</strong></td>
+      <td style="color:var(--text-muted);font-size:13px;">${email}</td>
+      <td>${org?.name||m.organizationId||'·'}</td>
+      <td><span class="badge ${roleBadge}">${roleLabel}</span></td>
+      <td style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="btn btn-ghost btn-sm btn-edit-name">✏️ Nom</button>
+        <button class="btn btn-ghost btn-sm btn-reset-pwd">🔑 MDP</button>
+        <button class="btn btn-danger btn-sm btn-remove">Retirer</button>
+      </td>`;
+    tr.querySelector('.btn-edit-name').addEventListener('click', ()=> openEditName(m));
+    tr.querySelector('.btn-reset-pwd').addEventListener('click', ()=>{
+      const consoleUrl = `https://console.firebase.google.com/project/${firebaseConfig.projectId}/authentication/users`;
+      window.open(consoleUrl, '_blank');
+      showToast(`Ouvre Firebase Console → cherche "${email}" → clique sur les 3 points → Réinitialiser le mot de passe.`, 'success');
+    });
+    tr.querySelector('.btn-remove').addEventListener('click', async()=>{
+      if (!await confirmDialog('Retirer ce rôle ?',
+            { title: 'Retirer le rôle', confirmLabel: 'Retirer', danger: true })) return;
+      // Tous les documents de la personne pour cette asso, pas un seul.
+      await Promise.all((m._docIds?.length ? m._docIds : [m.id]).map(id => deleteDoc(doc(db,'memberships',id))));
+      showToast('Rôle retiré.','success');
+      await loadMembers();
+    });
+    tbody.appendChild(tr);
+  });
+  document.getElementById('users-table-wrap').style.display='';
+}
+
+async function addPerm() {
+  const email = document.getElementById('perm-email').value.trim().toLowerCase();
+  const orgId = document.getElementById('perm-org').value;
+  const role  = document.getElementById('perm-role').value;
+
+  if (!email || !orgId) return showToast('Email et organisation requis.','error');
+  if (!email.includes('@')) return showToast('Email invalide.','error');
+
+  try {
+    // Supprimer tout ancien membership associé à cet email pour cette org
+    // (couvre : champ email, ou userId stocké comme email, ancien format)
+    const [byEmail, byUserId] = await Promise.all([
+      getDocs(query(collection(db,'memberships'), where('email','==',email), where('organizationId','==',orgId))),
+      getDocs(query(collection(db,'memberships'), where('userId','==',email), where('organizationId','==',orgId)))
+    ]);
+    const toDelete = new Map();
+    [...byEmail.docs, ...byUserId.docs].forEach(d => toDelete.set(d.id, d.ref));
+    await Promise.all([...toDelete.values()].map(ref => deleteDoc(ref)));
+
+    await addDoc(collection(db,'memberships'), {
+      email,
+      userId: email, // migré vers l'UID Firebase au premier login
+      organizationId: orgId,
+      role,
+      displayName: email.split('@')[0],
+      createdAt: serverTimestamp()
+    });
+
+    showToast(`Rôle ${role} attribué à ${email}.`, 'success');
+    document.getElementById('perm-email').value = '';
+    await loadMembers();
+  } catch(err) { showToast('Erreur : '+err.message,'error'); }
+}
+
+// ── Platform admins ──────────────────────────────────────────────
+
+async function loadAdmins() {
+  document.getElementById('admins-loading').style.display = '';
+  document.getElementById('admins-list').style.display    = 'none';
+  const snap = await getDocs(collection(db, 'platform_admins'));
+  const admins = snap.docs.map(d => ({ uid: d.id, ...d.data() }));
+  adminUids.clear(); adminEmails.clear();
+  admins.forEach(a => { adminUids.add(a.uid); if (a.email) adminEmails.add(a.email.toLowerCase()); });
+  renderAdmins(admins);
+}
+
+function renderAdmins(admins) {
+  document.getElementById('admins-loading').style.display = 'none';
+  const list = document.getElementById('admins-list');
+  if (!admins.length) {
+    list.innerHTML = '<p class="text-sm text-muted">Aucun administrateur.</p>';
+  } else {
+    list.innerHTML = `
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Email</th><th>Ajouté le</th><th>Actions</th></tr></thead>
+          <tbody id="admins-tbody"></tbody>
+        </table>
+      </div>`;
+    const tbody = list.querySelector('#admins-tbody');
+    admins.forEach(a => {
+      const isSelf = a.uid === currentUser.uid;
+      const tr = document.createElement('tr');
+      const addedAt = a.addedAt?.toDate ? a.addedAt.toDate().toLocaleDateString('fr-FR') : '·';
+      tr.innerHTML = `
+        <td>
+          <strong>${a.email || a.uid}</strong>
+          ${isSelf ? '<span class="badge badge-indigo" style="margin-left:6px;font-size:11px;">Vous</span>' : ''}
+        </td>
+        <td style="color:var(--text-muted);font-size:13px;">${addedAt}</td>
+        <td>
+          <button class="btn btn-danger btn-sm btn-remove-admin" ${isSelf ? 'disabled title="Vous ne pouvez pas vous retirer vous-même."' : ''}>Retirer</button>
+        </td>`;
+      if (!isSelf) {
+        tr.querySelector('.btn-remove-admin').addEventListener('click', async () => {
+          if (!await confirmDialog(`Retirer ${a.email || a.uid} des admins ?`,
+                { title: 'Retirer l\'admin', confirmLabel: 'Retirer', danger: true })) return;
+          await deleteDoc(doc(db, 'platform_admins', a.uid));
+          showToast('Admin retiré.', 'success');
+          await loadAdmins();
+        });
+      }
+      tbody.appendChild(tr);
+    });
+  }
+  list.style.display = '';
+}
+
+async function addAdmin() {
+  const email = document.getElementById('admin-email').value.trim().toLowerCase();
+  if (!email) return showToast('Email requis.', 'error');
+  if (!email.includes('@')) return showToast('Email invalide.', 'error');
+
+  // 1. Chercher dans users (connexions récentes)
+  let uid = null;
+  const userSnap = await getDocs(query(collection(db, 'users'), where('email', '==', email)));
+  if (!userSnap.empty) {
+    uid = userSnap.docs[0].id;
+  }
+
+  // 2. Fallback : chercher dans memberships (utilisateurs connectés avant la collection users)
+  if (!uid) {
+    const [byEmail, byUserId] = await Promise.all([
+      getDocs(query(collection(db, 'memberships'), where('email',  '==', email))),
+      getDocs(query(collection(db, 'memberships'), where('userId', '==', email)))
+    ]);
+    for (const d of [...byEmail.docs, ...byUserId.docs]) {
+      const userId = d.data().userId;
+      if (userId && !userId.includes('@')) { uid = userId; break; }
+    }
+  }
+
+  if (!uid) {
+    return showToast(
+      `Aucun compte trouvé pour "${email}". L'utilisateur doit créer un compte et se connecter au moins une fois.`,
+      'error'
+    );
+  }
+
+  try {
+    await setDoc(doc(db, 'platform_admins', uid), { email, addedAt: serverTimestamp() });
+    showToast(`${email} est maintenant admin.`, 'success');
+    document.getElementById('admin-email').value = '';
+    await loadAdmins();
+  } catch (err) {
+    showToast('Erreur : ' + err.message, 'error');
+  }
+}
+
+// ── Édition nom ─────────────────────────────────────────────────
+function openEditName(m) {
+  document.getElementById('edit-member-id').value = (m._docIds?.length ? m._docIds : [m.id]).join(',');
+  document.getElementById('edit-firstname').value = m.firstName || '';
+  document.getElementById('edit-lastname').value  = m.lastName  || '';
+  document.getElementById('edit-name-overlay').style.display = 'flex';
+  document.getElementById('edit-firstname').focus();
+}
+
+document.getElementById('edit-name-overlay').addEventListener('click', e => {
+  if (e.target === e.currentTarget) e.currentTarget.style.display = 'none';
+});
+document.getElementById('edit-name-cancel').addEventListener('click', () => {
+  document.getElementById('edit-name-overlay').style.display = 'none';
+});
+document.getElementById('edit-name-save').addEventListener('click', async () => {
+  const memberIds  = document.getElementById('edit-member-id').value.split(',').filter(Boolean);
+  const firstName  = document.getElementById('edit-firstname').value.trim();
+  const lastName   = document.getElementById('edit-lastname').value.trim();
+  if (!firstName || !lastName) return showToast('Prénom et nom requis.', 'error');
+  const displayName = `${firstName} ${lastName}`;
+  try {
+    await Promise.all(memberIds.map(id => updateDoc(doc(db, 'memberships', id), { firstName, lastName, displayName })));
+    showToast('Nom mis à jour.', 'success');
+    document.getElementById('edit-name-overlay').style.display = 'none';
+    await loadMembers();
+  } catch(err) { showToast('Erreur : ' + err.message, 'error'); }
+});
+
+init();
+</script>
+
+<!-- Modal édition nom -->
+<div id="edit-name-overlay" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:9990;align-items:center;justify-content:center;backdrop-filter:blur(3px);">
+  <div style="background:#fff;border-radius:16px;padding:28px 24px;width:100%;max-width:380px;box-shadow:0 24px 64px rgba(0,0,0,.18);border:1px solid var(--border);">
+    <h3 style="margin:0 0 20px;font-size:16px;font-weight:700;">✏️ Modifier le nom</h3>
+    <input type="hidden" id="edit-member-id" />
+    <div class="stack">
+      <div class="form-group">
+        <label class="form-label" for="edit-firstname">Prénom <span class="required">*</span></label>
+        <input class="form-input" type="text" id="edit-firstname" placeholder="Ex: Camille" />
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="edit-lastname">Nom <span class="required">*</span></label>
+        <input class="form-input" type="text" id="edit-lastname" placeholder="Ex: Martin" />
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button class="btn btn-ghost" id="edit-name-cancel">Annuler</button>
+        <button class="btn btn-primary" id="edit-name-save">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

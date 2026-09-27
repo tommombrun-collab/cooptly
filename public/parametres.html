@@ -1,0 +1,2217 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <script>(function(){var t=localStorage.getItem("_theme");if(t)document.documentElement.setAttribute("data-theme",t);})();</script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Paramètres · Cooptly</title>
+  <!-- Connexions ouvertes d'avance : sans elles, chaque serveur (polices,
+       SDK, base de données) coûtait sa propre poignée de main réseau au
+       moment où la page en avait besoin. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin />
+  <!-- Le SDK est préchargé dès l'en-tête. Sinon le navigateur ne le
+       découvre qu'en arrivant au script, tout en bas de la page. -->
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js" />
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js" />
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js" />
+  <!-- Polices en <link> et non plus en @import dans main.css : l'@import
+       obligeait à télécharger la feuille de style avant même de découvrir
+       les polices, trois allers-retours à la suite avant le texte. -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Antic&family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;600;700&display=swap" />
+  <link rel="stylesheet" href="/css/main.css" />
+</head>
+<body>
+
+<nav class="nav">
+  <a href="/secge/dashboard.html" class="nav-brand">
+    <div class="nav-brand-icon">C</div>
+    <span class="nav-brand-name">Cooptly</span>
+  </a>
+  <div class="nav-links">
+    <a href="/secge/dashboard.html"  class="nav-link">Tableau de bord</a>
+    <a href="/secge/candidats.html"  class="nav-link">Cooptants</a>
+    <a href="/planning.html"         class="nav-link">Planning</a>
+    <a href="/parametres.html"       class="nav-link active">Paramètres</a>
+  </div>
+  <div class="nav-right">
+    <button class="btn btn-ghost btn-sm" id="btn-logout">Déconnexion</button>
+  </div>
+</nav>
+
+<main class="page">
+
+  <div class="flex-between mb-24">
+    <div>
+      <h1>Paramètres</h1>
+      <p id="org-label">Chargement…</p>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs tabs-sticky" role="tablist" aria-label="Sections des paramètres">
+    <button class="tab-btn active" data-tab="campagne"  role="tab" aria-selected="true"  aria-controls="tab-campagne"  id="tbtn-campagne"  tabindex="0">📅 Campagne</button>
+    <button class="tab-btn" data-tab="formulaire" role="tab" aria-selected="false" aria-controls="tab-formulaire" id="tbtn-formulaire" tabindex="-1">📝 Formulaire</button>
+    <button class="tab-btn" data-tab="entretien"  role="tab" aria-selected="false" aria-controls="tab-entretien"  id="tbtn-entretien"  tabindex="-1">🎙 Entretien</button>
+    <button class="tab-btn" data-tab="staff"      role="tab" aria-selected="false" aria-controls="tab-staff"      id="tbtn-staff"      tabindex="-1">👥 Staff</button>
+    <button class="tab-btn" data-tab="salles"     role="tab" aria-selected="false" aria-controls="tab-salles"     id="tbtn-salles"     tabindex="-1">🏫 Salles</button>
+    <button class="tab-btn" data-tab="codes"      role="tab" aria-selected="false" aria-controls="tab-codes"      id="tbtn-codes"      tabindex="-1">🔑 Codes d'accès</button>
+    <button class="tab-btn" data-tab="corbeille"  role="tab" aria-selected="false" aria-controls="tab-corbeille"  id="tbtn-corbeille"  tabindex="-1">🗑 Corbeille</button>
+    <button class="tab-btn" data-tab="danger"     role="tab" aria-selected="false" aria-controls="tab-danger"     id="tbtn-danger"     tabindex="-1" style="color:var(--red);">⚠️ Danger</button>
+  </div>
+
+  <!-- ── Tab: Campagne ──────────────────────────────────────────── -->
+  <div class="tab-panel active" id="tab-campagne" role="tabpanel" aria-labelledby="tbtn-campagne" tabindex="0">
+    <div id="campaigns-loading" style="padding:8px 0 16px;">
+      <div class="skel-list">
+        <div class="skel skel-h" style="width:35%;margin-bottom:4px;"></div>
+        <div class="skel skel-card" style="height:72px;"></div>
+        <div class="skel skel-card" style="height:72px;opacity:.7;"></div>
+        <div class="skel skel-card" style="height:48px;opacity:.45;"></div>
+      </div>
+    </div>
+
+    <div id="campagne-content" style="display:none;">
+      <!-- Recrutement ouvert / fermé -->
+      <div class="card mb-24">
+        <div class="settings-head mb-16">
+          <div class="settings-head-icon">📣</div>
+          <div>
+            <h2>Recrutement</h2>
+            <p class="text-sm text-muted mt-4">Active ou mets en pause les candidatures. Quand c'est fermé, le formulaire de cooptation affiche un message d'attente.</p>
+          </div>
+        </div>
+        <label class="toggle-row" id="camp-ouvert-row" style="cursor:pointer;">
+          <div>
+            <div style="font-weight:700;font-size:15px;" id="camp-ouvert-title">Recrutement en pause</div>
+            <div class="text-sm text-muted" id="camp-ouvert-desc">Les cooptants ne peuvent pas postuler pour le moment.</div>
+          </div>
+          <span class="switch">
+            <input type="checkbox" id="camp-ouvert" />
+            <span class="switch-track"></span>
+          </span>
+        </label>
+      </div>
+
+      <!-- Règles des entretiens -->
+      <div class="card">
+        <div class="settings-head mb-16">
+          <div class="settings-head-icon teal">🎙</div>
+          <div>
+            <h2>Règles des entretiens</h2>
+            <p class="text-sm text-muted mt-4">Ces réglages s'appliquent à tous tes entretiens.</p>
+          </div>
+        </div>
+        <form id="campaign-form" class="stack">
+
+          <!-- Y a-t-il des entretiens ? -->
+          <label class="checkbox-wrap" style="cursor:pointer;">
+            <input type="checkbox" id="camp-avec-entretien" checked />
+            <span>Organiser des entretiens</span>
+          </label>
+          <span class="form-hint" style="margin-top:-6px;">
+            Décoche si ton asso recrute uniquement sur dossier : le formulaire ne demandera
+            alors ni créneau ni disponibilité.
+          </span>
+
+          <!-- Tout ce qui suit ne concerne que le cas "avec entretiens" -->
+          <div id="entretien-settings" class="stack">
+
+            <!-- Mode de prise de rendez-vous -->
+            <div class="form-group">
+              <label class="form-label">Comment les entretiens sont-ils calés&nbsp;?</label>
+              <div class="mode-choice-grid">
+                <label class="mode-choice">
+                  <input type="radio" name="camp-mode-rdv" value="creneaux" checked />
+                  <span class="mode-choice-body">
+                    <span class="mode-choice-title">Le cooptant choisit son créneau</span>
+                    <span class="mode-choice-desc">
+                      Le staff dépose ses disponibilités <em>avant</em> l'ouverture, et le cooptant
+                      réserve directement un créneau libre. Rien à replacer ensuite.
+                    </span>
+                  </span>
+                </label>
+                <label class="mode-choice">
+                  <input type="radio" name="camp-mode-rdv" value="dispos" />
+                  <span class="mode-choice-body">
+                    <span class="mode-choice-title">Le cooptant donne ses disponibilités</span>
+                    <span class="mode-choice-desc">
+                      Le cooptant coche quand il est libre, puis tu génères tout le planning
+                      d'un coup depuis le tableau de bord.
+                    </span>
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Période des entretiens -->
+            <div class="form-row-3">
+              <div class="form-group">
+                <label class="form-label" for="camp-date-debut">Début des entretiens</label>
+                <input class="form-input" type="date" id="camp-date-debut" />
+                <span class="form-hint">Vide = 4 prochaines semaines.</span>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="camp-date-fin">Fin des entretiens</label>
+                <input class="form-input" type="date" id="camp-date-fin" />
+                <span class="form-hint">Vide = 4 prochaines semaines.</span>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="camp-deadline">Clôture des candidatures</label>
+                <input class="form-input" type="date" id="camp-deadline" />
+                <span class="form-hint">Optionnel : vide = pas de date limite.</span>
+              </div>
+            </div>
+
+            <div class="form-row-3">
+              <div class="form-group">
+                <label class="form-label" for="camp-duree">Durée d'un entretien</label>
+                <input class="form-input" type="number" id="camp-duree" value="30" min="15" step="15" />
+                <span class="form-hint">En minutes.</span>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="camp-battement">Battement entre entretiens</label>
+                <input class="form-input" type="number" id="camp-battement" value="0" min="0" step="5" />
+                <span class="form-hint">En minutes (0 = à la suite).</span>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="camp-nb-jurys">Jurys par entretien</label>
+                <input class="form-input" type="number" id="camp-nb-jurys" value="2" min="1" max="3" />
+                <span class="form-hint">Entre 1 et 3.</span>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="camp-delai">Délai minimum avant un entretien</label>
+              <select class="form-select" id="camp-delai" style="max-width:260px;">
+                <option value="0">Aucun (dès aujourd'hui)</option>
+                <option value="1">1 jour (dès demain)</option>
+                <option value="2">2 jours (pas avant après-demain, par défaut)</option>
+                <option value="3">3 jours</option>
+                <option value="7">1 semaine</option>
+              </select>
+              <span class="form-hint">Un cooptant ne peut pas réserver un créneau plus proche. Laisse au bureau le temps de s'organiser.</span>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="camp-pas">Créneaux proposés</label>
+              <select class="form-select" id="camp-pas" style="max-width:260px;">
+                <option value="15">Tous les quarts d'heure (10h00, 10h15…)</option>
+                <option value="30">Toutes les demi-heures (10h00, 10h30, par défaut)</option>
+                <option value="60">Toutes les heures (10h00, 11h00…)</option>
+              </select>
+              <span class="form-hint">Heures de début que le cooptant peut choisir. Indépendant de la durée d'un entretien.</span>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="camp-heure-fin">Fin des créneaux</label>
+              <select class="form-select" id="camp-heure-fin" style="max-width:220px;">
+                <option value="17">17 h</option>
+                <option value="18">18 h</option>
+                <option value="19">19 h (par défaut)</option>
+                <option value="20">20 h</option>
+                <option value="21">21 h</option>
+                <option value="22">22 h</option>
+                <option value="23">23 h</option>
+              </select>
+              <span class="form-hint">Heure à laquelle le dernier entretien doit être fini. Les créneaux commencent à 8 h. Plus tard, pour des entretiens en visio le soir.</span>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="camp-max-affiles">Entretiens d'affilée par juré</label>
+              <input class="form-input" type="number" id="camp-max-affiles" value="4" min="0" max="12"
+                     style="max-width:220px;" />
+              <span class="form-hint">
+                Les mêmes jurés enchaînent les créneaux qui se suivent, pour mobiliser peu de monde
+                longtemps plutôt que tout le bureau par petits bouts. Au-delà de ce nombre, la relève
+                est forcée. <strong>0 = pas de limite.</strong>
+              </span>
+            </div>
+
+            <label class="checkbox-wrap" style="cursor:pointer;">
+              <input type="checkbox" id="camp-staff-libre" />
+              <span>
+                <strong>Le staff n'a pas à déclarer ses disponibilités</strong><br />
+                <span class="text-sm text-muted">
+                  Tout le bureau est réputé libre sur toute la période, de 8 h à 18 h. Les cooptants
+                  peuvent alors proposer n'importe quel créneau, et non plus seulement ceux où
+                  assez de monde s'est déclaré. Vous vous arrangez ensuite entre vous.
+                </span>
+              </span>
+            </label>
+
+            <label class="checkbox-wrap" style="cursor:pointer;">
+              <input type="checkbox" id="camp-appart" />
+              <span>Permettre les appartements comme lieu d'entretien</span>
+            </label>
+
+            <label class="checkbox-wrap" style="cursor:pointer;">
+              <input type="checkbox" id="camp-collectif" />
+              <span>Autoriser les entretiens à plusieurs</span>
+            </label>
+            <div id="collectif-detail" style="display:none;">
+              <span class="form-hint" style="display:block;margin:-6px 0 10px;">
+                Après avoir réservé, le cooptant reçoit un lien à transmettre pour qu'un ami
+                passe l'entretien <strong>sur son créneau</strong>. Personne ne se retrouve
+                avec un inconnu : seul celui qui a le lien peut rejoindre.
+              </span>
+              <div class="form-group" style="max-width:220px;">
+                <label class="form-label" for="camp-max-groupe">Cooptants par entretien</label>
+                <input class="form-input" type="number" id="camp-max-groupe" value="2" min="2" max="4" />
+                <span class="form-hint">Le cooptant + ses invités.</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group" style="max-width:220px;">
+            <label class="form-label" for="camp-nb-places">Places disponibles</label>
+            <input class="form-input" type="number" id="camp-nb-places" value="0" min="0" placeholder="0 = illimité" />
+            <span class="form-hint">Seuil de sélection (0 = illimité).</span>
+          </div>
+
+          <div class="flex-gap">
+            <button type="submit" class="btn btn-primary" id="camp-save-btn">Enregistrer</button>
+            <span id="camp-saved" class="text-sm text-muted" style="align-self:center;"></span>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Tab: Formulaire ────────────────────────────────────────── -->
+  <div class="tab-panel" id="tab-formulaire" role="tabpanel" aria-labelledby="tbtn-formulaire" tabindex="0">
+    <div class="card mb-24">
+      <div class="flex-between mb-16">
+        <div class="settings-head">
+          <div class="settings-head-icon">📝</div>
+          <div>
+            <h2>Formulaire de candidature</h2>
+            <p class="text-sm text-muted mt-4">Le formulaire contient toujours <strong>Prénom, Nom et Email emlyon</strong>. Ajoutez ici vos questions complémentaires (motivations, téléphone, disponibilités…).</p>
+          </div>
+        </div>
+        <div class="flex-gap">
+          <select class="form-select" id="form-campaign-select" style="width:200px;font-size:14px;">
+            <option value="">Campagne</option>
+          </select>
+          <button class="btn btn-primary btn-sm" id="btn-add-question">+ Ajouter une question</button>
+        </div>
+      </div>
+      <div id="questions-list" class="stack">
+        <p class="text-muted text-sm">Sélectionne une campagne pour gérer ses questions.</p>
+      </div>
+    </div>
+
+    <!-- Add/edit question form -->
+    <div class="card" id="question-form-card" style="display:none;">
+      <h2 class="mb-16" id="q-form-title">Nouvelle question</h2>
+      <div class="stack">
+        <div class="form-group">
+          <label class="form-label" for="q-label">Libellé de la question <span class="required">*</span></label>
+          <input class="form-input" type="text" id="q-label" placeholder="Ex: Pourquoi veux-tu rejoindre l'asso ?" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Image (optionnelle)</label>
+          <input type="file" id="q-image-input" accept="image/*" style="display:none;" />
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <button type="button" class="btn btn-ghost btn-sm" id="btn-pick-image">📎 Choisir une image</button>
+            <button type="button" class="btn btn-ghost btn-sm" id="btn-clear-image" style="display:none;color:#dc2626;">✕ Retirer l'image</button>
+          </div>
+          <div id="q-image-preview" style="margin-top:8px;display:none;">
+            <img id="q-image-thumb" src="" alt="aperçu" style="max-height:120px;max-width:100%;border-radius:6px;border:1px solid var(--border);" />
+          </div>
+          <span class="form-hint">Affichée au-dessus de la question dans le formulaire. Max 2 Mo. Stockée sur Firebase Storage.</span>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="q-type">Type de réponse</label>
+            <select class="form-select" id="q-type">
+              <optgroup label="Texte">
+                <option value="text">Texte court</option>
+                <option value="longtext">Texte long</option>
+              </optgroup>
+              <optgroup label="Champs guidés">
+                <option value="tel">📞 Téléphone</option>
+                <option value="email">✉️ Email</option>
+                <option value="nombre">🔢 Nombre</option>
+                <option value="date">📅 Date</option>
+                <option value="url">🔗 Lien</option>
+              </optgroup>
+              <optgroup label="Choix">
+                <option value="select">📋 Liste de choix</option>
+                <option value="checkbox">✔️ Case à cocher</option>
+              </optgroup>
+            </select>
+            <span class="form-hint">Les champs guidés ouvrent le bon clavier sur téléphone.</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Obligatoire ?</label>
+            <label class="checkbox-wrap" style="cursor:pointer;">
+              <input type="checkbox" id="q-required" />
+              <span>Réponse obligatoire</span>
+            </label>
+          </div>
+        </div>
+        <div class="form-group" id="q-options-group" style="display:none;">
+          <label class="form-label" for="q-options">Options (une par ligne)</label>
+          <textarea class="form-textarea" id="q-options" placeholder="Option A&#10;Option B&#10;Option C"></textarea>
+        </div>
+        <div class="flex-gap">
+          <button class="btn btn-primary btn-sm" id="btn-save-question">Ajouter</button>
+          <button class="btn btn-ghost btn-sm" id="btn-cancel-question">Annuler</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Tab: Entretien ─────────────────────────────────────────── -->
+  <div class="tab-panel" id="tab-entretien" role="tabpanel" aria-labelledby="tbtn-entretien" tabindex="0">
+
+    <!-- Consignes & guide de questions : texte libre propre à chaque asso -->
+    <div class="card mb-24">
+      <div class="settings-head mb-16">
+        <div class="settings-head-icon teal">📌</div>
+        <div>
+          <h2>Consignes & guide de questions</h2>
+          <p class="text-sm text-muted mt-4">
+            Affichés en haut de la fiche d'entretien, pour le bureau comme pour le jury.
+            Laissez vide pour ne rien afficher.
+          </p>
+        </div>
+      </div>
+
+      <div class="stack">
+        <div class="form-group">
+          <label class="form-label" for="camp-consignes">Consignes aux jurés</label>
+          <textarea class="form-textarea" id="camp-consignes" rows="8"
+            placeholder="Ce qu'il faut faire, ce qu'il ne faut surtout pas demander, les infos à avoir sous la main…"></textarea>
+          <span class="form-hint">
+            Toujours visible en haut de la fiche. C'est l'endroit pour les interdits
+            et ce que chaque juré doit avoir en tête avant de commencer.
+          </span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="camp-guide-questions">Guide de questions</label>
+          <textarea class="form-textarea" id="camp-guide-questions" rows="10"
+            placeholder="Une question par ligne : de quoi relancer quand on ne sait plus quoi demander…"></textarea>
+          <span class="form-hint">
+            Replié par défaut dans la fiche : consultable d'un clic, sans encombrer l'écran.
+          </span>
+        </div>
+
+        <div class="flex-gap">
+          <button class="btn btn-primary" id="btn-save-consignes">Enregistrer</button>
+          <span id="consignes-saved" class="text-sm text-muted" style="align-self:center;"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-24">
+      <div class="flex-between mb-16">
+        <div class="settings-head">
+          <div class="settings-head-icon teal">🎙</div>
+          <div>
+            <h2>Critères d'évaluation</h2>
+            <p class="text-sm text-muted mt-4">Ces critères s'affichent dans la fiche d'entretien que le jury remplit pour chaque candidat.</p>
+          </div>
+        </div>
+        <div class="flex-gap">
+          <select class="form-select" id="crit-campaign-select" style="width:200px;font-size:14px;">
+            <option value="">Campagne</option>
+          </select>
+          <button class="btn btn-primary btn-sm" id="btn-add-criterion">+ Ajouter un critère</button>
+        </div>
+      </div>
+      <div id="criteria-list" class="stack">
+        <p class="text-muted text-sm">Sélectionne une campagne pour gérer ses critères d'entretien.</p>
+      </div>
+    </div>
+
+    <!-- Add/edit criterion form -->
+    <div class="card" id="criterion-form-card" style="display:none;">
+      <h2 class="mb-16" id="crit-form-title">Nouveau critère d'évaluation</h2>
+      <div class="stack">
+        <div class="form-group">
+          <label class="form-label" for="crit-label">Libellé du critère <span class="required">*</span></label>
+          <input class="form-input" type="text" id="crit-label" placeholder="Ex: Motivation, Communication, Leadership…" />
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="crit-type">Type d'évaluation</label>
+            <select class="form-select" id="crit-type">
+              <optgroup label="Compte dans le score">
+                <option value="echelle">⭐ Échelle : boutons 1 → max</option>
+                <option value="note">🔢 Note : saisie 0 → max (demi-points)</option>
+              </optgroup>
+              <optgroup label="Ne compte pas dans le score">
+                <option value="yesno">✅ Oui / Non : deux boutons</option>
+                <option value="select">📋 Liste de choix : une seule réponse</option>
+                <option value="multi">☑️ Cases à cocher : plusieurs réponses</option>
+                <option value="check">✔️ Case à cocher simple : vrai / non renseigné</option>
+                <option value="texte">💬 Texte libre</option>
+              </optgroup>
+            </select>
+          </div>
+          <div class="form-group" id="crit-max-group">
+            <label class="form-label" for="crit-max">Valeur maximum</label>
+            <input class="form-input" type="number" id="crit-max" value="5" min="2" max="20" />
+          </div>
+        </div>
+        <div class="form-group" id="crit-options-group" style="display:none;">
+          <label class="form-label" for="crit-options">Options (une par ligne)</label>
+          <textarea class="form-textarea" id="crit-options" rows="4"
+            placeholder="Communication&#10;Événementiel&#10;Trésorerie"></textarea>
+          <span class="form-hint">Au moins deux options. Les jurés choisiront parmi cette liste.</span>
+        </div>
+        <label class="checkbox-wrap" style="cursor:pointer;">
+          <input type="checkbox" id="crit-required" checked />
+          <span>Critère obligatoire</span>
+        </label>
+        <div class="flex-gap">
+          <button class="btn btn-primary btn-sm" id="btn-save-criterion">Ajouter</button>
+          <button class="btn btn-ghost btn-sm" id="btn-cancel-criterion">Annuler</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Tab: Staff ─────────────────────────────────────────────── -->
+  <div class="tab-panel" id="tab-staff" role="tabpanel" aria-labelledby="tbtn-staff" tabindex="0">
+    <div class="card mb-24">
+      <div class="flex-between mb-16">
+        <div class="settings-head">
+          <div class="settings-head-icon">👥</div>
+          <div>
+            <h2>Membres du staff</h2>
+            <p class="text-sm text-muted mt-4">Les personnes avec un compte et accès à cet espace.</p>
+          </div>
+        </div>
+        <button class="btn btn-primary btn-sm" id="btn-add-member">+ Ajouter un membre</button>
+      </div>
+
+      <div id="add-member-form" class="card mb-16" style="display:none;background:var(--bg);">
+        <div class="form-row" style="align-items:flex-end;">
+          <div class="form-group">
+            <label class="form-label" for="member-email">Email emlyon</label>
+            <input class="form-input" type="email" id="member-email" placeholder="prenom.nom@edu.em-lyon.com" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="member-role">Rôle</label>
+            <select class="form-select" id="member-role">
+              <option value="secge">Sec-gé / Bureau</option>
+            </select>
+          </div>
+          <div class="flex-gap" style="padding-bottom:1px;">
+            <button class="btn btn-primary btn-sm" id="btn-save-member">Ajouter</button>
+            <button class="btn btn-ghost btn-sm" id="btn-cancel-member">Annuler</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="members-list">
+        <div class="spinner" style="margin:24px auto;display:block;"></div>
+      </div>
+    </div>
+
+    <!-- Disponibilités sans compte -->
+    <div class="card mb-24">
+      <div class="flex-between mb-8">
+        <div class="settings-head">
+          <div class="settings-head-icon teal">📅</div>
+          <div>
+            <h2>Disponibilités sans compte</h2>
+          </div>
+        </div>
+        <button class="btn btn-ghost btn-sm" id="btn-copy-dispo-link">🔗 Copier le lien</button>
+      </div>
+      <div id="dispo-slug-warning" style="display:none;margin-bottom:12px;padding:10px 14px;background:var(--orange-light);border:1px solid var(--orange-mid);border-radius:var(--radius-sm);">
+        <span style="font-size:13px;color:#C2410C;">⚠️ Votre organisation n'a pas de slug configuré. L'URL partagée expose l'identifiant Firestore interne. Configurez un slug dans les paramètres de votre organisation.</span>
+      </div>
+      <p class="text-sm text-muted mb-16">
+        Partage ce lien à ton équipe : chacun choisit son nom (ou l'ajoute) et dépose ses
+        disponibilités <strong>sans créer de compte</strong>. Pré-remplis les noms ci-dessous
+        pour leur faciliter la tâche, ils pourront aussi s'ajouter eux-mêmes.
+      </p>
+
+      <div class="form-row" style="align-items:flex-end;max-width:520px;">
+        <div class="form-group" style="flex:1;">
+          <label class="form-label" for="roster-firstname">Prénom</label>
+          <input class="form-input" type="text" id="roster-firstname" placeholder="Ex : Camille" />
+        </div>
+        <div class="form-group" style="flex:1;">
+          <label class="form-label" for="roster-lastname">Nom</label>
+          <input class="form-input" type="text" id="roster-lastname" placeholder="Ex : Martin" />
+        </div>
+        <div style="padding-bottom:1px;">
+          <button class="btn btn-primary btn-sm" id="btn-add-roster">Ajouter</button>
+        </div>
+      </div>
+
+      <div id="roster-list" style="margin-top:16px;">
+        <div class="spinner" style="margin:24px auto;display:block;"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── Tab: Salles ────────────────────────────────────────────── -->
+  <div class="tab-panel" id="tab-salles" role="tabpanel" aria-labelledby="tbtn-salles" tabindex="0">
+    <div class="card mb-24">
+      <div class="flex-between mb-16">
+        <div class="settings-head">
+          <div class="settings-head-icon">🏫</div>
+          <div>
+            <h2>Salles disponibles</h2>
+            <p class="text-sm text-muted mt-4">Lieux où les entretiens peuvent se tenir.</p>
+          </div>
+        </div>
+        <button class="btn btn-primary btn-sm" id="btn-add-room">+ Ajouter une salle</button>
+      </div>
+
+      <div id="add-room-form" class="card mb-16" style="display:none;background:var(--bg);">
+        <div class="stack">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="room-code">Code / nom de la salle <span class="required">*</span></label>
+              <input class="form-input" type="text" id="room-code" placeholder="Ex: B105, Appart Jules…" />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="room-type">Type</label>
+              <select class="form-select" id="room-type">
+                <option value="salle_emlyon">Salle emlyon</option>
+                <option value="appart">Appartement</option>
+                <option value="externe">Lieu externe</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group" id="room-responsable-group" style="display:none;">
+            <label class="form-label" for="room-responsable">Responsable</label>
+            <select class="form-select" id="room-responsable">
+              <option value="">Aucun responsable</option>
+            </select>
+            <span class="form-hint">Membre du staff responsable de cet appartement.</span>
+          </div>
+          <div class="flex-gap">
+            <button class="btn btn-primary btn-sm" id="btn-save-room">Ajouter</button>
+            <button class="btn btn-ghost btn-sm" id="btn-cancel-room">Annuler</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="rooms-list">
+        <div class="spinner" style="margin:24px auto;display:block;"></div>
+      </div>
+    </div>
+
+    <!-- Réservations de salles -->
+    <div class="card">
+      <div class="flex-between mb-16">
+        <div class="settings-head">
+          <div class="settings-head-icon teal">📅</div>
+          <div>
+            <h2>Réservations de salles</h2>
+            <p class="text-sm text-muted mt-4">Indiquer quand chaque salle est disponible pour le planning des entretiens.</p>
+          </div>
+        </div>
+        <button class="btn btn-primary btn-sm" id="btn-add-booking">+ Ajouter une réservation</button>
+      </div>
+
+      <div id="add-booking-form" class="card mb-16" style="display:none;background:var(--bg);">
+        <div class="stack">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="booking-room">Salle <span class="required">*</span></label>
+              <select class="form-select" id="booking-room">
+                <option value="">Sélectionner</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="booking-date">Date <span class="required">*</span></label>
+              <input class="form-input" type="date" id="booking-date" />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="booking-start">Heure de début <span class="required">*</span></label>
+              <input class="form-input" type="time" id="booking-start" value="08:00" step="1800" />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="booking-end">Heure de fin <span class="required">*</span></label>
+              <input class="form-input" type="time" id="booking-end" value="19:00" step="1800" />
+            </div>
+          </div>
+          <div class="flex-gap">
+            <button class="btn btn-primary btn-sm" id="btn-save-booking">Enregistrer la réservation</button>
+            <button class="btn btn-ghost btn-sm" id="btn-cancel-booking">Annuler</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="bookings-list">
+        <p class="text-muted text-sm">Aucune réservation enregistrée.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Tab: Codes d'accès ──────────────────────────────────── -->
+  <div class="tab-panel" id="tab-codes" role="tabpanel" aria-labelledby="tbtn-codes" tabindex="0">
+    <div class="card">
+      <div class="settings-head mb-16">
+        <div class="settings-head-icon orange">🔑</div>
+        <div>
+          <h2>Codes d'invitation</h2>
+          <p class="text-sm text-muted mt-4">Partagez ces codes pour permettre à de nouveaux membres de rejoindre votre espace directement depuis la page de connexion.</p>
+        </div>
+      </div>
+
+      <div id="invite-codes-loading" style="text-align:center;padding:24px;"><div class="spinner" style="margin:auto;"></div></div>
+      <div id="invite-codes-list" style="display:none;flex-direction:column;gap:8px;margin-bottom:20px;"></div>
+
+      <div style="border-top:1px solid var(--border);padding-top:16px;display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
+        <div class="form-group" style="margin:0;">
+          <label class="form-label" style="margin-bottom:4px;">Rôle</label>
+          <select class="form-select" id="new-code-role" style="width:180px;font-size:13px;">
+            <option value="secge">Sec-gé / Bureau</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin:0;flex:1;min-width:160px;">
+          <label class="form-label" style="margin-bottom:4px;">Label <span class="form-hint">(optionnel)</span></label>
+          <input class="form-input" id="new-code-label" placeholder="Ex: Membres 2025" style="font-size:13px;" />
+        </div>
+        <button class="btn btn-primary" id="btn-gen-invite-code">+ Générer un code</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Tab: Corbeille ───────────────────────────────────────── -->
+  <div class="tab-panel" id="tab-corbeille" role="tabpanel" aria-labelledby="tbtn-corbeille" tabindex="0">
+    <div class="card">
+      <div class="settings-head mb-16">
+        <div class="settings-head-icon">🗑</div>
+        <div>
+          <h2>Corbeille</h2>
+          <p class="text-sm text-muted mt-4">Les cooptants et dispos supprimés restent ici <strong>30 jours</strong>, puis s'effacent tout seuls. Pour une demande d'effacement de données, utilise « Supprimer définitivement ».</p>
+        </div>
+      </div>
+      <div id="corbeille-list" class="stack" style="gap:8px;">
+        <p class="text-sm text-muted">Chargement…</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Tab: Zone de danger ────────────────────────────────────── -->
+  <div class="tab-panel" id="tab-danger" role="tabpanel" aria-labelledby="tbtn-danger" tabindex="0">
+    <div class="card" style="border:1.5px solid var(--red-mid);">
+      <div class="settings-head mb-16">
+        <div class="settings-head-icon red">⚠️</div>
+        <div>
+          <h2 style="color:var(--red);">Zone de danger</h2>
+          <p class="text-sm text-muted mt-4">Suppressions en masse. Les données restent récupérables <strong>30 jours</strong> dans l'onglet Corbeille. Une confirmation par nom d'association est requise.</p>
+        </div>
+      </div>
+      <div class="stack" style="gap:12px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+          <div>
+            <div style="font-weight:600;font-size:14px;">Réinitialiser les cooptants</div>
+            <div class="text-sm text-muted">Supprime toutes les candidatures de cette asso, avec leurs entretiens et leurs évaluations.</div>
+          </div>
+          <button class="btn btn-danger btn-sm" id="btn-reset-candidates" style="white-space:nowrap;">Supprimer les cooptants</button>
+        </div>
+        <hr style="border:none;border-top:1px solid var(--border);" />
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+          <div>
+            <div style="font-weight:600;font-size:14px;">Réinitialiser les disponibilités</div>
+            <div class="text-sm text-muted">Supprime toutes les disponibilités du staff de cette asso.</div>
+          </div>
+          <button class="btn btn-danger btn-sm" id="btn-reset-dispos" style="white-space:nowrap;">Supprimer les dispos</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- ── Overlay de confirmation zone de danger ─────────────────── -->
+<div id="danger-overlay" style="display:none;position:fixed;inset:0;background:rgba(17,24,39,.6);z-index:999;align-items:center;justify-content:center;padding:24px;">
+  <div class="card" style="max-width:460px;width:100%;">
+    <div class="settings-head" style="margin-bottom:14px;">
+      <div class="settings-head-icon red" style="flex-shrink:0;">⚠️</div>
+      <div>
+        <h2 style="color:var(--red);font-size:1.1rem;">Action irréversible</h2>
+      </div>
+    </div>
+    <p id="danger-dialog-desc" class="text-sm" style="color:var(--text);margin-bottom:14px;"></p>
+    <p class="text-sm" style="margin-bottom:6px;">Pour confirmer, tapez le nom de l'association :</p>
+    <p id="danger-dialog-orgname" style="font-weight:700;color:var(--red);font-size:15px;margin-bottom:12px;"></p>
+    <input class="form-input" id="danger-dialog-input" placeholder="Tapez le nom exact…" autocomplete="off" style="margin-bottom:16px;" />
+    <div class="flex-gap">
+      <button class="btn btn-danger" id="danger-dialog-ok" disabled>Supprimer définitivement</button>
+      <button class="btn btn-ghost" id="danger-dialog-cancel">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { requireSecge, logout, app, resolveOrgContext } from '/js/auth.js';
+import { getOrg, getOrCreateOrgCampaign, updateCampaign,
+  getMembersByOrg, addMembership, getRoomsByOrg, createRoom, deleteRoom, db } from '/js/db.js';
+import { getFirestore, collection, query, where, getDocs, doc, getDoc, setDoc, updateDoc, addDoc, deleteDoc, serverTimestamp, Timestamp }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
+import { showToast, confirmDialog, campaignConfig, esc } from '/js/utils.js';
+import { heureFinValide, pasCreneauxValide } from '/js/capacite.js';
+import { initBurgerMenu } from '/js/nav.js';
+import { mettreEnCorbeille, cooptantEnCorbeille, listerCorbeille, restaurer, viderEntree, DUREE_CORBEILLE_JOURS }
+  from '/js/corbeille.js';
+
+let user, currentOrg, members = [], rooms = [], campaigns = [];
+let standingCampaign = null;
+let selectedFormCampaignId = null;
+let selectedCritCampaignId  = null;
+
+const storage = getStorage(app);
+
+// Président(e) et Sec-gé ont les mêmes droits ; seul le libellé change.
+// Avant, `president` s'affichait « Sec-gé » ici et « Président(e) » ailleurs.
+const ROLE_LABELS = { member: 'Membre', secge: 'Sec-gé', president: 'Président(e)' };
+const ROOM_TYPE_LABELS = { salle_emlyon: 'Salle emlyon', appart: 'Appartement', externe: 'Lieu externe' };
+
+// ─── Tabs (ARIA + navigation clavier) ────────────────────────────
+let _codesTabLoaded = false;
+const tabBtns   = document.querySelectorAll('[role="tab"]');
+const tabPanels = document.querySelectorAll('[role="tabpanel"]');
+
+function switchTab(tabKey) {
+  tabBtns.forEach(b => {
+    const isActive = b.dataset.tab === tabKey;
+    b.classList.toggle('active', isActive);
+    b.setAttribute('aria-selected', String(isActive));
+    b.setAttribute('tabindex', isActive ? '0' : '-1');
+  });
+  tabPanels.forEach(p => p.classList.toggle('active', p.id === `tab-${tabKey}`));
+  if (tabKey === 'corbeille' && currentOrg) chargerCorbeille();
+  if (tabKey === 'codes' && !_codesTabLoaded && currentOrg) {
+    _codesTabLoaded = true;
+    loadInviteCodes();
+  }
+}
+
+tabBtns.forEach(btn => {
+  btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+  btn.addEventListener('keydown', e => {
+    const tabs = [...tabBtns];
+    const idx  = tabs.indexOf(btn);
+    if (e.key === 'ArrowRight') { e.preventDefault(); tabs[(idx + 1) % tabs.length].focus(); }
+    if (e.key === 'ArrowLeft')  { e.preventDefault(); tabs[(idx - 1 + tabs.length) % tabs.length].focus(); }
+    if (e.key === 'Home')       { e.preventDefault(); tabs[0].focus(); }
+    if (e.key === 'End')        { e.preventDefault(); tabs[tabs.length - 1].focus(); }
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); switchTab(btn.dataset.tab); }
+  });
+});
+
+// ─── Zone de danger : confirmation par nom d'asso ────────────────
+let _dangerResolve = null;
+const dangerOverlay = document.getElementById('danger-overlay');
+const dangerInput   = document.getElementById('danger-dialog-input');
+const dangerOk      = document.getElementById('danger-dialog-ok');
+const dangerCancel  = document.getElementById('danger-dialog-cancel');
+
+dangerInput.addEventListener('input', () => {
+  dangerOk.disabled = dangerInput.value.trim() !== (currentOrg?.name || '');
+});
+dangerOk.addEventListener('click', () => {
+  dangerOverlay.style.display = 'none';
+  if (_dangerResolve) { _dangerResolve(true); _dangerResolve = null; }
+});
+dangerCancel.addEventListener('click', () => {
+  dangerOverlay.style.display = 'none';
+  if (_dangerResolve) { _dangerResolve(false); _dangerResolve = null; }
+});
+dangerOverlay.addEventListener('click', e => {
+  if (e.target === dangerOverlay) {
+    dangerOverlay.style.display = 'none';
+    if (_dangerResolve) { _dangerResolve(false); _dangerResolve = null; }
+  }
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && dangerOverlay.style.display === 'flex') {
+    dangerOverlay.style.display = 'none';
+    if (_dangerResolve) { _dangerResolve(false); _dangerResolve = null; }
+  }
+});
+
+function confirmDanger(description) {
+  return new Promise(resolve => {
+    _dangerResolve = resolve;
+    document.getElementById('danger-dialog-desc').textContent = description;
+    document.getElementById('danger-dialog-orgname').textContent = currentOrg?.name || '?';
+    dangerInput.value = '';
+    dangerOk.disabled = true;
+    dangerOverlay.style.display = 'flex';
+    setTimeout(() => dangerInput.focus(), 50);
+  });
+}
+
+// ─── Init ─────────────────────────────────────────────────────────
+async function init() {
+  user = await requireSecge();
+  // Le menu se construit EN PARALLÈLE des données : l'attendre retardait
+  // tout l'affichage de la page, alors qu'il n'en conditionne rien.
+  initBurgerMenu(user).catch(e => console.warn('Menu non construit :', e));
+  document.getElementById('btn-logout').addEventListener('click', async () => {
+    await logout(); window.location.href = '/index.html';
+  });
+
+  const orgId = await resolveOrgContext(user);
+
+  if (orgId) {
+    currentOrg = await getOrg(orgId);
+    document.getElementById('org-label').textContent = currentOrg?.name || orgId;
+    if (!currentOrg?.slug) {
+      document.getElementById('dispo-slug-warning').style.display = '';
+    }
+    await loadCampaigns();
+    await Promise.all([loadMembers(), loadRoster(), loadRooms(), loadBookings(), loadInviteCodes()]);
+    _codesTabLoaded = true;
+  } else {
+    document.getElementById('org-label').textContent = 'Aucune organisation associée.';
+    ['members-list','rooms-list'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = '<p class="text-muted text-sm">Aucune organisation trouvée.</p>';
+    });
+    document.getElementById('campaigns-loading').style.display = 'none';
+  }
+}
+
+// ─── Espace de recrutement unique de l'asso ───────────────────────
+async function loadCampaigns() {
+  document.getElementById('campaigns-loading').style.display = '';
+  standingCampaign = await getOrCreateOrgCampaign(currentOrg.id);
+  campaigns = standingCampaign ? [standingCampaign] : [];
+  document.getElementById('campaigns-loading').style.display = 'none';
+  document.getElementById('campagne-content').style.display = '';
+
+  const c = standingCampaign;
+  const ouvert = c.recrutementOuvert !== false && c.statut !== 'fermee';
+  document.getElementById('camp-ouvert').checked  = ouvert;
+  reflectRecrutementState(ouvert);
+  // Les campagnes créées avant l'ajout d'un réglage n'ont pas le champ en base
+  // → toujours passer par campaignConfig() pour récupérer les défauts.
+  const cfg = campaignConfig(c);
+  document.getElementById('camp-duree').value     = cfg.dureeMinutes;
+  // nbJurys était réglable jusqu'à 4 alors que seuls jury1Id..jury3Id existent
+  // en base : on borne à 3 pour rester cohérent avec le planning.
+  document.getElementById('camp-nb-jurys').value  = Math.min(3, cfg.nbJurys);
+  document.getElementById('camp-nb-places').value = c.nbPlaces ?? 0;
+  document.getElementById('camp-appart').checked  = cfg.permettreAppart;
+  document.getElementById('camp-battement').value = cfg.battementMinutes;
+  document.getElementById('camp-heure-fin').value = String(heureFinValide(cfg.heureFin));
+  document.getElementById('camp-pas').value = String(pasCreneauxValide(cfg.pasCreneauxMinutes));
+  // Valeur hors liste (réglée à la main) : on l'ajoute pour ne pas la perdre à l'enregistrement.
+  const selDelai = document.getElementById('camp-delai');
+  const delai = String(Math.max(0, parseInt(cfg.delaiReservationJours, 10) || 0));
+  if (![...selDelai.options].some(o => o.value === delai)) selDelai.add(new Option(`${delai} jours`, delai));
+  selDelai.value = delai;
+  document.getElementById('camp-max-affiles').value = cfg.maxEntretiensAffiles;
+  document.getElementById('camp-staff-libre').checked = cfg.staffToujoursDispo;
+  document.getElementById('camp-date-debut').value = cfg.dateDebut || '';
+  document.getElementById('camp-date-fin').value   = cfg.dateFin   || '';
+  document.getElementById('camp-deadline').value   = cfg.deadlineCandidature || '';
+  document.getElementById('camp-avec-entretien').checked = cfg.avecEntretien;
+  document.getElementById('camp-collectif').checked  = cfg.entretienCollectif;
+  document.getElementById('camp-max-groupe').value   = cfg.maxParGroupe;
+  reflectCollectifState(cfg.entretienCollectif);
+
+  const modeRadio = document.querySelector(`input[name="camp-mode-rdv"][value="${cfg.modeRdv}"]`);
+  if (modeRadio) modeRadio.checked = true;
+  reflectEntretienState(cfg.avecEntretien);
+
+  // Consignes & guide : champs de PREMIER NIVEAU (pas dans `config`), pour que
+  // l'enregistrement de l'onglet Campagne (qui remplace `config` en entier)
+  // ne puisse jamais les effacer.
+  document.getElementById('camp-consignes').value       = c.consignesEntretien || '';
+  document.getElementById('camp-guide-questions').value = c.guideQuestions     || '';
+
+  selectedFormCampaignId = c.id;
+  selectedCritCampaignId = c.id;
+  const fSel = document.getElementById('form-campaign-select'); if (fSel) fSel.style.display = 'none';
+  const cSel = document.getElementById('crit-campaign-select'); if (cSel) cSel.style.display = 'none';
+  renderQuestions();
+  renderCriteria();
+}
+
+function reflectRecrutementState(ouvert) {
+  const row   = document.getElementById('camp-ouvert-row');
+  const title = document.getElementById('camp-ouvert-title');
+  const desc  = document.getElementById('camp-ouvert-desc');
+  row.classList.toggle('is-on', ouvert);
+  title.textContent = ouvert ? 'Recrutement ouvert' : 'Recrutement en pause';
+  desc.textContent  = ouvert
+    ? 'Les cooptants peuvent postuler dès maintenant.'
+    : 'Les cooptants ne peuvent pas postuler pour le moment.';
+}
+
+// Recrutement sur dossier → tous les réglages d'entretien deviennent hors sujet.
+function reflectEntretienState(avecEntretien) {
+  const box = document.getElementById('entretien-settings');
+  box.style.display = avecEntretien ? '' : 'none';
+}
+
+document.getElementById('camp-avec-entretien').addEventListener('change', e => {
+  reflectEntretienState(e.target.checked);
+});
+
+function reflectCollectifState(on) {
+  document.getElementById('collectif-detail').style.display = on ? '' : 'none';
+}
+
+document.getElementById('camp-collectif').addEventListener('change', e => {
+  reflectCollectifState(e.target.checked);
+});
+
+document.getElementById('camp-ouvert').addEventListener('change', async e => {
+  if (!standingCampaign) return;
+  const ouvert = e.target.checked;
+  reflectRecrutementState(ouvert);
+  try {
+    await updateCampaign(standingCampaign.id, { recrutementOuvert: ouvert, statut: ouvert ? 'ouverte' : 'fermee' });
+    standingCampaign.recrutementOuvert = ouvert;
+    showToast(ouvert ? 'Recrutement ouvert ✓' : 'Recrutement mis en pause.', 'success');
+  } catch (err) {
+    showToast('Erreur : ' + err.message, 'error');
+    e.target.checked = !ouvert;
+    reflectRecrutementState(!ouvert);
+  }
+});
+
+document.getElementById('campaign-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  if (!standingCampaign) return;
+  const dateDebut = document.getElementById('camp-date-debut').value || null;
+  const dateFin   = document.getElementById('camp-date-fin').value   || null;
+
+  // Une seule borne ne définit pas une période → on retomberait silencieusement
+  // sur la fenêtre glissante. Mieux vaut le dire.
+  if ((dateDebut && !dateFin) || (!dateDebut && dateFin)) {
+    return showToast('Renseigne les deux dates d\'entretiens, ou aucune des deux.', 'error');
+  }
+  if (dateDebut && dateFin && dateFin < dateDebut) {
+    return showToast('La fin des entretiens doit être après le début.', 'error');
+  }
+
+  const btn = document.getElementById('camp-save-btn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner" style="width:14px;height:14px;border-width:2px;margin-right:6px;"></span>Enregistrement…';
+
+  // Tout est DANS le try : une erreur pendant la construction de la config
+  // (champ absent, helper manquant) laissait sinon le bouton bloqué sur
+  // « Enregistrement… » sans jamais rien dire à l'utilisateur.
+  try {
+    // ⚠️ updateCampaign remplace `config` en entier : on repart des valeurs
+    // existantes (complétées par les défauts) pour ne rien effacer.
+    const config = {
+      ...campaignConfig(standingCampaign),
+      dureeMinutes:    parseInt(document.getElementById('camp-duree').value) || 30,
+      nbJurys:         Math.min(3, parseInt(document.getElementById('camp-nb-jurys').value) || 1),
+      permettreAppart: document.getElementById('camp-appart').checked,
+      battementMinutes: Math.max(0, parseInt(document.getElementById('camp-battement').value) || 0),
+      heureFin:        heureFinValide(document.getElementById('camp-heure-fin').value),
+      pasCreneauxMinutes: pasCreneauxValide(document.getElementById('camp-pas').value),
+      delaiReservationJours: Math.max(0, Math.min(14, parseInt(document.getElementById('camp-delai').value, 10) || 0)),
+      maxEntretiensAffiles: Math.max(0, Math.min(12,
+        parseInt(document.getElementById('camp-max-affiles').value) || 0)),
+      staffToujoursDispo: document.getElementById('camp-staff-libre').checked,
+      modeRdv:         document.querySelector('input[name="camp-mode-rdv"]:checked')?.value || 'creneaux',
+      dateDebut,
+      dateFin,
+      deadlineCandidature: document.getElementById('camp-deadline').value || null,
+      avecEntretien:   document.getElementById('camp-avec-entretien').checked,
+      entretienCollectif: document.getElementById('camp-collectif').checked,
+      maxParGroupe:    Math.max(2, Math.min(4, parseInt(document.getElementById('camp-max-groupe').value) || 2)),
+    };
+    const nbPlaces = parseInt(document.getElementById('camp-nb-places').value) || 0;
+
+    await updateCampaign(standingCampaign.id, { config, nbPlaces });
+    standingCampaign.config = config; standingCampaign.nbPlaces = nbPlaces;
+    document.getElementById('camp-saved').textContent = 'Enregistré ✓';
+  } catch (err) {
+    console.error(err);
+    showToast('Erreur : ' + (err?.message || err), 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Enregistrer';
+  }
+});
+
+document.getElementById('btn-save-consignes').addEventListener('click', async () => {
+  if (!standingCampaign) return showToast('Espace de recrutement non chargé.', 'error');
+  const btn = document.getElementById('btn-save-consignes');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner" style="width:14px;height:14px;border-width:2px;margin-right:6px;"></span>Enregistrement…';
+  try {
+    const consignesEntretien = document.getElementById('camp-consignes').value.trim();
+    const guideQuestions     = document.getElementById('camp-guide-questions').value.trim();
+    await updateCampaign(standingCampaign.id, { consignesEntretien, guideQuestions });
+    standingCampaign.consignesEntretien = consignesEntretien;
+    standingCampaign.guideQuestions     = guideQuestions;
+    document.getElementById('consignes-saved').textContent = 'Enregistré ✓';
+  } catch (err) {
+    console.error(err);
+    showToast('Erreur : ' + (err?.message || err), 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Enregistrer';
+  }
+});
+
+// ─── Custom questions ─────────────────────────────────────────────
+let _editingQuestionIndex = null;
+let _qImageFile     = null;  // File sélectionné (nouveau)
+let _qImagePreview  = null;  // base64 pour l'aperçu UI
+let _qImageExistUrl = null;  // URL Storage ou base64 existante (mode édition)
+
+/** Libellés des types de question du formulaire de candidature. */
+const Q_TYPE_LABELS = {
+  text:     'Texte court',
+  longtext: 'Texte long',
+  tel:      'Téléphone',
+  email:    'Email',
+  nombre:   'Nombre',
+  date:     'Date',
+  url:      'Lien',
+  select:   'Liste de choix',
+  checkbox: 'Case à cocher',
+};
+
+document.getElementById('q-type').addEventListener('change', e => {
+  document.getElementById('q-options-group').style.display = e.target.value === 'select' ? '' : 'none';
+});
+
+document.getElementById('btn-pick-image').addEventListener('click', () => {
+  document.getElementById('q-image-input').click();
+});
+document.getElementById('q-image-input').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (file.size > 2_000_000) return showToast('Image trop lourde (max 2 Mo).', 'error');
+  _qImageFile    = file;
+  _qImageExistUrl = null;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    _qImagePreview = ev.target.result;
+    document.getElementById('q-image-thumb').src = _qImagePreview;
+    document.getElementById('q-image-preview').style.display = '';
+    document.getElementById('btn-clear-image').style.display = '';
+  };
+  reader.readAsDataURL(file);
+});
+document.getElementById('btn-clear-image').addEventListener('click', () => {
+  _qImageFile    = null;
+  _qImagePreview = null;
+  _qImageExistUrl = null;
+  document.getElementById('q-image-input').value = '';
+  document.getElementById('q-image-thumb').src = '';
+  document.getElementById('q-image-preview').style.display = 'none';
+  document.getElementById('btn-clear-image').style.display = 'none';
+});
+
+function _openQuestionForm(q = null, index = null) {
+  _editingQuestionIndex = index;
+  document.getElementById('q-form-title').textContent = q ? 'Modifier la question' : 'Nouvelle question';
+  document.getElementById('btn-save-question').textContent = q ? 'Enregistrer' : 'Ajouter';
+  document.getElementById('q-label').value = q?.label || '';
+  document.getElementById('q-type').value = q?.type || 'text';
+  document.getElementById('q-required').checked = q?.required || false;
+  document.getElementById('q-options').value = q?.options?.join('\n') || '';
+  document.getElementById('q-options-group').style.display = q?.type === 'select' ? '' : 'none';
+
+  _qImageFile    = null;
+  _qImagePreview = null;
+  _qImageExistUrl = q?.imageUrl || q?.imageDataUrl || null;
+  document.getElementById('q-image-input').value = '';
+  const thumb    = document.getElementById('q-image-thumb');
+  const preview  = document.getElementById('q-image-preview');
+  const clearBtn = document.getElementById('btn-clear-image');
+  if (_qImageExistUrl) {
+    thumb.src = _qImageExistUrl;
+    preview.style.display = '';
+    clearBtn.style.display = '';
+  } else {
+    thumb.src = ''; preview.style.display = 'none'; clearBtn.style.display = 'none';
+  }
+  document.getElementById('question-form-card').style.display = '';
+  document.getElementById('question-form-card').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+document.getElementById('btn-add-question').addEventListener('click', () => {
+  if (!selectedFormCampaignId) return showToast('Sélectionne une campagne d\'abord.', 'error');
+  _openQuestionForm();
+});
+
+document.getElementById('btn-cancel-question').addEventListener('click', () => {
+  document.getElementById('question-form-card').style.display = 'none';
+  _editingQuestionIndex = null;
+});
+
+document.getElementById('btn-save-question').addEventListener('click', async () => {
+  const label = document.getElementById('q-label').value.trim();
+  if (!label) return showToast('Le libellé est requis.', 'error');
+  const btn = document.getElementById('btn-save-question');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner" style="width:14px;height:14px;border-width:2px;margin-right:6px;"></span>Enregistrement…';
+
+  const q = {
+    label,
+    type:     document.getElementById('q-type').value,
+    required: document.getElementById('q-required').checked,
+  };
+  if (q.type === 'select') {
+    q.options = document.getElementById('q-options').value.split('\n').map(s => s.trim()).filter(Boolean);
+  }
+
+  // Upload image vers Firebase Storage (si nouveau fichier)
+  if (_qImageFile) {
+    try {
+      const safeFilename = _qImageFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const path = `orgs/${currentOrg.id}/question-images/${Date.now()}-${safeFilename}`;
+      const fileRef = storageRef(storage, path);
+      await uploadBytes(fileRef, _qImageFile);
+      q.imageUrl = await getDownloadURL(fileRef);
+    } catch (err) {
+      showToast('Erreur upload image : ' + err.message + ', L\'image n\'a pas été sauvegardée.', 'error');
+      btn.disabled = false;
+      btn.textContent = _editingQuestionIndex !== null ? 'Enregistrer' : 'Ajouter';
+      return;
+    }
+  } else if (_qImageExistUrl) {
+    // Conserver l'URL ou base64 existante (compat avec les anciennes questions)
+    if (_qImageExistUrl.startsWith('http')) {
+      q.imageUrl = _qImageExistUrl;
+    } else {
+      q.imageDataUrl = _qImageExistUrl;
+    }
+  }
+
+  try {
+    const campDoc = await getDoc(doc(db, 'campaigns', selectedFormCampaignId));
+    const qs = [...(campDoc.data()?.formConfig?.customQuestions || [])];
+    if (_editingQuestionIndex !== null) {
+      // Une question modifiée garde son identifiant : c'est lui qui rattache
+      // les réponses déjà reçues à cette question.
+      const ancienne = qs[_editingQuestionIndex] || {};
+      qs[_editingQuestionIndex] = {
+        ...q,
+        ...(ancienne.id ? { id: ancienne.id } : {}),
+        ...(ancienne.legacyIndex !== undefined ? { legacyIndex: ancienne.legacyIndex } : {}),
+      };
+    } else {
+      qs.push({ ...q, id: nouvelIdQuestion() });
+    }
+    await persisterQuestions(qs);
+    showToast(_editingQuestionIndex !== null ? 'Question mise à jour.' : 'Question ajoutée.', 'success');
+    document.getElementById('question-form-card').style.display = 'none';
+    _editingQuestionIndex = null;
+    renderQuestions();
+  } catch (err) { showToast('Erreur : ' + err.message, 'error'); }
+  finally {
+    btn.disabled = false;
+    btn.textContent = _editingQuestionIndex !== null ? 'Enregistrer' : 'Ajouter';
+  }
+});
+
+// ─── Ordre des questions ──────────────────────────────────────────
+// Les questions n'avaient pas d'identifiant : les réponses sont classées par
+// INDEX (`customAnswers['0']`, `['1']`, …). Les réordonner aurait donc
+// déplacé le sens des réponses déjà reçues. On leur donne un `id` stable, en
+// notant au passage leur index d'origine (`legacyIndex`) pour retrouver les
+// réponses enregistrées avant cette bascule.
+
+let _questions = [];          // questions de la campagne affichée
+
+/** Identifiant court et stable pour une question. */
+function nouvelIdQuestion() {
+  return 'q_' + Math.random().toString(36).slice(2, 10);
+}
+
+/**
+ * Donne un `id` aux questions qui n'en ont pas, en mémorisant leur position
+ * d'origine. À appeler avant toute écriture de la liste.
+ * @param {object[]} qs
+ * @returns {object[]} nouvelle liste, questions inchangées si déjà identifiées
+ */
+function assurerIdsQuestions(qs) {
+  return qs.map((q, i) => q.id ? q : { ...q, id: nouvelIdQuestion(), legacyIndex: i });
+}
+
+/** Écrit la liste des questions, identifiants garantis. */
+async function persisterQuestions(qs) {
+  const avecIds = assurerIdsQuestions(qs);
+  await updateDoc(doc(db, 'campaigns', selectedFormCampaignId),
+    { 'formConfig.customQuestions': avecIds });
+  _questions = avecIds;
+  return avecIds;
+}
+
+/**
+ * Position finale d'une question lâchée sur une autre.
+ *
+ * On raisonne sur la liste APRÈS retrait de l'élément déplacé : le retirer
+ * décale d'un cran vers le haut tout ce qui le suivait. Sans cette correction,
+ * descendre une question la posait une ligne trop bas.
+ *
+ * @param {number}  de      position d'origine
+ * @param {number}  cible   position de la ligne survolée
+ * @param {boolean} dessous lâchée sur la moitié basse de la ligne
+ * @returns {number}
+ */
+function positionDeDepot(de, cible, dessous) {
+  let vers = dessous ? cible + 1 : cible;
+  if (de < vers) vers--;
+  return vers;
+}
+
+/** Déplace la question `de` à la position `vers`, puis enregistre. */
+async function deplacerQuestion(de, vers) {
+  if (de === vers || de < 0 || vers < 0 || de >= _questions.length || vers >= _questions.length) return;
+  // On valide avant de muter : retirer puis abandonner ferait disparaître une
+  // question (même piège que le classement des cooptants).
+  const copie = [..._questions];
+  const [q] = copie.splice(de, 1);
+  copie.splice(vers, 0, q);
+
+  const avant = _questions;
+  _questions = copie;
+  dessinerQuestions();                 // retour immédiat, on enregistre ensuite
+  try {
+    await persisterQuestions(copie);
+  } catch (err) {
+    _questions = avant;
+    dessinerQuestions();
+    showToast('Ordre non enregistré : ' + err.message, 'error');
+  }
+}
+
+async function renderQuestions() {
+  const el = document.getElementById('questions-list');
+  if (!selectedFormCampaignId) { el.innerHTML = '<p class="text-muted text-sm">Sélectionne une campagne.</p>'; return; }
+  el.innerHTML = '<div class="spinner" style="margin:16px auto;display:block;"></div>';
+  const campDoc = await getDoc(doc(db, 'campaigns', selectedFormCampaignId));
+  _questions = campDoc.data()?.formConfig?.customQuestions || [];
+  dessinerQuestions();
+}
+
+let _dragQuestionIndex = null;
+
+function dessinerQuestions() {
+  const el = document.getElementById('questions-list');
+  if (!_questions.length) { el.innerHTML = '<p class="text-muted text-sm">Aucune question personnalisée.</p>'; return; }
+  el.innerHTML = '';
+
+  _questions.forEach((q, i) => {
+    const imgSrc = q.imageUrl || q.imageDataUrl || null;
+    const row = document.createElement('div');
+    row.className = 'q-row';
+    row.dataset.index = i;
+    row.innerHTML = `
+      ${imgSrc ? `<img src="${imgSrc}" alt="" style="max-height:80px;max-width:100%;border-radius:4px;margin-bottom:8px;display:block;" />` : ''}
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div class="q-grip" title="Glisser pour déplacer">⋮⋮</div>
+        <div class="q-num">${i + 1}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:600;">${esc(q.label)}</div>
+          <div class="text-sm text-muted">${Q_TYPE_LABELS[q.type] || q.type} · ${q.required ? 'Obligatoire' : 'Optionnel'}</div>
+        </div>
+        <div class="q-moves">
+          <button class="q-move" data-dir="-1" title="Monter" aria-label="Monter la question ${i + 1}"${i === 0 ? ' disabled' : ''}>↑</button>
+          <button class="q-move" data-dir="1" title="Descendre" aria-label="Descendre la question ${i + 1}"${i === _questions.length - 1 ? ' disabled' : ''}>↓</button>
+        </div>
+        <div class="flex-gap">
+          <button class="btn btn-ghost btn-sm btn-edit">Modifier</button>
+          <button class="btn btn-danger btn-sm btn-del">Supprimer</button>
+        </div>
+      </div>`;
+
+    row.querySelectorAll('.q-move').forEach(b => b.addEventListener('click', () =>
+      deplacerQuestion(i, i + Number(b.dataset.dir))));
+
+    row.querySelector('.btn-edit').addEventListener('click', () => _openQuestionForm(q, i));
+    row.querySelector('.btn-del').addEventListener('click', async () => {
+      if (!await confirmDialog('Supprimer cette question du formulaire ?', { confirmLabel: 'Supprimer', danger: true })) return;
+      const copie = [..._questions];
+      copie.splice(i, 1);
+      try {
+        await persisterQuestions(copie);
+        showToast('Question supprimée.', 'success');
+        dessinerQuestions();
+      } catch (err) { showToast('Erreur : ' + err.message, 'error'); }
+    });
+
+    // La poignée est le SEUL point de départ du glisser : sinon impossible de
+    // sélectionner le texte de la question, le navigateur démarrerait un drag.
+    const grip = row.querySelector('.q-grip');
+    row.draggable = false;
+    grip.addEventListener('mousedown', () => { row.draggable = true; });
+    grip.addEventListener('mouseup',   () => { row.draggable = false; });
+
+    row.addEventListener('dragstart', e => {
+      _dragQuestionIndex = i;
+      row.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', String(i));   // Firefox exige un payload
+    });
+    row.addEventListener('dragend', () => {
+      row.draggable = false;
+      _dragQuestionIndex = null;
+      el.querySelectorAll('.q-row').forEach(r =>
+        r.classList.remove('dragging', 'drop-above', 'drop-below'));
+    });
+    row.addEventListener('dragover', e => {
+      if (_dragQuestionIndex === null || _dragQuestionIndex === i) return;
+      e.preventDefault();
+      const milieu = row.getBoundingClientRect().top + row.offsetHeight / 2;
+      row.classList.toggle('drop-above', e.clientY < milieu);
+      row.classList.toggle('drop-below', e.clientY >= milieu);
+    });
+    row.addEventListener('dragleave', () => row.classList.remove('drop-above', 'drop-below'));
+    row.addEventListener('drop', e => {
+      e.preventDefault();
+      const de = _dragQuestionIndex;
+      if (de === null || de === i) return;
+      const dessous = row.classList.contains('drop-below');
+      row.classList.remove('drop-above', 'drop-below');
+      deplacerQuestion(de, positionDeDepot(de, i, dessous));
+    });
+
+    el.appendChild(row);
+  });
+}
+
+// ─── Interview Criteria ───────────────────────────────────────────
+let _editingCriterionIndex = null;
+const TYPE_LABELS = {
+  echelle: '⭐ Échelle', note: '🔢 Note', yesno: '✅ Oui / Non',
+  select: '📋 Liste de choix', multi: '☑️ Cases à cocher',
+  check: '✔️ Case à cocher', texte: '💬 Texte libre',
+};
+const TYPE_ICONS  = { echelle: '⭐', note: '🔢', yesno: '✅', select: '📋', multi: '☑️', check: '✔️', texte: '💬' };
+
+// Seuls les types chiffrés ont une valeur maximum ; seuls les types à liste
+// ont des options. Centralisé ici pour éviter les divergences entre le
+// formulaire, la sauvegarde et l'affichage.
+const TYPE_HAS_MAX     = t => t === 'echelle' || t === 'note';
+const TYPE_HAS_OPTIONS = t => t === 'select'  || t === 'multi';
+
+function _reflectCritType(type) {
+  document.getElementById('crit-max-group').style.display     = TYPE_HAS_MAX(type) ? '' : 'none';
+  document.getElementById('crit-options-group').style.display = TYPE_HAS_OPTIONS(type) ? '' : 'none';
+}
+
+document.getElementById('crit-type').addEventListener('change', e => _reflectCritType(e.target.value));
+
+function _openCriterionForm(cr = null, index = null) {
+  _editingCriterionIndex = index;
+  document.getElementById('crit-form-title').textContent = cr ? 'Modifier le critère' : 'Nouveau critère d\'évaluation';
+  document.getElementById('btn-save-criterion').textContent = cr ? 'Enregistrer' : 'Ajouter';
+  document.getElementById('crit-label').value = cr?.label || '';
+  document.getElementById('crit-type').value  = cr?.type  || 'echelle';
+  document.getElementById('crit-max').value   = cr?.max   || 5;
+  document.getElementById('crit-options').value = cr?.options?.join('\n') || '';
+  _reflectCritType(cr?.type || 'echelle');
+  document.getElementById('crit-required').checked = cr ? (cr.required ?? true) : true;
+  document.getElementById('criterion-form-card').style.display = '';
+  document.getElementById('criterion-form-card').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+document.getElementById('btn-add-criterion').addEventListener('click', () => {
+  if (!selectedCritCampaignId) return showToast('Sélectionne une campagne d\'abord.', 'error');
+  _openCriterionForm();
+});
+
+document.getElementById('btn-cancel-criterion').addEventListener('click', () => {
+  document.getElementById('criterion-form-card').style.display = 'none';
+  _editingCriterionIndex = null;
+});
+
+document.getElementById('btn-save-criterion').addEventListener('click', async () => {
+  const label = document.getElementById('crit-label').value.trim();
+  if (!label) return showToast('Le libellé est requis.', 'error');
+  const btn = document.getElementById('btn-save-criterion');
+  const idle = _editingCriterionIndex !== null ? 'Enregistrer' : 'Ajouter';
+  btn.disabled = true; btn.innerHTML = '<span class="spinner" style="width:14px;height:14px;border-width:2px;margin-right:6px;"></span>Enregistrement…';
+  const type = document.getElementById('crit-type').value;
+  const hasMax = TYPE_HAS_MAX(type);
+  const options = TYPE_HAS_OPTIONS(type)
+    ? document.getElementById('crit-options').value.split('\n').map(o => o.trim()).filter(Boolean)
+    : null;
+  // Une liste à une seule option ne laisse aucun choix au juré.
+  if (options && options.length < 2) {
+    btn.disabled = false; btn.textContent = idle;
+    return showToast('Renseigne au moins deux options.', 'error');
+  }
+  const criterion = {
+    id: _editingCriterionIndex !== null
+          ? (await getDoc(doc(db, 'campaigns', selectedCritCampaignId))).data()?.interviewCriteria?.[_editingCriterionIndex]?.id || `crit_${Date.now()}`
+          : `crit_${Date.now()}`,
+    label, type,
+    required: document.getElementById('crit-required').checked,
+    ...(hasMax  ? { max: parseInt(document.getElementById('crit-max').value) } : {}),
+    ...(options ? { options } : {})
+  };
+  try {
+    const campDoc = await getDoc(doc(db, 'campaigns', selectedCritCampaignId));
+    const cs = [...(campDoc.data()?.interviewCriteria || [])];
+    if (_editingCriterionIndex !== null) {
+      cs[_editingCriterionIndex] = criterion;
+    } else {
+      cs.push(criterion);
+    }
+    await updateDoc(doc(db, 'campaigns', selectedCritCampaignId), { interviewCriteria: cs });
+    showToast(_editingCriterionIndex !== null ? 'Critère mis à jour.' : 'Critère ajouté.', 'success');
+    document.getElementById('criterion-form-card').style.display = 'none';
+    _editingCriterionIndex = null;
+    renderCriteria();
+  } catch (err) { showToast('Erreur : ' + err.message, 'error'); }
+  finally { btn.disabled = false; btn.textContent = idle; }
+});
+
+async function renderCriteria() {
+  const el = document.getElementById('criteria-list');
+  if (!selectedCritCampaignId) { el.innerHTML = '<p class="text-muted text-sm">Sélectionne une campagne.</p>'; return; }
+  el.innerHTML = '<div class="spinner" style="margin:16px auto;display:block;"></div>';
+  const campDoc = await getDoc(doc(db, 'campaigns', selectedCritCampaignId));
+  const criteria = campDoc.data()?.interviewCriteria || [];
+  if (!criteria.length) { el.innerHTML = '<p class="text-muted text-sm">Aucun critère. Ajoutez-en un ci-dessus.</p>'; return; }
+  el.innerHTML = '';
+
+  criteria.forEach((cr, i) => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border:1px solid var(--border);border-radius:8px;gap:8px;margin-bottom:8px;';
+    const maxInfo = cr.max && cr.type !== 'yesno' ? ` · max ${cr.max}` : '';
+    row.innerHTML = `
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div style="background:var(--indigo-light);border-radius:8px;padding:8px 10px;font-size:18px;">${TYPE_ICONS[cr.type] || '⭐'}</div>
+        <div>
+          <div style="font-weight:600;">${cr.label}</div>
+          <div class="text-sm text-muted">${TYPE_LABELS[cr.type] || cr.type}${maxInfo} · ${cr.required ? 'Obligatoire' : 'Optionnel'}</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-ghost btn-sm btn-move-up" ${i === 0 ? 'disabled' : ''} title="Monter">↑</button>
+        <button class="btn btn-ghost btn-sm btn-move-down" ${i === criteria.length - 1 ? 'disabled' : ''} title="Descendre">↓</button>
+        <button class="btn btn-ghost btn-sm btn-edit-crit">Modifier</button>
+        <button class="btn btn-danger btn-sm btn-del-crit">Supprimer</button>
+      </div>`;
+
+    row.querySelector('.btn-edit-crit').addEventListener('click', () => _openCriterionForm(cr, i));
+    row.querySelector('.btn-del-crit').addEventListener('click', async () => {
+      if (!await confirmDialog('Supprimer ce critère d\'entretien ? Les évaluations existantes ne seront pas affectées.', { confirmLabel: 'Supprimer' })) return;
+      const cd = await getDoc(doc(db, 'campaigns', selectedCritCampaignId));
+      const cs = [...(cd.data()?.interviewCriteria || [])];
+      cs.splice(i, 1);
+      await updateDoc(doc(db, 'campaigns', selectedCritCampaignId), { interviewCriteria: cs });
+      showToast('Critère supprimé.', 'success');
+      renderCriteria();
+    });
+    row.querySelector('.btn-move-up').addEventListener('click', async () => {
+      if (i === 0) return;
+      const cd = await getDoc(doc(db, 'campaigns', selectedCritCampaignId));
+      const cs = [...(cd.data()?.interviewCriteria || [])];
+      [cs[i-1], cs[i]] = [cs[i], cs[i-1]];
+      await updateDoc(doc(db, 'campaigns', selectedCritCampaignId), { interviewCriteria: cs });
+      renderCriteria();
+    });
+    row.querySelector('.btn-move-down').addEventListener('click', async () => {
+      const cd = await getDoc(doc(db, 'campaigns', selectedCritCampaignId));
+      const cs = [...(cd.data()?.interviewCriteria || [])];
+      if (i >= cs.length - 1) return;
+      [cs[i], cs[i+1]] = [cs[i+1], cs[i]];
+      await updateDoc(doc(db, 'campaigns', selectedCritCampaignId), { interviewCriteria: cs });
+      renderCriteria();
+    });
+    el.appendChild(row);
+  });
+}
+
+// ─── Members ──────────────────────────────────────────────────────
+async function loadMembers() {
+  members = await getMembersByOrg(currentOrg.id);
+  renderMembers();
+}
+
+function renderMembers() {
+  const el = document.getElementById('members-list');
+  if (!members.length) { el.innerHTML = '<p class="text-muted text-sm">Aucun membre.</p>'; return; }
+  el.innerHTML = '';
+  members.forEach(m => {
+    const row = document.createElement('div');
+    row.className = 'flex-between';
+    row.style.cssText = 'padding:10px 0;border-bottom:1px solid var(--border);';
+    const soi = m.userId === user?.uid;
+    const nom = m.displayName || [m.firstName, m.lastName].filter(Boolean).join(' ') || m.email?.split('@')[0] || m.userId;
+    row.innerHTML = `
+      <div>
+        <div style="font-weight:600;">${esc(nom)}${soi ? ' <span class="text-sm text-muted" style="font-weight:400;">(toi)</span>' : ''}</div>
+        <div class="text-sm text-muted" style="margin-top:1px;">${esc(m.email || m.userId)}</div>
+        ${soi
+          // Les règles interdisent de modifier son propre rôle (sinon on
+          // pourrait s'accorder plus de droits) : un autre membre le fait.
+          ? `<span class="badge badge-indigo" style="margin-top:4px;" title="Un autre membre du bureau peut modifier ton rôle.">${ROLE_LABELS[m.role] || esc(m.role)}</span>`
+          : `<select class="form-select member-role-sel" aria-label="Rôle de ${esc(nom)}" style="margin-top:6px;width:auto;padding-top:4px;padding-bottom:4px;font-size:13px;">
+              <option value="secge">Sec-gé</option>
+              <option value="president">Président(e)</option>
+            </select>`}
+      </div>
+      <button class="btn btn-danger btn-sm">Retirer</button>`;
+    // Une personne peut avoir plusieurs documents (pré-ajout + canonique) :
+    // chaque action les touche tous, sinon elle restait à moitié en place.
+    const ids = m._docIds?.length ? m._docIds : [m.id];
+    const sel = row.querySelector('.member-role-sel');
+    if (sel) {
+      sel.value = m.role === 'president' ? 'president' : 'secge';
+      sel.addEventListener('change', async () => {
+        const avant = m.role;
+        sel.disabled = true;
+        try {
+          await Promise.all(ids.map(id => updateDoc(doc(db, 'memberships', id), { role: sel.value })));
+          m.role = sel.value;
+          showToast(`${nom} : ${ROLE_LABELS[sel.value]}.`, 'success');
+        } catch (err) {
+          sel.value = avant === 'president' ? 'president' : 'secge';
+          showToast('Erreur : ' + err.message, 'error');
+        } finally { sel.disabled = false; }
+      });
+    }
+    row.querySelector('button').addEventListener('click', async () => {
+      const dispos = await disposDe(m.userId);
+      if (!await confirmDialog(
+            dispos.length
+              ? `Retirer ce membre ? Ses ${dispos.length} fiche(s) de disponibilités seront aussi effacées.`
+              : 'Retirer ce membre ?',
+            { title: 'Retirer le membre', confirmLabel: 'Retirer', danger: true })) return;
+      // Les dispos doivent partir avec la personne : sinon elles continuaient
+      // de compter comme du jury disponible, donc la plateforme proposait aux
+      // cooptants des créneaux couverts par quelqu'un qui n'est plus au bureau.
+      await Promise.all([
+        ...dispos.map(d => deleteDoc(d.ref)),
+        ...ids.map(id => deleteDoc(doc(db, 'memberships', id))),
+      ]);
+      showToast(dispos.length ? `Membre retiré, ${dispos.length} fiche(s) de dispos effacée(s).` : 'Membre retiré.', 'success');
+      await loadMembers();
+    });
+    el.appendChild(row);
+  });
+}
+
+/**
+ * Fiches de disponibilités d'une personne sur l'espace de recrutement courant.
+ *
+ * `staff_availabilities.userId` vaut l'UID Firebase pour un membre avec compte,
+ * et l'id du doc `roster_members` pour quelqu'un qui a déposé ses dispos sans
+ * compte : la même requête couvre les deux.
+ *
+ * @param {string} userId
+ * @returns {Promise<import('firebase/firestore').QueryDocumentSnapshot[]>}
+ */
+async function disposDe(userId) {
+  if (!userId || !standingCampaign) return [];
+  const snap = await getDocs(query(
+    collection(db, 'staff_availabilities'),
+    where('userId', '==', userId),
+    where('campaignId', '==', standingCampaign.id)
+  ));
+  return snap.docs;
+}
+
+// ─── Roster (dispos sans compte) ──────────────────────────────────
+let roster = [];
+const normName = s => (s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+
+/**
+ * Rattache au nom conservé les disponibilités déposées sur ses doublons.
+ *
+ * `staff_availabilities.userId` porte l'id du doc `roster_members`. La dédup
+ * garde le plus ancien doc et supprime les autres : sans ce rattachement, les
+ * dispos du doublon devenaient introuvables. Le planning affichait « ? » à la
+ * place du juré, la personne retrouvait une grille vide sur le lien public,
+ * et ses anciens créneaux continuaient pourtant de nourrir l'algorithme.
+ *
+ * Si le nom conservé a déjà une fiche sur la campagne, celle du doublon est
+ * supprimée plutôt que rattachée : deux fiches pour la même personne
+ * compteraient double dans le calcul de capacité.
+ *
+ * @param {object[]} dupes doublons à résorber
+ * @param {Map<string, object>} conserves nom normalisé → doc conservé
+ * @returns {Promise<number>} nombre de fiches rattachées
+ */
+async function rattacherDispos(dupes, conserves) {
+  if (!standingCampaign) return 0;
+  let rattachees = 0;
+
+  for (const dupe of dupes) {
+    const garde = conserves.get(normName(dupe.displayName));
+    if (!garde) continue;
+
+    const [duSosie, duGarde] = await Promise.all([disposDe(dupe.id), disposDe(garde.id)]);
+    for (const fiche of duSosie) {
+      if (duGarde.length) {
+        await deleteDoc(fiche.ref);
+      } else {
+        await updateDoc(fiche.ref, { userId: garde.id, displayName: garde.displayName });
+        rattachees++;
+      }
+    }
+  }
+  return rattachees;
+}
+
+async function loadRoster() {
+  const snap = await getDocs(query(collection(db, 'roster_members'), where('organizationId', '==', currentOrg.id)));
+  let all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+  // Détection des doublons (garde le 1er créé, propose la suppression explicitement)
+  const seen = new Map();
+  const dupes = [];
+  all.sort((a, b) => (a.createdAt?.toMillis?.() ?? 0) - (b.createdAt?.toMillis?.() ?? 0));
+  all.forEach(m => {
+    const k = normName(m.displayName);
+    if (seen.has(k)) dupes.push(m); else seen.set(k, m);
+  });
+  if (dupes.length) {
+    const ok = await confirmDialog(
+      `${dupes.length} doublon${dupes.length > 1 ? 's' : ''} détecté${dupes.length > 1 ? 's' : ''} dans la liste du staff. `
+      + 'Les fusionner ? Les disponibilités déposées sur les doublons seront rattachées au nom conservé.',
+      { title: 'Doublons détectés', confirmLabel: 'Fusionner' }
+    );
+    if (ok) {
+      try {
+        const rattachees = await rattacherDispos(dupes, seen);
+        await Promise.all(dupes.map(m => deleteDoc(doc(db, 'roster_members', m.id))));
+        all = all.filter(m => !dupes.some(d => d.id === m.id));
+        showToast(
+          rattachees
+            ? `${dupes.length} doublon(s) fusionné(s), ${rattachees} fiche(s) de dispos rattachée(s).`
+            : `${dupes.length} doublon${dupes.length > 1 ? 's fusionnés' : ' fusionné'}.`,
+          'success'
+        );
+      } catch (err) {
+        // Avant, l'échec était avalé par un `.catch(() => {})` et le message
+        // annonçait quand même une suppression réussie.
+        showToast('Fusion incomplète : ' + err.message, 'error');
+      }
+    }
+  }
+
+  roster = [...seen.values()].sort((a, b) => (a.displayName || '').localeCompare(b.displayName || ''));
+  renderRoster();
+}
+
+function renderRoster() {
+  const el = document.getElementById('roster-list');
+  if (!roster.length) {
+    el.innerHTML = '<p class="text-muted text-sm">Aucun nom pré-rempli. Ajoute-en, ou laisse les membres s\'ajouter via le lien.</p>';
+    return;
+  }
+  el.innerHTML = '';
+  roster.forEach(m => {
+    const row = document.createElement('div');
+    row.className = 'flex-between';
+    row.style.cssText = 'padding:8px 0;border-bottom:1px solid var(--border);';
+    row.innerHTML = `<div style="font-weight:600;">${m.displayName}</div>
+      <button class="btn btn-danger btn-sm" data-id="${m.id}">Retirer</button>`;
+    row.querySelector('button').addEventListener('click', async () => {
+      const dispos = await disposDe(m.id);
+      if (!await confirmDialog(
+            dispos.length
+              ? `Retirer « ${m.displayName} » de la liste ? Ses ${dispos.length} fiche(s) de disponibilités seront aussi effacées.`
+              : `Retirer « ${m.displayName} » de la liste ?`,
+            { title: 'Retirer du staff', confirmLabel: 'Retirer', danger: true })) return;
+      // Même raison que pour un membre avec compte : des dispos orphelines
+      // continuaient d'alimenter les créneaux proposés et l'algorithme.
+      await Promise.all([
+        ...dispos.map(d => deleteDoc(d.ref)),
+        deleteDoc(doc(db, 'roster_members', m.id)),
+      ]);
+      showToast(dispos.length ? `Nom retiré, ${dispos.length} fiche(s) de dispos effacée(s).` : 'Nom retiré.', 'success');
+      await loadRoster();
+    });
+    el.appendChild(row);
+  });
+}
+
+document.getElementById('btn-add-roster').addEventListener('click', async () => {
+  const fn = document.getElementById('roster-firstname').value.trim();
+  const ln = document.getElementById('roster-lastname').value.trim();
+  if (!fn || !ln) return showToast('Prénom et nom requis.', 'error');
+  if (roster.some(m => normName(m.displayName) === normName(`${fn} ${ln}`)))
+    return showToast('Ce nom est déjà dans la liste.', 'error');
+  const btn = document.getElementById('btn-add-roster');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner" style="width:14px;height:14px;border-width:2px;margin-right:6px;"></span>Ajout…';
+  try {
+    await addDoc(collection(db, 'roster_members'), {
+      organizationId: currentOrg.id, firstName: fn, lastName: ln,
+      displayName: `${fn} ${ln}`, createdAt: serverTimestamp()
+    });
+    document.getElementById('roster-firstname').value = '';
+    document.getElementById('roster-lastname').value = '';
+    showToast('Nom ajouté.', 'success');
+    await loadRoster();
+  } catch (err) { showToast('Erreur : ' + err.message, 'error'); }
+  finally { btn.disabled = false; btn.textContent = 'Ajouter'; }
+});
+
+document.getElementById('btn-copy-dispo-link').addEventListener('click', () => {
+  const slug = currentOrg.slug;
+  if (!slug) {
+    document.getElementById('dispo-slug-warning').style.display = '';
+  }
+  const url = `${location.origin}/dispos-publique.html?org=${slug || currentOrg.id}`;
+  navigator.clipboard.writeText(url)
+    .then(() => showToast('Lien des disponibilités copié !', 'success'))
+    .catch(() => showToast('Impossible de copier (permission refusée).', 'error'));
+});
+
+document.getElementById('btn-add-member').addEventListener('click', () => {
+  document.getElementById('add-member-form').style.display = '';
+});
+document.getElementById('btn-cancel-member').addEventListener('click', () => {
+  document.getElementById('add-member-form').style.display = 'none';
+});
+document.getElementById('btn-save-member').addEventListener('click', async () => {
+  const email = document.getElementById('member-email').value.trim();
+  const role  = document.getElementById('member-role').value;
+  if (!email) return showToast('Email requis.', 'error');
+  if (!email.includes('@')) return showToast('Email invalide.', 'error');
+  const btn = document.getElementById('btn-save-member');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner" style="width:14px;height:14px;border-width:2px;margin-right:6px;"></span>Ajout…';
+  try {
+    await addDoc(collection(db, 'memberships'), {
+      email, userId: email, organizationId: currentOrg.id, role, displayName: email.split('@')[0]
+    });
+    showToast('Membre ajouté.', 'success');
+    document.getElementById('add-member-form').style.display = 'none';
+    document.getElementById('member-email').value = '';
+    await loadMembers();
+  } catch (err) { showToast('Erreur : ' + err.message, 'error'); }
+  finally { btn.disabled = false; btn.textContent = 'Ajouter'; }
+});
+
+// ─── Rooms ────────────────────────────────────────────────────────
+const DEFAULT_EMLYON_ROOMS = ['A2-124','C2-110','C2-118','A1-123','B1-120','C1-111','D1-105','D3-116','C1-109','C1-120'];
+
+async function loadRooms() {
+  rooms = await getRoomsByOrg(currentOrg.id);
+  await seedDefaultRoomsIfNeeded();
+  renderRooms();
+}
+
+async function seedDefaultRoomsIfNeeded() {
+  if (!standingCampaign || standingCampaign.defaultRoomsSeeded) return;
+  const existing = new Set(rooms.map(r => (r.code || '').trim().toUpperCase()));
+  const toAdd = DEFAULT_EMLYON_ROOMS.filter(code => !existing.has(code.toUpperCase()));
+  try {
+    await Promise.all(toAdd.map(code =>
+      createRoom({ organizationId: currentOrg.id, code, type: 'salle_emlyon', responsableUserId: null })
+    ));
+    await updateCampaign(standingCampaign.id, { defaultRoomsSeeded: true });
+    standingCampaign.defaultRoomsSeeded = true;
+    if (toAdd.length) rooms = await getRoomsByOrg(currentOrg.id);
+  } catch (err) { /* silencieux */ }
+}
+
+function renderRooms() {
+  const el = document.getElementById('rooms-list');
+  if (!rooms.length) { el.innerHTML = '<p class="text-muted text-sm">Aucune salle enregistrée.</p>'; return; }
+  el.innerHTML = '';
+  rooms.forEach(r => {
+    const responsableLabel = r.responsableUserId
+      ? (members.find(m => m.userId === r.responsableUserId || m.id === r.responsableUserId)?.displayName || r.responsableUserId)
+      : null;
+    const row = document.createElement('div');
+    row.className = 'flex-between';
+    row.style.cssText = 'padding:10px 0;border-bottom:1px solid var(--border);';
+    row.innerHTML = `
+      <div>
+        <div style="font-weight:600;">${r.code}</div>
+        <span class="badge badge-gray">${ROOM_TYPE_LABELS[r.type] || r.type}</span>
+        ${responsableLabel ? `<span class="text-sm text-muted" style="margin-left:8px;">Responsable : ${responsableLabel}</span>` : ''}
+      </div>
+      <button class="btn btn-danger btn-sm" data-id="${r.id}">Supprimer</button>`;
+    row.querySelector('button').addEventListener('click', async () => {
+      if (!await confirmDialog(`Supprimer la salle "${r.code}" ?`, { confirmLabel: 'Supprimer' })) return;
+      await deleteRoom(r.id);
+      showToast('Salle supprimée.', 'success');
+      await loadRooms();
+    });
+    el.appendChild(row);
+  });
+}
+
+document.getElementById('room-type').addEventListener('change', e => {
+  document.getElementById('room-responsable-group').style.display = e.target.value === 'appart' ? '' : 'none';
+});
+document.getElementById('btn-add-room').addEventListener('click', () => {
+  // Peuple le select des responsables avec les membres actuels
+  const sel = document.getElementById('room-responsable');
+  sel.innerHTML = '<option value="">Aucun responsable</option>';
+  members.forEach(m => {
+    const opt = document.createElement('option');
+    opt.value = m.userId || m.id;
+    opt.textContent = m.displayName || m.email || m.userId;
+    sel.appendChild(opt);
+  });
+  document.getElementById('add-room-form').style.display = '';
+  document.getElementById('room-code').value = '';
+  document.getElementById('room-type').value = 'salle_emlyon';
+  sel.value = '';
+  document.getElementById('room-responsable-group').style.display = 'none';
+});
+document.getElementById('btn-cancel-room').addEventListener('click', () => {
+  document.getElementById('add-room-form').style.display = 'none';
+});
+document.getElementById('btn-save-room').addEventListener('click', async () => {
+  const code = document.getElementById('room-code').value.trim();
+  if (!code) return showToast('Le nom de la salle est requis.', 'error');
+  const type = document.getElementById('room-type').value;
+  const responsableUserId = document.getElementById('room-responsable').value || null;
+  const btn = document.getElementById('btn-save-room');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner" style="width:14px;height:14px;border-width:2px;margin-right:6px;"></span>Ajout…';
+  try {
+    await createRoom({ organizationId: currentOrg.id, code, type, responsableUserId });
+    showToast('Salle ajoutée.', 'success');
+    document.getElementById('add-room-form').style.display = 'none';
+    await loadRooms();
+  } catch (err) { showToast('Erreur : ' + err.message, 'error'); }
+  finally { btn.disabled = false; btn.textContent = 'Ajouter'; }
+});
+
+// ─── Room Bookings ────────────────────────────────────────────────
+let roomBookings = [];
+
+async function loadBookings() {
+  if (!currentOrg) return;
+  const snap = await getDocs(query(collection(db, 'room_bookings'), where('organizationId', '==', currentOrg.id)));
+  roomBookings = snap.docs.map(d => ({id:d.id,...d.data()}));
+  renderBookings();
+}
+
+function renderBookings() {
+  const el = document.getElementById('bookings-list');
+  if (!roomBookings.length) { el.innerHTML = '<p class="text-muted text-sm">Aucune réservation enregistrée.</p>'; return; }
+  el.innerHTML = '';
+  const sorted = [...roomBookings].sort((a,b) => {
+    const ta = a.datetimeStart?.toDate ? a.datetimeStart.toDate() : new Date(a.datetimeStart);
+    const tb = b.datetimeStart?.toDate ? b.datetimeStart.toDate() : new Date(b.datetimeStart);
+    return ta - tb;
+  });
+  sorted.forEach(bk => {
+    const room = rooms.find(r => r.id === bk.roomId);
+    const start = bk.datetimeStart?.toDate ? bk.datetimeStart.toDate() : new Date(bk.datetimeStart);
+    const end   = bk.datetimeEnd?.toDate   ? bk.datetimeEnd.toDate()   : new Date(bk.datetimeEnd);
+    const dateStr = start.toLocaleDateString('fr-FR', {weekday:'short', day:'numeric', month:'short'});
+    const timeStr = `${start.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})} → ${end.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}`;
+    const row = document.createElement('div');
+    row.className = 'flex-between';
+    row.style.cssText = 'padding:10px 0;border-bottom:1px solid var(--border);';
+    row.innerHTML = `
+      <div>
+        <div style="font-weight:600;">🏫 ${room?.code || bk.roomId}</div>
+        <div class="text-sm text-muted">${dateStr} · ${timeStr}</div>
+      </div>
+      <button class="btn btn-danger btn-sm" data-id="${bk.id}">Supprimer</button>`;
+    row.querySelector('button').addEventListener('click', async () => {
+      if (!await confirmDialog('Supprimer cette réservation ?', { confirmLabel: 'Supprimer' })) return;
+      await deleteDoc(doc(db, 'room_bookings', bk.id));
+      showToast('Réservation supprimée.', 'success');
+      await loadBookings();
+    });
+    el.appendChild(row);
+  });
+}
+
+function populateBookingSelects() {
+  const roomSel = document.getElementById('booking-room');
+  roomSel.innerHTML = '<option value="">Sélectionner</option>';
+  rooms.forEach(r => { const o=document.createElement('option');o.value=r.id;o.textContent=r.code;roomSel.appendChild(o); });
+}
+
+document.getElementById('btn-add-booking').addEventListener('click', () => {
+  populateBookingSelects();
+  document.getElementById('booking-date').value = '';
+  document.getElementById('booking-start').value = '08:00';
+  document.getElementById('booking-end').value = '19:00';
+  document.getElementById('add-booking-form').style.display = '';
+});
+document.getElementById('btn-cancel-booking').addEventListener('click', () => {
+  document.getElementById('add-booking-form').style.display = 'none';
+});
+document.getElementById('btn-save-booking').addEventListener('click', async () => {
+  const roomId   = document.getElementById('booking-room').value;
+  const dateVal  = document.getElementById('booking-date').value;
+  const startVal = document.getElementById('booking-start').value;
+  const endVal   = document.getElementById('booking-end').value;
+  if (!roomId || !dateVal || !startVal || !endVal) {
+    return showToast('Tous les champs sont requis.', 'error');
+  }
+  if (!standingCampaign) return showToast('Espace de recrutement non chargé.', 'error');
+  if (startVal >= endVal) return showToast('L\'heure de fin doit être après le début.', 'error');
+  const datetimeStart = new Date(`${dateVal}T${startVal}:00`);
+  const datetimeEnd   = new Date(`${dateVal}T${endVal}:00`);
+  try {
+    await addDoc(collection(db, 'room_bookings'), {
+      roomId, campaignId: standingCampaign.id, organizationId: currentOrg.id,
+      datetimeStart: Timestamp.fromDate(datetimeStart),
+      datetimeEnd:   Timestamp.fromDate(datetimeEnd),
+      createdAt: serverTimestamp()
+    });
+    showToast('Réservation enregistrée.', 'success');
+    document.getElementById('add-booking-form').style.display = 'none';
+    await loadBookings();
+  } catch(err) { showToast('Erreur : ' + err.message, 'error'); }
+});
+
+// ─── Invite Codes ────────────────────────────────────────────────
+async function loadInviteCodes() {
+  if (!currentOrg) return;
+  const loadingEl = document.getElementById('invite-codes-loading');
+  const listEl    = document.getElementById('invite-codes-list');
+  loadingEl.style.display = '';
+  listEl.style.display = 'none';
+  listEl.innerHTML = '';
+
+  try {
+    const snap = await getDocs(query(collection(db, 'invite_codes'), where('organizationId', '==', currentOrg.id)));
+    loadingEl.style.display = 'none';
+    listEl.style.display = 'flex';
+    if (snap.empty) {
+      try {
+        const r = await _createInviteCode('secge', 'Bureau');
+        renderInviteCodeRow(r.code, r.data, listEl);
+        showToast('Code d\'accès du bureau créé automatiquement 🎉', 'success');
+      } catch(autoErr) {
+        listEl.innerHTML = '<p class="text-sm text-muted">Aucun code d\'accès. Créez-en un ci-dessous.</p>';
+      }
+    } else {
+      snap.docs.forEach(d => renderInviteCodeRow(d.id, d.data(), listEl));
+    }
+  } catch(e) {
+    loadingEl.style.display = 'none';
+    listEl.style.display = 'flex';
+    listEl.innerHTML = `<p class="text-sm" style="color:var(--red);">Erreur de chargement : ${e.message}</p>`;
+  }
+}
+
+function renderInviteCodeRow(code, data, container) {
+  const badgeCls = data.role === 'secge' ? 'badge-orange' : 'badge-indigo';
+  const row = document.createElement('div');
+  row.dataset.code = code;
+  row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg);border-radius:8px;border:1px solid var(--border);';
+  row.innerHTML = `
+    <span style="font-family:monospace;font-size:15px;font-weight:800;letter-spacing:.12em;color:var(--indigo);min-width:96px;">${code}</span>
+    <span class="badge ${badgeCls}" style="font-size:11px;">${ROLE_LABELS[data.role] || data.role}</span>
+    ${data.label ? `<span class="text-sm text-muted" style="flex:1;">${data.label}</span>` : '<span style="flex:1;"></span>'}
+    <button class="btn btn-ghost btn-sm btn-copy-code">📋 Copier</button>
+    <button class="btn btn-danger btn-sm btn-del-code" title="Supprimer ce code">🗑</button>`;
+
+  row.querySelector('.btn-copy-code').addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(code);
+      showToast(`Code ${code} copié !`, 'success');
+    } catch(e) {
+      showToast('Impossible de copier (permission refusée).', 'error');
+    }
+  });
+  row.querySelector('.btn-del-code').addEventListener('click', async () => {
+    if (!await confirmDialog(`Supprimer le code ${code} ? Les comptes déjà créés ne seront pas affectés.`, { confirmLabel: 'Supprimer' })) return;
+    try {
+      await deleteDoc(doc(db, 'invite_codes', code));
+      row.remove();
+      showToast(`Code ${code} supprimé.`, 'success');
+    } catch(e) { showToast('Erreur : ' + e.message, 'error'); }
+  });
+  container.appendChild(row);
+}
+
+async function _createInviteCode(role, label) {
+  const slug   = (currentOrg?.slug || currentOrg?.name || 'CODE');
+  const prefix = slug.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4);
+  let code, attempts = 0;
+  do {
+    code = prefix + (1000 + Math.floor(Math.random() * 9000));
+    attempts++;
+  } while (attempts < 10 && (await getDoc(doc(db, 'invite_codes', code))).exists());
+
+  const data = { organizationId: currentOrg.id, role, label: label || null, active: true, createdAt: serverTimestamp() };
+  await setDoc(doc(db, 'invite_codes', code), data);
+  return { code, data };
+}
+
+document.getElementById('btn-gen-invite-code').addEventListener('click', async () => {
+  if (!currentOrg) return showToast('Organisation non chargée.', 'error');
+  const btn   = document.getElementById('btn-gen-invite-code');
+  const role  = document.getElementById('new-code-role').value;
+  const label = document.getElementById('new-code-label').value.trim();
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    const { code, data } = await _createInviteCode(role, label || null);
+    const listEl = document.getElementById('invite-codes-list');
+    const placeholder = listEl.querySelector('p');
+    if (placeholder) placeholder.remove();
+    listEl.style.display = 'flex';
+    renderInviteCodeRow(code, data, listEl);
+    document.getElementById('new-code-label').value = '';
+    showToast(`Code ${code} créé !`, 'success');
+    _codesTabLoaded = true;
+  } catch(e) {
+    showToast('Erreur : ' + e.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = '+ Générer un code';
+  }
+});
+
+// ─── Corbeille ────────────────────────────────────────────────────
+const TYPES_CORBEILLE = { cooptant: 'Cooptant', dispos: 'Dispos', orphelins: 'Entretiens' };
+
+async function chargerCorbeille() {
+  const liste = document.getElementById('corbeille-list');
+  try {
+    const entrees = await listerCorbeille(db, currentOrg.id);
+    if (!entrees.length) {
+      liste.innerHTML = '<p class="text-sm text-muted">La corbeille est vide.</p>';
+      return;
+    }
+    liste.innerHTML = '';
+    entrees.forEach(e => {
+      const quand = e.supprimeLe?.toDate?.();
+      const reste = quand ? Math.max(0, DUREE_CORBEILLE_JOURS - Math.floor((Date.now() - quand.getTime()) / 86400000)) : DUREE_CORBEILLE_JOURS;
+      const ligne = document.createElement('div');
+      ligne.className = 'corbeille-row';
+      ligne.innerHTML = `
+        <div style="min-width:0;flex:1;">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <span style="font-weight:600;">${esc(e.libelle || 'Élément')}</span>
+            <span class="badge badge-gray">${TYPES_CORBEILLE[e.type] || esc(e.type || '')}</span>
+          </div>
+          <div class="text-sm text-muted" style="margin-top:2px;">
+            Supprimé ${quand ? `le ${quand.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })} à ${quand.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : 'à l\'instant'}${e.supprimePar ? ` par ${esc(e.supprimePar)}` : ''} · effacé dans ${reste} jour${reste > 1 ? 's' : ''}
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap;">
+          <button class="btn btn-secondary btn-sm" data-act="restaurer">Restaurer</button>
+          <button class="btn btn-ghost btn-sm" data-act="vider" style="color:var(--red);">Supprimer définitivement</button>
+        </div>`;
+      ligne.querySelector('[data-act="restaurer"]').addEventListener('click', async ev => {
+        const b = ev.currentTarget; b.disabled = true; b.textContent = 'Restauration…';
+        try {
+          const { restaures, ignores } = await restaurer(db, e);
+          ligne.remove();
+          if (!liste.children.length) liste.innerHTML = '<p class="text-sm text-muted">La corbeille est vide.</p>';
+          showToast(ignores
+            ? `${restaures} élément(s) restauré(s). ${ignores} existai(en)t déjà et n'ont pas été écrasés.`
+            : `${esc(e.libelle || 'Élément')} restauré.`, 'success');
+        } catch (err) {
+          b.disabled = false; b.textContent = 'Restaurer';
+          showToast('Erreur : ' + err.message, 'error');
+        }
+      });
+      ligne.querySelector('[data-act="vider"]').addEventListener('click', async () => {
+        const ok = await confirmDialog(
+          `Effacer définitivement « ${e.libelle || 'cet élément'} » ? Il ne pourra plus être restauré.`,
+          { title: 'Supprimer définitivement', confirmLabel: 'Supprimer définitivement', danger: true });
+        if (!ok) return;
+        try {
+          await viderEntree(db, e.id);
+          ligne.remove();
+          if (!liste.children.length) liste.innerHTML = '<p class="text-sm text-muted">La corbeille est vide.</p>';
+          showToast('Supprimé définitivement.', 'success');
+        } catch (err) {
+          showToast('Erreur : ' + err.message, 'error');
+        }
+      });
+      liste.appendChild(ligne);
+    });
+  } catch (err) {
+    liste.innerHTML = `<p class="text-sm" style="color:var(--red);">Corbeille illisible : ${esc(err.message)}</p>`;
+  }
+}
+
+// ─── Zone de danger ───────────────────────────────────────────────
+document.getElementById('btn-reset-candidates').addEventListener('click', async () => {
+  if (!currentOrg || !standingCampaign) return showToast('Organisation non chargée.', 'error');
+  const ok = await confirmDanger(
+    `Supprimer TOUS les cooptants de « ${currentOrg.name} », avec leurs entretiens et leurs évaluations ? Ils resteront récupérables ${DUREE_CORBEILLE_JOURS} jours dans la corbeille.`
+  );
+  if (!ok) return;
+  const btn = document.getElementById('btn-reset-candidates');
+  btn.disabled = true; btn.textContent = 'Suppression…';
+  try {
+    // Les entretiens font partie du lot : ne supprimer que les cooptants
+    // laissait un entretien par personne, sans nom rattachable, qui continuait
+    // d'occuper le planning et de bloquer des créneaux.
+    const [candSnap, ivSnap, evalSnap] = await Promise.all([
+      getDocs(query(collection(db, 'candidates'),            where('campaignId', '==', standingCampaign.id))),
+      getDocs(query(collection(db, 'interviews'),            where('campaignId', '==', standingCampaign.id))),
+      getDocs(query(collection(db, 'interview_evaluations'), where('organizationId', '==', currentOrg.id))),
+    ]);
+
+    // Une entrée de corbeille par cooptant (avec son entretien et son
+    // évaluation) : on peut ensuite en restaurer un seul.
+    const parCooptant = new Map(candSnap.docs.map(d => [d.id, { cand: d, ivs: [], evals: [] }]));
+    const orphelins = [];
+    ivSnap.docs.forEach(d => (parCooptant.get(d.data().candidateId)?.ivs ?? orphelins).push(d));
+    evalSnap.docs.forEach(d => (parCooptant.get(d.data().candidateId)?.evals ?? orphelins).push(d));
+
+    const taches = [...parCooptant.values()].map(({ cand, ivs, evals }) =>
+      () => cooptantEnCorbeille(db, { id: cand.id, ...cand.data() }, ivs, evals, currentOrg.id, user?.email || null));
+    // Entretiens et évaluations sans cooptant : regroupés par paquets.
+    for (let i = 0; i < orphelins.length; i += 400) {
+      const paquet = orphelins.slice(i, i + 400);
+      taches.push(() => mettreEnCorbeille(db, {
+        organizationId: currentOrg.id, type: 'orphelins', par: user?.email || null,
+        libelle: `${paquet.length} entretien(s) ou évaluation(s) sans cooptant`,
+        docs: paquet.map(d => ({ col: d.ref.parent.id, id: d.id, data: d.data() })),
+      }));
+    }
+    // Par vagues de 10 : assez pour aller vite, sans saturer la connexion.
+    for (let i = 0; i < taches.length; i += 10) {
+      await Promise.all(taches.slice(i, i + 10).map(t => t()));
+    }
+    showToast(
+      `${candSnap.size} cooptant(s), ${ivSnap.size} entretien(s) et ${evalSnap.size} évaluation(s) mis à la corbeille.`,
+      'success'
+    );
+  } catch (e) {
+    showToast('Erreur : ' + e.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Supprimer les cooptants';
+  }
+});
+
+document.getElementById('btn-reset-dispos').addEventListener('click', async () => {
+  if (!currentOrg || !standingCampaign) return showToast('Organisation non chargée.', 'error');
+  const ok = await confirmDanger(
+    `Supprimer TOUTES les disponibilités du staff de « ${currentOrg.name} » ? Elles resteront récupérables ${DUREE_CORBEILLE_JOURS} jours dans la corbeille.`
+  );
+  if (!ok) return;
+  const btn = document.getElementById('btn-reset-dispos');
+  btn.disabled = true; btn.textContent = 'Suppression…';
+  try {
+    const snap = await getDocs(query(collection(db, 'staff_availabilities'), where('campaignId', '==', standingCampaign.id)));
+    for (let i = 0; i < snap.docs.length; i += 400) {
+      const paquet = snap.docs.slice(i, i + 400);
+      await mettreEnCorbeille(db, {
+        organizationId: currentOrg.id, type: 'dispos', par: user?.email || null,
+        libelle: `Disponibilités du staff (${paquet.length} fiche${paquet.length > 1 ? 's' : ''})`,
+        docs: paquet.map(d => ({ col: 'staff_availabilities', id: d.id, data: d.data() })),
+      });
+    }
+    showToast(`${snap.size} fiche(s) de disponibilités mises à la corbeille.`, 'success');
+  } catch (e) {
+    showToast('Erreur : ' + e.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Supprimer les dispos';
+  }
+});
+
+init();
+</script>
+</body>
+</html>

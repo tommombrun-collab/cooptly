@@ -1,0 +1,1526 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <script>(function(){var t=localStorage.getItem("_theme");if(t)document.documentElement.setAttribute("data-theme",t);})();</script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Postuler · Cooptly</title>
+  <!-- Connexions ouvertes d'avance : sans elles, chaque serveur (polices,
+       SDK, base de données) coûtait sa propre poignée de main réseau au
+       moment où la page en avait besoin. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin />
+  <!-- Le SDK est préchargé dès l'en-tête. Sinon le navigateur ne le
+       découvre qu'en arrivant au script, tout en bas de la page. -->
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js" />
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js" />
+  <!-- Polices en <link> et non plus en @import dans main.css : l'@import
+       obligeait à télécharger la feuille de style avant même de découvrir
+       les polices, trois allers-retours à la suite avant le texte. -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Antic&family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;600;700&display=swap" />
+  <link rel="stylesheet" href="/css/main.css" />
+  <style>
+    /* ── Calendrier de réservation ───────────────────────────────
+       Jours en colonnes, heures en lignes. Le calendrier défile dans son cadre ;
+       les heures (à gauche) et les jours (en haut) restent visibles. */
+    .rdv-wrap {
+      overflow: auto; max-height: 70vh; border: 1px solid var(--border);
+      border-radius: 12px; background: var(--surface);
+    }
+    table.rdv-cal { border-collapse: separate; border-spacing: 0; min-width: 100%; }
+    .rdv-cal th, .rdv-cal td { border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 3px; }
+    .rdv-cal thead th {
+      position: sticky; top: 0; z-index: 2; background: var(--bg);
+      font-size: 12px; font-weight: 600; padding: 8px 6px; min-width: 76px; text-align: center; line-height: 1.25;
+      text-transform: none; letter-spacing: 0; color: var(--text);
+    }
+    .rdv-cal thead th .rdv-jour-date { display: block; font-size: 11px; font-weight: 500; color: var(--text-muted); }
+    .rdv-cal th.rdv-heure {
+      position: sticky; left: 0; z-index: 1; background: var(--bg);
+      font-size: 11.5px; font-weight: 600; color: var(--text-muted); text-align: right; padding: 0 8px;
+      white-space: nowrap; font-variant-numeric: tabular-nums;
+    }
+    .rdv-cal thead th.rdv-coin { left: 0; z-index: 3; min-width: 0; }
+    .rdv-cell {
+      width: 100%; min-height: 34px; border: 1.5px solid var(--border); border-radius: 8px;
+      background: var(--surface); font: inherit; font-size: 11.5px; font-weight: 600;
+      color: var(--text-muted); cursor: pointer; transition: background .12s, border-color .12s, color .12s;
+      display: flex; align-items: center; justify-content: center; gap: 4px;
+    }
+    .rdv-cell:hover:not(:disabled) { border-color: var(--indigo); background: var(--indigo-light); color: var(--indigo-dark); }
+    .rdv-cell:focus-visible { outline: 2px solid var(--indigo); outline-offset: 1px; }
+    .rdv-cell.choisi { background: var(--indigo); border-color: var(--indigo); color: #fff; }
+    .rdv-cell.actuel:not(.choisi) { border-color: var(--orange); background: var(--orange-light); color: var(--text); }
+    .rdv-cell:disabled {
+      cursor: not-allowed; color: var(--text-light); border-style: dashed; font-weight: 500;
+      background: repeating-linear-gradient(135deg, var(--bg) 0 6px, transparent 6px 12px);
+    }
+    .rdv-vide { background: var(--bg); }
+    .rdv-legende { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 10px; font-size: 12px; color: var(--text-muted); }
+    .rdv-legende i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 5px; vertical-align: -2px; border: 1.5px solid var(--border); }
+    @media (prefers-reduced-motion: reduce) { .rdv-cell { transition: none; } }
+
+    .booking-banner {
+      background: var(--indigo-light);
+      border: 1.5px solid var(--indigo-mid);
+      border-radius: 10px; padding: 12px 16px; margin-bottom: 16px;
+    }
+    .slot-confirm-box {
+      background: var(--green-light); border: 1.5px solid var(--green-mid);
+      color: var(--green); border-radius: 8px;
+      padding: 12px 16px; margin-top: 12px;
+      display: flex; align-items: center; gap: 10px; font-weight: 600;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Header dégradé association -->
+<header class="postuler-header" id="page-header">
+  <div id="org-logo-wrap" style="margin-bottom:12px;"></div>
+  <div style="font-size:13px;font-weight:600;opacity:.8;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px;" id="org-name">Chargement…</div>
+  <h1>Cooptation pour <span id="campaign-name">…</span></h1>
+  <p id="campaign-dates"></p>
+</header>
+
+<div class="postuler-body">
+  <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+
+  <div id="loading-state" class="card" style="text-align:center;padding:48px;">
+    <div class="spinner" style="margin:0 auto 16px;"></div>
+    <p>Chargement de la campagne…</p>
+  </div>
+
+  <div id="error-state" class="card" style="display:none;text-align:center;padding:48px;color:var(--red);">
+    <div style="font-size:40px;margin-bottom:12px;">⚠️</div>
+    <h2 id="error-msg">Campagne introuvable.</h2>
+    <p class="mt-8">Vérifie le lien reçu ou contacte ton association.</p>
+  </div>
+
+  <div id="closed-state" class="card" style="display:none;text-align:center;padding:48px;">
+    <div style="font-size:40px;margin-bottom:12px;">🔒</div>
+    <h2>Cooptations fermées</h2>
+    <p class="mt-8">Cette campagne n'accepte plus de cooptations pour le moment.</p>
+  </div>
+
+  <form id="candidature-form" style="display:none;" novalidate>
+
+    <!-- Section 1 : Identité -->
+    <div class="card mb-24">
+      <div class="section-title">👤 Tes informations</div>
+      <div class="stack">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="prenom">Prénom <span class="required">*</span></label>
+            <input class="form-input" type="text" id="prenom" name="prenom"
+              placeholder="Ton prénom" autocomplete="given-name" required />
+            <span class="form-error" id="err-prenom"></span>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="nom">Nom <span class="required">*</span></label>
+            <input class="form-input" type="text" id="nom" name="nom"
+              placeholder="Ton nom de famille" autocomplete="family-name" required />
+            <span class="form-error" id="err-nom"></span>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="email">Email emlyon <span class="required">*</span></label>
+          <input class="form-input" type="email" id="email" name="email"
+            placeholder="prenom.nom@edu.em-lyon.com" autocomplete="email"
+            inputmode="email" required />
+          <span class="form-hint" id="email-hint">Ton adresse emlyon uniquement. Elle identifie ta candidature et sert à te recontacter.</span>
+          <span class="form-error" id="err-email"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 2 : Questions personnalisées -->
+    <div id="custom-questions-section" style="display:none;" class="card mb-24">
+      <div class="section-title" id="custom-section-title">💬 Questions de l'association</div>
+      <div class="stack" id="custom-questions-container"></div>
+    </div>
+
+    <!-- Section 3c : Entretien à plusieurs, créneau imposé par l'invitation -->
+    <div class="card mb-24" id="group-invite-section" style="display:none;">
+      <div class="section-title">🤝 Tu passes l'entretien à plusieurs</div>
+      <div id="group-invite-body"></div>
+    </div>
+
+    <!-- Section 3a : Choix du créneau (si dispos staff disponibles) -->
+    <div class="card mb-24" id="slot-picker-section" style="display:none;">
+      <div class="section-title">📅 Réserve ton créneau d'entretien</div>
+
+      <!-- Bannière si déjà inscrit -->
+      <div id="booking-banner" class="booking-banner" style="display:none;"></div>
+
+      <!-- Chargement -->
+      <div id="slot-loading" class="text-muted text-sm" style="padding:12px 0;">
+        <span class="spinner" style="width:16px;height:16px;border-width:2px;vertical-align:middle;margin-right:6px;"></span>
+        Chargement des créneaux disponibles…
+      </div>
+
+      <!-- Aucun créneau -->
+      <div id="slot-none" style="display:none;padding:12px 0;">
+        <p class="text-muted text-sm">😔 Aucun créneau disponible pour le moment. L'association te contactera pour fixer un entretien.</p>
+      </div>
+
+      <!-- Picker -->
+      <div id="slot-picker-inner" style="display:none;">
+        <p class="text-sm text-muted" style="margin-bottom:12px;">
+          Durée de l'entretien : <strong id="slot-duration-label">30 min</strong>
+        </p>
+        <div class="rdv-wrap" id="rdv-wrap"></div>
+        <div class="rdv-legende" aria-hidden="true">
+          <span><i style="background:var(--surface);"></i>Libre</span>
+          <span><i style="background:var(--indigo);border-color:var(--indigo);"></i>Ton choix</span>
+          <span><i style="border-style:dashed;background:var(--bg);"></i>Complet</span>
+        </div>
+        <div id="slot-confirm-box" class="slot-confirm-box" style="display:none;">
+          <span style="font-size:20px;">✅</span>
+          <span id="slot-confirm-text"></span>
+        </div>
+        <span class="form-error" id="err-slot" style="display:block;margin-top:6px;"></span>
+      </div>
+    </div>
+
+    <!-- Section 3b : Grille de disponibilités (fallback si pas de dispos staff) -->
+    <div class="card mb-24" id="dispos-section" style="display:none;">
+      <div class="section-title">📅 Tes disponibilités</div>
+      <p class="text-sm text-muted" style="margin-bottom:16px;">
+        Indique les créneaux où tu pourrais passer un entretien.
+      </p>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:12px;">
+        <button type="button" class="btn btn-ghost btn-sm" id="dispos-select-all">Tout sélectionner</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="dispos-clear">Effacer</button>
+      </div>
+      <div class="hg-wrap"><div id="dispos-grid-container"></div></div>
+      <p class="text-sm text-muted" style="margin-top:10px;" id="dispos-count">0 créneau sélectionné</p>
+    </div>
+
+    <button type="submit" class="btn btn-primary btn-full btn-lg" id="submit-btn" style="margin-bottom:48px;">
+      <span id="submit-text">Envoyer mon dossier ✉️</span>
+      <span id="submit-spinner" class="spinner" style="display:none;border-top-color:#fff;width:18px;height:18px;border-width:2px;"></span>
+    </button>
+
+  </form>
+</div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getFirestore, collection, query, where, getDocs, getDoc, doc,
+         addDoc, setDoc, updateDoc, serverTimestamp, Timestamp }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { firebaseConfig } from '/js/firebase-config.js';
+import { generateToken, showToast, getDaysBetween, getCampaignDays,
+  campaignConfig, parseLocalDate, localDateStr, esc, paramLien, premierJourReservable } from '/js/utils.js';
+import { resolveOrg } from '/js/org-lookup.js';
+import { choisirJury } from '/js/jury.js';
+import { heuresGrille, heureFinValide, juresEncoreLibres, pasCreneauxValide } from '/js/capacite.js';
+
+const app = initializeApp(firebaseConfig);
+const db  = getFirestore(app);
+
+const params     = new URLSearchParams(location.search);
+let campaignId = paramLien('campaign');   // ancien lien (rétrocompat) ; réassigné après résolution ?org=
+const orgParam   = paramLien('org');         // nouveau lien : ?org=<slug|id>
+
+let campaign       = null;
+let org            = null;
+let staffAvails    = [];
+let bookedIntervals = []; // { dateStr, startMin, endMin, id }
+let availableSlots = []; // { dateStr, day (Date), startTime, endTime, staffCount }
+let selectedSlot   = null; // the slot object selected
+let selectedDay    = null; // dateStr of active day tab
+let creneauActuelCle = null; // créneau déjà réservé par un cooptant qui revient le changer
+let existingCandId = null; // if returning user
+let existingIvId   = null; // existing interview to update
+let existingIv     = null; // doc complet (pour conserver groupId/groupToken)
+// Réponses d'une candidature existante, conservées SANS être réaffichées
+// (retour par la simple adresse email). null = on lit les champs du formulaire.
+let reponsesConservees = null;
+// Vrai quand on affiche la grille de dispos faute de créneaux staff, alors que
+// l'asso est réglée en mode « créneaux ». Sert à alerter le bureau.
+let disposEnRepli  = false;
+let useSlotPicker  = false;
+// Résolue quand les créneaux sont calculés. Le formulaire s'affiche avant :
+// tout ce qui en dépend (envoi, reprise d'une candidature) doit l'attendre.
+let creneauxPromesse = Promise.resolve();
+let creneauxPrets    = false;
+
+/**
+ * Bloque l'envoi tant que les créneaux ne sont pas chargés.
+ * Sans ça, `useSlotPicker` vaut encore false : un envoi rapide passait la
+ * validation et créait une candidature SANS entretien.
+ */
+function attenteCreneaux(enCours) {
+  creneauxPrets = !enCours;
+  const btn   = document.getElementById('submit-btn');
+  const texte = document.getElementById('submit-text');
+  if (!btn || !texte) return;
+  btn.disabled = enCours;
+  btn.setAttribute('aria-busy', enCours ? 'true' : 'false');
+  if (enCours) {
+    texte.dataset.normal = texte.textContent;
+    texte.textContent = 'Chargement des créneaux…';
+  } else if (texte.dataset.normal && texte.textContent === 'Chargement des créneaux…') {
+    texte.textContent = texte.dataset.normal;
+  }
+}
+let campaignNbJurys = 1;   // nb de jurés requis par créneau
+
+// Entretien à plusieurs : rempli quand on arrive via ?avec=<groupToken>.
+// { groupId, groupToken, start, end, hostName } : le créneau est alors imposé.
+let joinGroup = null;
+
+// ── Helpers ──────────────────────────────────────────────────
+function toMins(t) { const [h, m] = t.split(':').map(Number); return h * 60 + m; }
+function fromMins(m) { return `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`; }
+
+function fmtDate(d) {
+  return d.toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+}
+function fmtDateShort(d) {
+  return d.toLocaleDateString('fr-FR', { weekday:'short', day:'numeric', month:'short' });
+}
+
+// Deterministic doc ID so concurrent submissions merge cleanly
+async function hashDocId(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('').slice(0,20);
+}
+
+// ── Init ─────────────────────────────────────────────────────
+async function init() {
+  if (!campaignId && !orgParam) return showError('Lien invalide. Vérifie le lien reçu.');
+  try {
+    // Résolution : ?org=<slug|id> (nouveau) → l'espace de recrutement de l'asso ;
+    // sinon ?campaign=<id> (ancien lien) → la campagne directe.
+    if (orgParam) {
+      // Accepte l'ID, le slug courant, ou un ancien slug si l'asso a ete renommee.
+      org = await resolveOrg(db, orgParam);
+      if (!org) return showError('Association introuvable. Vérifie le lien reçu.');
+      const cSnap = await getDocs(query(collection(db, 'campaigns'), where('organizationId', '==', org.id)));
+      const camps = cSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0));
+      if (!camps.length) return showError("Le recrutement de cette association n'est pas encore configuré.");
+      campaign = camps[0];
+      campaignId = campaign.id;   // ← indispensable : tout le reste (dispos, entretiens, écriture du cooptant) filtre/écrit sur campaignId
+    } else {
+      const campDoc = await getDoc(doc(db, 'campaigns', campaignId));
+      if (!campDoc.exists()) return showError('Lien introuvable. Vérifie le lien reçu.');
+      campaign = { id: campDoc.id, ...campDoc.data() };
+      if (campaign.organizationId) {
+        const orgDoc = await getDoc(doc(db, 'organizations', campaign.organizationId));
+        if (orgDoc.exists()) org = { id: orgDoc.id, ...orgDoc.data() };
+      }
+    }
+
+    // Recrutement fermé ? (interrupteur de l'asso ; ancien champ statut toléré)
+    if (campaign.recrutementOuvert === false || campaign.statut === 'fermee') return showClosed();
+
+    // Deadline de candidature dépassée ? (optionnelle : null = pas de date limite)
+    // La date limite est inclusive : on peut postuler jusqu'au bout de ce jour-là.
+    const deadline = parseLocalDate(campaignConfig(campaign).deadlineCandidature);
+    if (deadline) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (today > deadline) return showClosed();
+    }
+
+    // Couleur de l'asso : fond sombre = texte blanc
+    if (org?.primaryColor) {
+      const hdr = document.getElementById('page-header');
+      hdr.style.background = `linear-gradient(135deg,${org.primaryColor} 0%,${darken(org.primaryColor,.2)} 100%)`;
+      hdr.style.color = '#fff';
+      const h1 = hdr.querySelector('h1');
+      if (h1) h1.style.color = '#fff';
+      const p = hdr.querySelector('p');
+      if (p) p.style.color = 'rgba(255,255,255,.78)';
+    }
+
+    document.getElementById('org-name').textContent     = org?.name || 'Cooptly';
+    document.getElementById('campaign-name').textContent = org?.name || campaign.name || 'cette association';
+    if (org?.logoBase64) {
+      document.getElementById('org-logo-wrap').innerHTML =
+        `<img src="${org.logoBase64}" style="width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.6);box-shadow:0 2px 8px rgba(0,0,0,.12);" alt="${org.name}" />`;
+    }
+    // Sous-titre aligné sur les réglages réels : il annonçait « choisis un
+    // créneau parmi les prochaines semaines » même en recrutement sur dossier,
+    // et même quand l'asso avait fixé une période précise.
+    const cfgHdr = campaignConfig(campaign);
+    const debut  = parseLocalDate(cfgHdr.dateDebut);
+    const fin    = parseLocalDate(cfgHdr.dateFin);
+    const jj     = d => d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
+    let sousTitre;
+    if (!cfgHdr.avecEntretien) {
+      sousTitre = 'Dépose ton dossier, il n\'y a pas d\'entretien à réserver.';
+    } else if (debut && fin) {
+      sousTitre = cfgHdr.modeRdv === 'dispos'
+        ? `Indique tes disponibilités entre le ${jj(debut)} et le ${jj(fin)}.`
+        : `Choisis un créneau entre le ${jj(debut)} et le ${jj(fin)}.`;
+    } else {
+      sousTitre = cfgHdr.modeRdv === 'dispos'
+        ? 'Indique tes disponibilités pour les prochaines semaines.'
+        : 'Choisis un créneau parmi les prochaines semaines.';
+    }
+    if (cfgHdr.deadlineCandidature) {
+      const dl = parseLocalDate(cfgHdr.deadlineCandidature);
+      if (dl) sousTitre += ` Candidatures ouvertes jusqu'au ${jj(dl)}.`;
+    }
+    document.getElementById('campaign-dates').textContent = sousTitre;
+
+    // Custom questions
+    const questions = campaign.formConfig?.customQuestions || [];
+    if (questions.length) renderCustomQuestions(questions);
+
+    // Le formulaire s'affiche TOUT DE SUITE, les créneaux arrivent ensuite
+    // dans leur section, qui a son propre indicateur de chargement. Avant, la
+    // page entière restait sur « Chargement… » jusqu'au calcul des créneaux,
+    // alors que le cooptant pouvait déjà remplir son nom et ses réponses.
+    document.getElementById('loading-state').style.display = 'none';
+    document.getElementById('candidature-form').style.display = 'block';
+    updateProgress();
+
+    attenteCreneaux(true);
+    creneauxPromesse = loadAvailableSlots().finally(() => attenteCreneaux(false));
+    await creneauxPromesse;
+
+    // Lien personnel « changer de créneau » (?modif=<jeton>), donné sur la page
+    // de confirmation et de suivi. Seul le cooptant l'a : on peut lui
+    // réafficher toutes ses réponses. Après loadAvailableSlots, sinon son
+    // créneau actuel ne pourrait pas être présélectionné.
+    const jetonModif = paramLien('modif');
+    if (jetonModif) {
+      try {
+        const snap = await getDocs(query(collection(db, 'candidates'), where('resultToken', '==', jetonModif)));
+        const trouve = snap.docs.find(d => d.data().campaignId === campaignId);
+        if (trouve) await chargerCandidatureExistante({ id: trouve.id, ...trouve.data() }, { depuisLien: true });
+      } catch (e) { console.warn('Lien de modification illisible :', e); }
+    }
+    updateProgress();
+
+  } catch (err) {
+    console.error(err);
+    showError('Erreur lors du chargement : ' + err.message);
+  }
+}
+
+function darken(hex, amt) {
+  try {
+    const n = parseInt(hex.slice(1), 16);
+    const r = Math.max(0, ((n>>16)&255) - Math.round(amt*255));
+    const g = Math.max(0, ((n>>8)&255)  - Math.round(amt*255));
+    const b = Math.max(0, (n&255)       - Math.round(amt*255));
+    return `rgb(${r},${g},${b})`;
+  } catch { return hex; }
+}
+
+function showError(msg) {
+  document.getElementById('loading-state').style.display = 'none';
+  document.getElementById('error-state').style.display = 'block';
+  document.getElementById('error-msg').textContent = msg;
+}
+function showClosed() {
+  document.getElementById('loading-state').style.display = 'none';
+  document.getElementById('closed-state').style.display = 'block';
+}
+
+// ── Entretien à plusieurs ─────────────────────────────────────
+/**
+ * Résout un lien « passe l'entretien avec moi » (?avec=<groupToken>).
+ * Renseigne `joinGroup` et affiche le créneau imposé.
+ * @returns {Promise<boolean>} true si l'invitation est valide et utilisable
+ */
+async function resolveGroupInvite(token, cfg) {
+  const section = document.getElementById('group-invite-section');
+  const body    = document.getElementById('group-invite-body');
+  const fail = msg => {
+    section.style.display = '';
+    body.innerHTML = `<p class="text-sm" style="color:var(--orange);font-weight:600;">${msg}</p>
+      <p class="text-sm text-muted" style="margin-top:6px;">Tu peux quand même postuler et choisir ton propre créneau ci-dessous.</p>`;
+    return false;
+  };
+
+  let group;
+  try {
+    const snap = await getDocs(query(
+      collection(db, 'interviews'),
+      where('campaignId', '==', campaignId),
+      where('groupToken', '==', token)
+    ));
+    if (snap.empty) return fail('Ce lien d\'invitation n\'est plus valide.');
+    group = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch (e) {
+    console.error(e);
+    return fail('Impossible de vérifier l\'invitation.');
+  }
+
+  // Le groupe est-il complet ? (un doc interview par cooptant du groupe)
+  if (group.length >= cfg.maxParGroupe) {
+    return fail(`Ce groupe est complet (${cfg.maxParGroupe} cooptants maximum).`);
+  }
+
+  const host  = group[0];
+  const start = host.datetimeStart?.toDate ? host.datetimeStart.toDate() : new Date(host.datetimeStart);
+  const end   = host.datetimeEnd?.toDate   ? host.datetimeEnd.toDate()   : new Date(host.datetimeEnd);
+
+  // Créneau déjà passé → l'invitation n'a plus de sens
+  if (start < new Date()) return fail('Ce créneau est déjà passé.');
+
+  // Prénom de l'hôte, pour que l'invité sache avec qui il passe l'entretien
+  let hostName = '';
+  try {
+    const c = await getDoc(doc(db, 'candidates', host.candidateId));
+    if (c.exists()) hostName = c.data().prenom || '';
+  } catch { /* le nom est un confort, pas un bloquant */ }
+
+  joinGroup = { groupId: host.groupId, groupToken: token, start, end, hostName };
+
+  section.style.display = '';
+  body.innerHTML = `
+    <p class="text-sm" style="margin-bottom:10px;">
+      ${hostName ? `<strong>${esc(hostName)}</strong> t'a invité` : 'Tu as été invité'}
+      à passer l'entretien ensemble. Ton créneau est donc déjà fixé :
+    </p>
+    <div class="slot-confirm-box" style="margin-top:0;">
+      <span style="font-size:20px;">📅</span>
+      <span>${fmtDate(start)} · ${start.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}
+        - ${end.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</span>
+    </div>
+    <p class="text-sm text-muted" style="margin-top:10px;">
+      Remplis tes informations ci-dessus, et c'est réservé.
+    </p>`;
+  return true;
+}
+
+// ── Slot loading ──────────────────────────────────────────────
+async function loadAvailableSlots() {
+  const slotSection  = document.getElementById('slot-picker-section');
+  const slotLoading  = document.getElementById('slot-loading');
+  const slotNone     = document.getElementById('slot-none');
+  const slotInner    = document.getElementById('slot-picker-inner');
+
+  const cfg = campaignConfig(campaign);
+
+  // Arrivée via un lien « passe l'entretien avec moi » : le créneau est imposé,
+  // on ne montre donc aucun sélecteur.
+  if (cfg.avecEntretien && cfg.entretienCollectif && paramLien('avec')) {
+    const joined = await resolveGroupInvite(paramLien('avec'), cfg);
+    if (joined) {
+      useSlotPicker = false;   // pas de choix : on suit l'hôte
+      slotSection.style.display = 'none';
+      document.getElementById('dispos-section')?.style.setProperty('display', 'none');
+      return;
+    }
+    // Invitation invalide ou complète → on retombe sur le parcours normal,
+    // resolveGroupInvite a déjà affiché le message d'explication.
+  }
+
+  // Recrutement sur dossier : ni créneau, ni dispos à demander.
+  if (!cfg.avecEntretien) {
+    useSlotPicker = false;
+    slotSection.style.display = 'none';
+    document.getElementById('dispos-section')?.style.setProperty('display', 'none');
+    return;
+  }
+
+  // Mode « dispos » : le cooptant coche ses disponibilités, le bureau place
+  // ensuite via l'algorithme. On ne calcule aucun créneau.
+  if (cfg.modeRdv === 'dispos') {
+    useSlotPicker = false;
+    slotSection.style.display = 'none';
+    renderDisposGrid(campaign);
+    return;
+  }
+
+  slotSection.style.display = '';
+  slotLoading.style.display = '';
+  slotNone.style.display    = 'none';
+  slotInner.style.display   = 'none';
+
+  try {
+    // Dispos du staff, entretiens déjà pris et, au besoin, liste du staff sont
+    // indépendants : on les demande EN MÊME TEMPS. À la suite, ces requêtes
+    // attendaient chacune la réponse de la précédente, et le formulaire
+    // mettait plus de deux secondes à proposer ses créneaux.
+    const [saSnap, ivSnapInitial, juresLibres] = await Promise.all([
+      getDocs(query(collection(db, 'staff_availabilities'), where('campaignId', '==', campaignId))),
+      getDocs(query(collection(db, 'interviews'),           where('campaignId', '==', campaignId))),
+      cfg.staffToujoursDispo ? juresDeLOrg(campaign.organizationId) : Promise.resolve(null),
+    ]);
+    staffAvails = saSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    // L'asso ne demande pas à son bureau de déclarer ses créneaux : tout le
+    // monde est réputé libre, donc toutes les heures de la période sont
+    // proposables. On fabrique des disponibilités complètes pour le reste du
+    // calcul, qui n'a alors plus rien de particulier à faire.
+    if (cfg.staffToujoursDispo) {
+      const jures = juresLibres || [];
+      const creneaux = getCampaignDays(campaign).map(j => ({ jour: localDateStr(j), creneaux: heuresGrille(cfg.heureFin) }));
+      staffAvails = jures.map(userId => ({ id: `libre_${userId}`, userId, creneaux }));
+    }
+
+    if (!staffAvails.length) {
+      // Aucun staffeur n'a renseigné ses dispos : on ne peut proposer aucun
+      // créneau. On bascule sur la grille de dispos du cooptant plutôt que de
+      // le laisser dans une impasse, mais on le DIT : avant, le repli était
+      // muet et le bureau ne voyait jamais le bouton de placement (il n'apparaît
+      // qu'en mode « dispos »), donc ces disponibilités ne servaient à rien.
+      useSlotPicker = false;
+      slotSection.style.display = 'none';
+      renderDisposGrid(campaign);
+      const note = document.createElement('p');
+      note.className = 'text-sm text-muted';
+      note.style.cssText = 'margin:-8px 0 16px;';
+      note.textContent = "L'association n'a pas encore ouvert de créneaux : "
+        + 'indique tes disponibilités, elle te proposera un horaire.';
+      const sec = document.getElementById('dispos-section');
+      sec.insertBefore(note, sec.querySelector('.hg-wrap'));
+      disposEnRepli = true;
+      return;
+    }
+
+    useSlotPicker = true;
+
+    // Compute available slots
+    const dureeMin  = cfg.dureeMinutes;
+    const nbJurys   = Math.min(3, cfg.nbJurys);
+    const battement = cfg.battementMinutes;
+    campaignNbJurys = nbJurys;
+
+    // Entretiens déjà réservés → intervalles occupés [start, end), chargés
+    // plus haut en même temps que les dispos.
+    bookedIntervals = [];
+    const ivSnap = ivSnapInitial;
+    // Un groupe (entretien à plusieurs) partage un créneau et un seul jury :
+    // il ne doit donc compter que pour UNE occupation, pas une par cooptant.
+    const seenGroups = new Set();
+    ivSnap.docs.forEach(d => {
+      const iv = d.data();
+      if (iv.groupId) {
+        if (seenGroups.has(iv.groupId)) return;
+        seenGroups.add(iv.groupId);
+      }
+      const st = iv.datetimeStart?.toDate ? iv.datetimeStart.toDate() : new Date(iv.datetimeStart);
+      let   en = iv.datetimeEnd?.toDate   ? iv.datetimeEnd.toDate()
+                : (iv.datetimeEnd ? new Date(iv.datetimeEnd) : null);
+      if (!en || isNaN(en)) en = new Date(st.getTime() + dureeMin * 60000);
+      bookedIntervals.push({
+        id:       d.id,
+        groupId:  iv.groupId || null,
+        dateStr:  localDateStr(st),
+        startMin: st.getHours() * 60 + st.getMinutes(),
+        endMin:   en.getHours() * 60 + en.getMinutes(),
+        juryIds:  [iv.jury1Id, iv.jury2Id, iv.jury3Id].filter(Boolean),
+      });
+    });
+    // Période de l'asso (sinon fenêtre glissante), moins les jours trop proches :
+    // délai minimum avant un entretien (`delaiReservationJours`).
+    const premierJour = premierJourReservable(cfg.delaiReservationJours);
+    const days      = getCampaignDays(campaign).filter(d => d >= premierJour);
+
+    document.getElementById('slot-duration-label').textContent = `${dureeMin} min`;
+
+    // Les dispos sont stockées par heures pleines ('08:00', '09:00', …).
+    // Un staffeur est dispo pour un créneau [start, start+durée) s'il a coché
+    // TOUTES les heures pleines que ce créneau chevauche.
+    const staffFreeForSlot = (sa, dateStr, startMin, durMin) => {
+      const dayEntry = sa.creneaux?.find(d => d.jour === dateStr);
+      if (!dayEntry?.creneaux?.length) return false;
+      const set = new Set(dayEntry.creneaux);
+      const firstHour = Math.floor(startMin / 60);
+      const lastHour  = Math.floor((startMin + durMin - 1) / 60); // inclus
+      for (let h = firstHour; h <= lastHour; h++) {
+        if (!set.has(`${String(h).padStart(2,'0')}:00`)) return false;
+      }
+      return true;
+    };
+
+    availableSlots = [];
+    days.forEach(day => {
+      const dateStr = localDateStr(day);
+      // Dernier entretien fini au plus tard à l'heure de fin de l'asso
+      // (19 h par défaut, plus tard pour les entretiens en visio le soir).
+      const finMin = heureFinValide(cfg.heureFin) * 60;
+      // Un créneau toutes les `pasCreneauxMinutes` (30 par défaut : XXh00, XXh30).
+      const pas = pasCreneauxValide(cfg.pasCreneauxMinutes);
+      for (let m = 8 * 60; m + dureeMin <= finMin; m += pas) {
+        const startTime = fromMins(m);
+        const endTime   = fromMins(m + dureeMin);
+
+        // Compte les staffeurs dispos sur toute la durée du créneau
+        const avail = staffAvails.filter(sa => staffFreeForSlot(sa, dateStr, m, dureeMin));
+        if (avail.length < nbJurys) continue;
+
+        // Entretiens déjà réservés qui chevauchent ce créneau (même jour).
+        // Le battement s'ajoute de part et d'autre : deux entretiens doivent être
+        // séparés d'au moins `battement` minutes, sinon ils sont en conflit.
+        const overlaps = bookedIntervals.filter(b =>
+          b.dateStr === dateStr &&
+          b.startMin < (m + dureeMin + battement) &&
+          (b.endMin + battement) > m);
+        // Jurés encore libres : on retire les personnes RÉELLEMENT prises par
+        // ces entretiens, pas « nbJurys par entretien » (voir juresEncoreLibres).
+        const remaining = juresEncoreLibres(avail.map(sa => sa.userId), overlaps, nbJurys);
+        const booked    = remaining < nbJurys;
+
+        const key = `${dateStr}T${startTime}`;
+        availableSlots.push({
+          dateStr, day, startTime, endTime,
+          staffCount: avail.length, booked, key,
+          overlapIds: overlaps.map(o => o.id),
+          // Pour recalculer « Complet » sans refaire tout le calcul (changement
+          // de créneau : on retire alors son propre entretien des chevauchements).
+          disposIds: avail.map(sa => sa.userId),
+          overlaps,
+        });
+      }
+    });
+
+  } catch(e) {
+    console.error(e);
+    // Fallback to grid on error (réinitialise le flag pour ne pas bloquer la soumission)
+    useSlotPicker = false;
+    slotLoading.style.display = 'none';
+    slotSection.style.display = 'none';
+    renderDisposGrid(campaign);
+    return;
+  }
+
+  slotLoading.style.display = 'none';
+
+  if (!availableSlots.length) {
+    const reqJurys = Math.min(3, campaignConfig(campaign).nbJurys);
+    console.warn(`[créneaux] 0 créneau dispo · ${staffAvails.length} staffeur(s) ont renseigné des dispos · ${reqJurys} juré(s) requis par créneau`);
+    slotNone.querySelector('p').innerHTML = staffAvails.length < reqJurys
+      ? `😔 Aucun créneau disponible pour le moment.<br><span class="text-muted">Il faut au moins <strong>${reqJurys} jurés</strong> disponibles en même temps (seuls ${staffAvails.length} membre·s ont renseigné leurs dispos). L'association te contactera pour fixer un entretien.</span>`
+      : `😔 Aucun créneau disponible pour le moment. L'association te contactera pour fixer un entretien.`;
+    slotNone.style.display = '';
+    return;
+  }
+
+  slotInner.style.display = '';
+  renderDayTabs();
+}
+
+/**
+ * Jurés mobilisables de l'asso : membres avec compte + noms de la liste du
+ * staff, dédupliqués par nom.
+ *
+ * Sert quand l'asso ne demande pas de déclaration de disponibilités : il faut
+ * bien savoir qui peut passer, même si personne n'a rempli de grille.
+ *
+ * Lecture publique : `memberships` est cloisonné, donc inaccessible ici. On se
+ * rabat sur `roster_members`, qui est public par construction et contient déjà
+ * les noms du staff.
+ *
+ * @param {string} orgId
+ * @returns {Promise<string[]>}
+ */
+async function juresDeLOrg(orgId) {
+  if (!orgId) return [];
+  try {
+    const snap = await getDocs(query(
+      collection(db, 'roster_members'),
+      where('organizationId', '==', orgId)
+    ));
+    const norm = s => (s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+    const vus = new Set();
+    const ids = [];
+    snap.docs.forEach(d => {
+      const cle = norm(d.data().displayName);
+      if (cle && vus.has(cle)) return;
+      if (cle) vus.add(cle);
+      ids.push(d.id);
+    });
+    return ids;
+  } catch (e) {
+    console.warn('Liste du staff illisible :', e);
+    return [];
+  }
+}
+
+/**
+ * Désigne les jurés de l'entretien que le cooptant vient de réserver.
+ *
+ * Relit les entretiens de la campagne au dernier moment, comme la
+ * revérification du créneau : entre le chargement de la page et l'envoi,
+ * d'autres réservations ont pu mobiliser du monde.
+ *
+ * Renvoie une liste vide en cas d'erreur : mieux vaut un entretien sans juré,
+ * que le bureau complétera depuis le planning, qu'une candidature perdue.
+ *
+ * @param {string} campaignId
+ * @param {object} cfg   config de campagne déjà complétée par les défauts
+ * @param {Date}   start
+ * @param {Date}   end
+ * @returns {Promise<string[]>} ids des jurés, au plus `cfg.nbJurys`
+ */
+async function attribuerJury(campaignId, cfg, start, end) {
+  try {
+    const snap = await getDocs(query(
+      collection(db, 'interviews'),
+      where('campaignId', '==', campaignId)
+    ));
+    const interviews = snap.docs.map(d => {
+      const iv = d.data();
+      const st = iv.datetimeStart?.toDate ? iv.datetimeStart.toDate() : new Date(iv.datetimeStart);
+      let en = iv.datetimeEnd?.toDate ? iv.datetimeEnd.toDate()
+             : (iv.datetimeEnd ? new Date(iv.datetimeEnd) : null);
+      if (!en || isNaN(en)) en = new Date(st.getTime() + cfg.dureeMinutes * 60000);
+      return { datetimeStart: st, datetimeEnd: en, jury1Id: iv.jury1Id, jury2Id: iv.jury2Id, jury3Id: iv.jury3Id };
+    }).filter(iv => !isNaN(iv.datetimeStart));
+
+    // Qui est libre sur ce créneau, d'après les dispos déposées par le staff.
+    const dateStr  = localDateStr(start);
+    const startMin = start.getHours() * 60 + start.getMinutes();
+    const derniere = Math.floor((startMin + cfg.dureeMinutes - 1) / 60);
+    const disponibles = staffAvails.filter(sa => {
+      const jour = sa.creneaux?.find(d => d.jour === dateStr);
+      if (!jour?.creneaux?.length) return false;
+      const set = new Set(jour.creneaux);
+      for (let h = Math.floor(startMin / 60); h <= derniere; h++) {
+        if (!set.has(`${String(h).padStart(2, '0')}:00`)) return false;
+      }
+      return true;
+    }).map(sa => sa.userId).filter(Boolean);
+
+    return choisirJury({
+      disponibles, interviews, debut: start, fin: end,
+      nbJurys:      cfg.nbJurys,
+      maxAffiles:   cfg.maxEntretiensAffiles,
+      battementMin: cfg.battementMinutes || 0,
+    });
+  } catch (e) {
+    console.warn('Attribution du jury impossible :', e);
+    return [];
+  }
+}
+
+/**
+ * Le créneau [start, end) est-il encore libre, battement compris ?
+ *
+ * Relit les entretiens de la campagne au moment de l'envoi et refait le calcul
+ * de capacité de `loadAvailableSlots` : staffeurs disponibles sur ce créneau,
+ * moins ceux réellement pris par les entretiens qui le chevauchent
+ * (`juresEncoreLibres`).
+ * Un groupe (entretien à plusieurs) ne compte que pour une occupation.
+ *
+ * @returns {Promise<boolean>} true si on peut réserver. True aussi en cas
+ *   d'erreur réseau : mieux vaut un doublon rare qu'un cooptant bloqué.
+ */
+async function creneauEncoreLibre(campaignId, cfg, start, end, excludeIvId) {
+  try {
+    const nbJurys   = Math.min(3, cfg.nbJurys);
+    const battement = cfg.battementMinutes || 0;
+    const dateStr   = localDateStr(start);
+    const startMin  = start.getHours() * 60 + start.getMinutes();
+    const endMin    = end.getHours() * 60 + end.getMinutes();
+
+    const snap = await getDocs(query(
+      collection(db, 'interviews'),
+      where('campaignId', '==', campaignId)
+    ));
+
+    const vus = new Set();
+    const occupations = [];
+    snap.docs.forEach(d => {
+      if (d.id === excludeIvId) return;
+      const iv = d.data();
+      if (iv.groupId) {
+        if (vus.has(iv.groupId)) return;
+        vus.add(iv.groupId);
+      }
+      const st = iv.datetimeStart?.toDate ? iv.datetimeStart.toDate() : new Date(iv.datetimeStart);
+      if (isNaN(st) || localDateStr(st) !== dateStr) return;
+      let en = iv.datetimeEnd?.toDate ? iv.datetimeEnd.toDate()
+             : (iv.datetimeEnd ? new Date(iv.datetimeEnd) : null);
+      if (!en || isNaN(en)) en = new Date(st.getTime() + cfg.dureeMinutes * 60000);
+      const ivStart = st.getHours() * 60 + st.getMinutes();
+      const ivEnd   = en.getHours() * 60 + en.getMinutes();
+      if (ivStart < endMin + battement && ivEnd + battement > startMin) {
+        occupations.push({ juryIds: [iv.jury1Id, iv.jury2Id, iv.jury3Id].filter(Boolean) });
+      }
+    });
+
+    const disposIds = staffAvails.filter(sa => {
+      const jour = sa.creneaux?.find(d => d.jour === dateStr);
+      if (!jour?.creneaux?.length) return false;
+      const set = new Set(jour.creneaux);
+      const derniere = Math.floor((startMin + cfg.dureeMinutes - 1) / 60);
+      for (let h = Math.floor(startMin / 60); h <= derniere; h++) {
+        if (!set.has(`${String(h).padStart(2, '0')}:00`)) return false;
+      }
+      return true;
+    }).map(sa => sa.userId);
+
+    return juresEncoreLibres(disposIds, occupations, nbJurys) >= nbJurys;
+  } catch (e) {
+    console.warn('Revérification du créneau impossible :', e);
+    return true;
+  }
+}
+
+// ── Calendrier de réservation ─────────────────────────────────
+// Remplace l'ancien sélecteur « un jour à la fois » : tous les jours en
+// colonnes, les heures en lignes, on voit d'un coup où il reste de la place.
+function renderDayTabs() {
+  const wrap = document.getElementById('rdv-wrap');
+  const utile = s => !s.booked || s.key === selectedSlot?.key;
+
+  // Jours qui ont au moins un créneau libre (ou le créneau déjà choisi).
+  const jours = [...new Set(availableSlots.filter(utile).map(s => s.dateStr))].sort();
+  if (!jours.length) {
+    document.getElementById('slot-none').style.display = '';
+    document.getElementById('slot-picker-inner').style.display = 'none';
+    return;
+  }
+  const parCle = new Map(availableSlots.map(s => [s.key, s]));
+  const heures = [...new Set(availableSlots.filter(s => jours.includes(s.dateStr)).map(s => s.startTime))].sort();
+  const scroll = { left: wrap.scrollLeft, top: wrap.scrollTop };
+
+  let html = '<table class="rdv-cal"><thead><tr><th class="rdv-coin" scope="col"><span class="sr-only">Heure</span></th>';
+  jours.forEach(j => {
+    const d = new Date(j + 'T00:00:00');
+    const libres = availableSlots.filter(s => s.dateStr === j && !s.booked).length;
+    const wd = d.toLocaleDateString('fr-FR', { weekday: 'short' });
+    html += `<th scope="col" data-jour="${j}">${wd.charAt(0).toUpperCase() + wd.slice(1)}
+      <span class="rdv-jour-date">${d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</span>
+      <span class="rdv-jour-date">${libres} libre${libres > 1 ? 's' : ''}</span></th>`;
+  });
+  html += '</tr></thead><tbody>';
+  heures.forEach(h => {
+    html += `<tr><th class="rdv-heure" scope="row">${h}</th>`;
+    jours.forEach(j => {
+      const s = parCle.get(`${j}T${h}`);
+      if (!s) { html += '<td class="rdv-vide"></td>'; return; }
+      const actuel = !!existingIvId && s.key === creneauActuelCle;
+      const choisi = selectedSlot?.key === s.key;
+      const libre  = !s.booked || choisi || actuel;
+      const jourLong = new Date(j + 'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+      const etat = choisi ? 'choisi' : (libre ? 'libre' : 'complet');
+      html += `<td><button type="button" class="rdv-cell${choisi ? ' choisi' : ''}${actuel ? ' actuel' : ''}"
+        data-cle="${s.key}" ${libre ? '' : 'disabled'} aria-pressed="${choisi}"
+        aria-label="${jourLong}, ${s.startTime} à ${s.endTime}, ${actuel && !choisi ? 'ton créneau actuel' : etat}">${choisi ? '✓' : (actuel ? 'Actuel' : (libre ? s.startTime : 'Complet'))}</button></td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+  wrap.scrollLeft = scroll.left; wrap.scrollTop = scroll.top;
+
+  wrap.querySelectorAll('.rdv-cell:not(:disabled)').forEach(b =>
+    b.addEventListener('click', () => selectSlot(parCle.get(b.dataset.cle))));
+}
+function selectSlot(s) {
+  selectedSlot = s;
+  document.getElementById('err-slot').textContent = '';
+  renderDayTabs();
+
+  const day = new Date(s.dateStr + 'T00:00:00');
+  const text = `${fmtDate(day)} · ${s.startTime} - ${s.endTime}`;
+  document.getElementById('slot-confirm-text').textContent = text;
+  document.getElementById('slot-confirm-box').style.display = 'flex';
+
+  // Update submit button label
+  if (existingIvId) {
+    document.getElementById('submit-text').textContent = 'Modifier mon créneau 🔄';
+  }
+  updateProgress();
+}
+
+// ── Email blur : detect returning candidate ──────────────────
+document.getElementById('email').addEventListener('blur', async () => {
+  const email = document.getElementById('email').value.trim().toLowerCase();
+  if (!email.includes('@') || !campaignId) return;
+
+  // Signaler le mauvais domaine tout de suite : le decouvrir apres avoir
+  // redige toute sa motivation est frustrant.
+  const champ = document.getElementById('email');
+  if (!estEmailEmlyon(email)) {
+    setError('err-email', 'Utilise ton adresse emlyon, par exemple prenom.nom@edu.em-lyon.com.');
+    champ.classList.add('error');
+    return;
+  }
+  setError('err-email', '');
+  champ.classList.remove('error');
+
+  try {
+    const snap = await getDocs(query(
+      collection(db, 'candidates'),
+      where('email', '==', email),
+      where('campaignId', '==', campaignId)
+    ));
+    if (snap.empty) return;
+    // Par l'email, on ne montre PAS les réponses : l'adresse se devine
+    // (prenom.nom@edu.em-lyon.com), n'importe qui pourrait lire le téléphone
+    // ou la motivation d'un camarade. On les garde sans les afficher.
+    await chargerCandidatureExistante({ id: snap.docs[0].id, ...snap.docs[0].data() },
+                                      { depuisLien: false });
+  } catch (e) { console.warn(e); }
+});
+
+// ── Candidature existante ─────────────────────────────────────
+/**
+ * Réponse d'un cooptant à une question, où qu'elle ait été rangée : sous
+ * l'identifiant de la question, ou sous sa position d'origine pour les
+ * réponses enregistrées avant que les questions aient un identifiant.
+ */
+function reponseDe(customAnswers, q, i) {
+  const r = customAnswers || {};
+  const brute = (q.id && r[q.id] !== undefined) ? r[q.id]
+              : r[String(q.legacyIndex !== undefined ? q.legacyIndex : i)];
+  if (brute == null) return '';
+  return typeof brute === 'object' ? (brute.value ?? '') : String(brute);
+}
+
+/** Pose une réponse enregistrée dans le champ correspondant du formulaire. */
+function remplirChamp(el, valeur) {
+  if (!el) return;
+  if (el.type === 'checkbox') el.checked = valeur === 'Oui';
+  else el.value = valeur;
+}
+
+/**
+ * Montre, à la place des questions, que les réponses sont déjà enregistrées,
+ * avec un bouton pour les ressaisir si on veut les changer.
+ */
+function afficherReponsesConservees() {
+  const conteneur = document.getElementById('custom-questions-container');
+  const section   = document.getElementById('custom-questions-section');
+  if (!conteneur || !section || document.getElementById('reponses-conservees')) return;
+
+  conteneur.style.display = 'none';
+  const note = document.createElement('div');
+  note.id = 'reponses-conservees';
+  note.className = 'reponses-conservees';
+  note.innerHTML = `
+    <div><strong>✓ Tes réponses sont déjà enregistrées.</strong>
+      <span class="text-muted">Pas besoin de les retaper pour changer de créneau.</span></div>
+    <button type="button" class="btn btn-ghost btn-sm">Modifier mes réponses</button>`;
+  note.querySelector('button').addEventListener('click', () => {
+    // On repart de champs vides : les réponses d'avant ne s'affichent pas par
+    // ce chemin, pour la même raison qu'elles ne sont pas préremplies.
+    reponsesConservees = null;
+    note.remove();
+    conteneur.style.display = '';
+    updateProgress();
+    conteneur.querySelector('input, textarea, select')?.focus();
+  });
+  section.appendChild(note);
+}
+
+/**
+ * Reprend une candidature déjà déposée : identité, réponses, entretien.
+ *
+ * @param {object}  cand
+ * @param {object}  o
+ * @param {boolean} o.depuisLien arrivée par le lien personnel (`?modif=<jeton>`),
+ *   que seul le cooptant possède : on peut alors lui réafficher ses réponses.
+ *   Par la simple adresse email, on les garde sans les montrer.
+ */
+async function chargerCandidatureExistante(cand, { depuisLien }) {
+  try {
+    existingCandId = cand.id;
+
+    // Pre-fill form
+    if (!document.getElementById('prenom').value.trim())
+      document.getElementById('prenom').value = cand.prenom || '';
+    if (!document.getElementById('nom').value.trim())
+      document.getElementById('nom').value = cand.nom || '';
+    if (depuisLien && cand.email) document.getElementById('email').value = cand.email;
+
+    // Réponses aux questions de l'asso
+    const questions = campaign?.formConfig?.customQuestions || [];
+    if (questions.length) {
+      if (depuisLien) {
+        questions.forEach((q, i) =>
+          remplirChamp(document.getElementById(`cq_${i}`), reponseDe(cand.customAnswers, q, i)));
+      } else {
+        // On ne garde les réponses que si elles couvrent toutes les questions
+        // obligatoires : une question ajoutée depuis la candidature doit
+        // pouvoir être remplie.
+        const complet = questions.every((q, i) => !q.required || reponseDe(cand.customAnswers, q, i));
+        if (complet) {
+          reponsesConservees = cand.customAnswers || {};
+          afficherReponsesConservees();
+        }
+      }
+    }
+    updateProgress();
+
+    // Le formulaire est visible avant la fin du calcul des créneaux : un
+    // cooptant rapide peut taper son email avant. Il faut les attendre, sinon
+    // son créneau actuel ne serait ni retrouvé ni libéré dans la liste.
+    await creneauxPromesse;
+
+    // Check for existing interview
+    const ivSnap = await getDocs(query(
+      collection(db, 'interviews'),
+      where('candidateId', '==', cand.id)
+    ));
+
+    const banner = document.getElementById('booking-banner');
+    if (!ivSnap.empty) {
+      const iv = { id: ivSnap.docs[0].id, ...ivSnap.docs[0].data() };
+      existingIvId = iv.id;
+      existingIv   = iv;
+
+      const dt  = iv.datetimeStart?.toDate ? iv.datetimeStart.toDate() : new Date(iv.datetimeStart);
+      const end = iv.datetimeEnd?.toDate   ? iv.datetimeEnd.toDate()   : new Date(iv.datetimeEnd);
+
+      // Libère le créneau actuel du candidat : on recalcule la dispo de chaque
+      // créneau en EXCLUANT son propre entretien des chevauchements.
+      // Même règle que le calcul initial (juresEncoreLibres) : l'ancienne
+      // formule « entretiens × jurés » était restée ici et rebloquait des
+      // créneaux libres.
+      availableSlots.forEach(s => {
+        const autres = (s.overlaps || []).filter(o => o.id !== existingIvId);
+        s.booked = juresEncoreLibres(s.disposIds || [], autres, campaignNbJurys) < campaignNbJurys;
+      });
+
+      // Find & pre-select the matching slot
+      const dateStr   = localDateStr(dt);
+      const startTime = `${dt.getHours().toString().padStart(2,'0')}:${dt.getMinutes().toString().padStart(2,'0')}`;
+      const existing  = availableSlots.find(s => s.dateStr === dateStr && s.startTime === startTime);
+      if (existing) {
+        existing.booked = false;
+        creneauActuelCle = existing.key;
+        selectedSlot = existing;
+        selectedDay  = dateStr;
+        selectSlot(existing);
+      } else {
+        renderDayTabs();
+      }
+
+      banner.style.display = '';
+      banner.innerHTML = `
+        <div style="font-weight:700;font-size:14px;margin-bottom:4px;">🔄 Tu as déjà un entretien réservé</div>
+        <div class="text-sm">📅 ${fmtDate(dt)} · ${dt.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})} - ${end.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</div>
+        <div class="text-sm text-muted" style="margin-top:4px;">Tu peux changer de créneau ci-dessous et soumettre à nouveau.</div>`;
+      document.getElementById('submit-text').textContent = 'Modifier mon créneau 🔄';
+    } else {
+      existingIvId = null;
+      existingIv   = null;
+      banner.style.display = '';
+      banner.innerHTML = `
+        <div style="font-weight:700;font-size:14px;margin-bottom:4px;">👋 Content de te revoir !</div>
+        <div class="text-sm text-muted">Ta candidature existe déjà. Tu peux mettre à jour tes informations et réserver un nouveau créneau.</div>`;
+    }
+  } catch(e) { console.warn(e); }
+}
+
+// ── Custom questions ──────────────────────────────────────────
+/**
+ * Domaines emlyon acceptes pour la candidature.
+ *
+ * L'ecole a plusieurs ecritures selon l'anciennete du compte : les etudiants
+ * sont en `edu.em-lyon.com`, le personnel en `em-lyon.com`, et les variantes
+ * sans tiret circulent aussi. On les accepte toutes plutot que de bloquer
+ * quelqu'un pour un tiret.
+ */
+const DOMAINES_EMLYON = ['em-lyon.com', 'emlyon.com'];
+
+/**
+ * L'adresse appartient-elle a emlyon ?
+ * Accepte les sous-domaines (`edu.em-lyon.com`, `edu.emlyon.com`).
+ * @param {string} email
+ */
+function estEmailEmlyon(email) {
+  const domaine = String(email || '').toLowerCase().split('@')[1];
+  if (!domaine) return false;
+  return DOMAINES_EMLYON.some(d => domaine === d || domaine.endsWith('.' + d));
+}
+
+/**
+ * Valeur d'un champ de question personnalisee, quel que soit son type.
+ * Une case a cocher n'a pas de `.value` exploitable : sans ca elle valait
+ * toujours « on », donc toujours remplie et toujours vraie.
+ */
+function valeurQuestion(el) {
+  if (!el) return '';
+  if (el.type === 'checkbox') return el.checked ? 'Oui' : '';
+  return el.value.trim();
+}
+
+function renderCustomQuestions(questions) {
+  const container = document.getElementById('custom-questions-container');
+  container.innerHTML = '';
+  questions.forEach((q, i) => {
+    const group = document.createElement('div'); group.className = 'form-group';
+    if (q.imageDataUrl) {
+      const img = document.createElement('img');
+      img.src = q.imageDataUrl;
+      img.alt = '';
+      img.style.cssText = 'max-width:100%;max-height:200px;border-radius:6px;margin-bottom:8px;display:block;';
+      group.appendChild(img);
+    }
+    const label = document.createElement('label');
+    label.className = 'form-label';
+    label.setAttribute('for', `cq_${i}`);
+    label.innerHTML = q.label + (q.required ? ' <span class="required">*</span>' : '');
+    group.appendChild(label);
+    let input;
+    if (q.type === 'longtext') {
+      input = document.createElement('textarea'); input.className = 'form-textarea'; input.rows = 3;
+      if (q.placeholder) input.placeholder = q.placeholder;
+    } else if (q.type === 'select' && q.options?.length) {
+      input = document.createElement('select'); input.className = 'form-select';
+      const ph = document.createElement('option'); ph.value = ''; ph.textContent = 'Sélectionne';
+      input.appendChild(ph);
+      q.options.forEach(opt => { const o = document.createElement('option'); o.value = opt; o.textContent = opt; input.appendChild(o); });
+    } else if (q.type === 'checkbox') {
+      // Case a cocher simple (charte, engagement, disponibilite le week-end...).
+      const wrap = document.createElement('label');
+      wrap.className = 'checkbox-wrap';
+      wrap.setAttribute('for', `cq_${i}`);
+      input = document.createElement('input'); input.type = 'checkbox';
+      const txt = document.createElement('span');
+      txt.textContent = q.placeholder || 'Oui';
+      wrap.appendChild(input); wrap.appendChild(txt);
+      group.appendChild(wrap);
+      input._wrapped = true;
+    } else {
+      // Types « texte enrichis » : le clavier du telephone s'adapte au champ.
+      // Sans ca, « Numero de telephone » ouvrait un clavier alphabetique.
+      const TYPES_HTML = { tel:'tel', email:'email', nombre:'number', date:'date', url:'url' };
+      input = document.createElement('input');
+      input.type = TYPES_HTML[q.type] || 'text';
+      input.className = 'form-input';
+      if (q.type === 'tel')    input.autocomplete = 'tel';
+      if (q.type === 'email')  input.autocomplete = 'email';
+      if (q.type === 'nombre') input.inputMode = 'numeric';
+      if (q.placeholder) input.placeholder = q.placeholder;
+    }
+    input.id = `cq_${i}`; input.name = `cq_${i}`; input.dataset.qidx = i;
+    if (q.required) input.required = true;
+    input.addEventListener('input',  updateProgress);
+    input.addEventListener('change', updateProgress);
+    if (!input._wrapped) group.appendChild(input);
+    const err = document.createElement('span'); err.className = 'form-error'; err.id = `err_cq_${i}`;
+    group.appendChild(err);
+    container.appendChild(group);
+  });
+  document.getElementById('custom-questions-section').style.display = 'block';
+}
+
+// ── Grille de dispos du cooptant (mode « dispos ») ────────────
+// Utilisée quand config.modeRdv === 'dispos' : le cooptant coche ses créneaux
+// libres, puis le bureau génère le planning via l'algorithme de placement.
+function renderDisposGrid(campaign) {
+  // Plage réglée par l'asso (source unique : js/capacite.js).
+  const HOURS = heuresGrille(campaignConfig(campaign).heureFin);
+  const isMobile = window.innerWidth < 640;
+  // Si l'asso a fixé une période, on l'affiche en entier ; sinon fenêtre glissante
+  // (raccourcie sur mobile pour rester lisible).
+  // Même délai minimum que pour la réservation d'un créneau.
+  const premierJour = premierJourReservable(campaignConfig(campaign).delaiReservationJours);
+  const days = getCampaignDays(campaign, isMobile ? 14 : 28).filter(d => d >= premierJour);
+  if (!days.length) return;
+  document.getElementById('dispos-section').style.display = '';
+  const container = document.getElementById('dispos-grid-container');
+  container.innerHTML = '';
+  const table = document.createElement('div');
+  table.className = 'hg-table';
+  const colMin = isMobile ? 36 : 48;
+  const hourW  = isMobile ? 44 : 56;
+  table.style.gridTemplateColumns = `${hourW}px repeat(${days.length}, minmax(${colMin}px,1fr))`;
+  const corner = document.createElement('div'); corner.className = 'hg-corner'; table.appendChild(corner);
+  days.forEach((day, ci) => {
+    const th = document.createElement('div'); th.className = 'hg-day-th';
+    const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'hg-day-btn';
+    const dn = day.toLocaleDateString('fr-FR', {weekday:'short'});
+    const dd = day.toLocaleDateString('fr-FR', {day:'numeric', month:'short'});
+    btn.innerHTML = `<span>${dn[0].toUpperCase()+dn.slice(1,3)}</span><span class="hg-day-date">${dd}</span>`;
+    btn.addEventListener('click', () => {
+      const toggles = table.querySelectorAll(`.hg-toggle[data-col="${ci}"]`);
+      const allOn = [...toggles].every(t => t.classList.contains('selected'));
+      toggles.forEach(t => selToggle(t, !allOn));
+      updateDisposCount();
+    });
+    th.appendChild(btn); table.appendChild(th);
+  });
+  HOURS.forEach((hour, ri) => {
+    const hourTh = document.createElement('div'); hourTh.className = 'hg-hour-th';
+    const hourBtn = document.createElement('button'); hourBtn.type = 'button'; hourBtn.className = 'hg-hour-btn';
+    hourBtn.textContent = hour;
+    hourBtn.addEventListener('click', () => {
+      const toggles = table.querySelectorAll(`.hg-toggle[data-row="${ri}"]`);
+      const allOn = [...toggles].every(t => t.classList.contains('selected'));
+      toggles.forEach(t => selToggle(t, !allOn));
+      updateDisposCount();
+    });
+    hourTh.appendChild(hourBtn); table.appendChild(hourTh);
+    days.forEach((day, ci) => {
+      const cell = document.createElement('div'); cell.className = 'hg-cell';
+      const toggle = document.createElement('button'); toggle.type = 'button'; toggle.className = 'hg-toggle';
+      toggle.dataset.day = localDateStr(day);
+      toggle.dataset.hour = hour; toggle.dataset.row = ri; toggle.dataset.col = ci;
+      toggle.setAttribute('aria-pressed', 'false');
+      toggle.addEventListener('click', () => { selToggle(toggle, !toggle.classList.contains('selected')); updateDisposCount(); });
+      cell.appendChild(toggle); table.appendChild(cell);
+    });
+  });
+  container.appendChild(table);
+  document.getElementById('dispos-select-all').addEventListener('click', () => {
+    table.querySelectorAll('.hg-toggle').forEach(t => selToggle(t, true)); updateDisposCount();
+  });
+  document.getElementById('dispos-clear').addEventListener('click', () => {
+    table.querySelectorAll('.hg-toggle').forEach(t => selToggle(t, false)); updateDisposCount();
+  });
+}
+
+function selToggle(btn, on) {
+  btn.classList.toggle('selected', on); btn.setAttribute('aria-pressed', String(on));
+}
+function updateDisposCount() {
+  const n = document.querySelectorAll('.hg-toggle.selected').length;
+  document.getElementById('dispos-count').textContent = `${n} créneau${n > 1 ? 'x' : ''} sélectionné${n > 1 ? 's' : ''}`;
+}
+function getSelectedDispos() {
+  const byDay = {};
+  document.querySelectorAll('.hg-toggle.selected').forEach(t => {
+    const d = t.dataset.day; if (!byDay[d]) byDay[d] = [];
+    byDay[d].push(t.dataset.hour);
+  });
+  return Object.entries(byDay).map(([jour, creneaux]) => ({ jour, creneaux: [...new Set(creneaux)].sort() }));
+}
+
+// ── Progress bar ──────────────────────────────────────────────
+function updateProgress() {
+  let filled = 0, total = 3;
+  ['prenom','nom','email'].forEach(id => { if (document.getElementById(id)?.value.trim()) filled++; });
+  if (useSlotPicker && selectedSlot) filled++;
+  if (useSlotPicker) total++;
+  if (joinGroup) { filled++; total++; }   // créneau déjà fixé par l'invitation
+  const questions = campaign?.formConfig?.customQuestions || [];
+  questions.forEach((q, i) => {
+    if (!q.required) return;
+    total++;
+    if (reponsesConservees || valeurQuestion(document.getElementById(`cq_${i}`))) filled++;
+  });
+  document.getElementById('progress-fill').style.width = `${Math.round((filled/total)*100)}%`;
+}
+['prenom','nom','email'].forEach(id => {
+  document.getElementById(id).addEventListener('input', updateProgress);
+});
+
+// ── Validation ────────────────────────────────────────────────
+function clearErrors() {
+  document.querySelectorAll('.form-error').forEach(e => { e.textContent = ''; });
+  document.querySelectorAll('.form-input,.form-select,.form-textarea').forEach(e => e.classList.remove('error'));
+}
+function setError(id, msg) { const el = document.getElementById(id); if (el) el.textContent = msg; }
+
+function validate() {
+  clearErrors(); let valid = true;
+  const prenom = document.getElementById('prenom').value.trim();
+  const nom    = document.getElementById('nom').value.trim();
+  const email  = document.getElementById('email').value.trim();
+  if (!prenom) { setError('err-prenom', 'Le prénom est requis.'); document.getElementById('prenom').classList.add('error'); valid = false; }
+  if (!nom)    { setError('err-nom', 'Le nom est requis.');       document.getElementById('nom').classList.add('error');    valid = false; }
+  if (!email)  { setError('err-email', "L'email est requis.");    document.getElementById('email').classList.add('error');  valid = false; }
+  else if (!email.includes('@')) { setError('err-email', 'Email invalide.'); document.getElementById('email').classList.add('error'); valid = false; }
+  else if (!estEmailEmlyon(email)) {
+    setError('err-email', 'Utilise ton adresse emlyon, par exemple prenom.nom@edu.em-lyon.com.');
+    document.getElementById('email').classList.add('error');
+    valid = false;
+  }
+  // En rejoignant un groupe le créneau est imposé : rien à sélectionner.
+  if (useSlotPicker && !selectedSlot && !joinGroup) { setError('err-slot', 'Sélectionne un créneau d\'entretien.'); valid = false; }
+  const questions = campaign?.formConfig?.customQuestions || [];
+  // Réponses conservées : les champs sont masqués et vides, les exiger
+  // bloquerait l'envoi alors que tout est déjà enregistré.
+  if (!reponsesConservees) {
+    questions.forEach((q, i) => {
+      if (q.required) {
+        const el = document.getElementById(`cq_${i}`);
+        if (el && !valeurQuestion(el)) { setError(`err_cq_${i}`, 'Ce champ est requis.'); el.classList.add('error'); valid = false; }
+      }
+    });
+  }
+  return valid;
+}
+
+// ── Submit ────────────────────────────────────────────────────
+document.getElementById('candidature-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  if (!creneauxPrets) {
+    showToast('Les créneaux finissent de charger, un instant…', 'info');
+    return;
+  }
+  if (!validate()) {
+    document.querySelector('.form-error:not(:empty)')?.scrollIntoView({ behavior:'smooth', block:'center' });
+    return;
+  }
+
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  document.getElementById('submit-text').style.display = 'none';
+  document.getElementById('submit-spinner').style.display = 'inline-block';
+
+  try {
+    const email = document.getElementById('email').value.trim().toLowerCase();
+    const prenom = document.getElementById('prenom').value.trim();
+    const nom    = document.getElementById('nom').value.trim();
+
+    const questions = campaign?.formConfig?.customQuestions || [];
+    // Réponses conservées : on les réécrit telles quelles. La candidature est
+    // enregistrée avec setDoc SANS fusion, donc omettre le champ l'effacerait,
+    // et lire les champs masqués l'écraserait avec du vide.
+    const customAnswers = reponsesConservees ? { ...reponsesConservees } : {};
+    if (!reponsesConservees) {
+      questions.forEach((q, i) => {
+        const el = document.getElementById(`cq_${i}`);
+        if (el) customAnswers[q.id || String(i)] = { label: q.label, value: valeurQuestion(el) };
+      });
+    }
+
+    const payload = {
+      prenom, nom, email, customAnswers,
+      disponibilites: (useSlotPicker || joinGroup) ? [] : getSelectedDispos(),
+      updatedAt: serverTimestamp(),
+    };
+
+    // Create or update candidate
+    let candidateId = existingCandId;
+    let resultToken;
+
+    if (existingCandId) {
+      const existRef = doc(db, 'candidates', existingCandId);
+      const existDoc = await getDoc(existRef);
+      resultToken = existDoc.data()?.resultToken || generateToken(40);
+      await updateDoc(existRef, { ...payload, resultToken });
+    } else {
+      candidateId = await hashDocId(`${email}::${campaignId}`);
+      const candRef = doc(db, 'candidates', candidateId);
+      const candSnap = await getDoc(candRef);
+      resultToken = candSnap.exists()
+        ? (candSnap.data().resultToken || generateToken(40))
+        : generateToken(40);
+      await setDoc(candRef, {
+        campaignId,
+        organizationId: campaign.organizationId,
+        ...payload,
+        notesInternes: candSnap.exists() ? (candSnap.data().notesInternes || '') : '',
+        resultToken,
+        statut: candSnap.exists() ? (candSnap.data().statut || 'recu') : 'recu',
+        createdAt: candSnap.exists() ? candSnap.data().createdAt : serverTimestamp(),
+      });
+    }
+
+    // Entretien à créer : soit le créneau choisi, soit celui imposé par une
+    // invitation de groupe (dans ce cas il n'y a pas eu de sélecteur).
+    const cfg = campaignConfig(campaign);
+    if ((useSlotPicker && selectedSlot) || joinGroup) {
+      let start, end;
+      if (joinGroup) {
+        start = joinGroup.start;
+        end   = joinGroup.end;      // on colle exactement à l'entretien de l'hôte
+      } else {
+        const [h, m] = selectedSlot.startTime.split(':').map(Number);
+        start = new Date(selectedSlot.dateStr + 'T00:00:00');
+        start.setHours(h, m, 0, 0);
+        end = new Date(start.getTime() + cfg.dureeMinutes * 60 * 1000);
+      }
+
+      // Jury attribué dès la réservation. Avant, l'entretien naissait sans
+      // aucun juré et le bureau devait tout remplir à la main dans le planning.
+      // On applique la même règle de continuité que l'algorithme : les mêmes
+      // personnes enchaînent les créneaux qui se suivent. Le bureau reste
+      // libre de changer depuis le planning.
+      const jures = joinGroup ? [] : await attribuerJury(campaignId, cfg, start, end);
+
+      const ivData = {
+        campaignId,
+        organizationId: campaign.organizationId,
+        candidateId,
+        datetimeStart:  Timestamp.fromDate(start),
+        datetimeEnd:    Timestamp.fromDate(end),
+        statut:         'planifie',
+        selfBooked:     true,
+        jury1Id:        jures[0] || null,
+        jury2Id:        jures[1] || null,
+        jury3Id:        jures[2] || null,
+        roomId:         null, salleNom: null,
+      };
+
+      // Entretien à plusieurs : le groupe partage un `groupId` (une seule
+      // occupation de créneau et un seul jury pour tout le groupe).
+      // `groupToken` est le lien d'invitation, distinct du resultToken du
+      // cooptant : partager ce dernier exposerait le suivi de sa candidature.
+      if (cfg.entretienCollectif) {
+        if (joinGroup) {
+          // On rejoint le groupe existant : on n'en crée pas un nouveau.
+          ivData.groupId    = joinGroup.groupId;
+          ivData.groupToken = joinGroup.groupToken;
+        } else {
+          ivData.groupId    = existingIv?.groupId    || generateToken(16);
+          ivData.groupToken = existingIv?.groupToken || generateToken(24);
+        }
+      }
+
+      // Les créneaux occupés ont été calculés au chargement de la page. Entre
+      // ce moment et l'envoi, quelqu'un a pu réserver : sur une campagne où le
+      // lien part à tout le monde en même temps, deux cooptants prenaient le
+      // même horaire. On revérifie donc juste avant d'écrire.
+      // Firestore n'a pas de contrainte d'unicité : c'est une revérification,
+      // pas un verrou, mais elle ramène la fenêtre de collision à quelques
+      // centaines de millisecondes au lieu de plusieurs minutes.
+      // Délai minimum revérifié à l'envoi : la page a pu rester ouverte depuis la
+      // veille. Rejoindre le créneau d'un ami n'est pas concerné (déjà fixé).
+      if (!joinGroup && start < premierJourReservable(cfg.delaiReservationJours)) {
+        showToast('Ce créneau est trop proche. Choisis-en un plus tard.', 'error');
+        selectedSlot = null;
+        document.getElementById('slot-confirm-box').style.display = 'none';
+        await loadAvailableSlots();
+        document.getElementById('slot-picker-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        btn.disabled = false;
+        document.getElementById('submit-text').style.display = '';
+        document.getElementById('submit-spinner').style.display = 'none';
+        return;
+      }
+      if (!joinGroup && !(await creneauEncoreLibre(campaignId, cfg, start, end, existingIvId))) {
+        showToast('Ce créneau vient d\'être réservé. Choisis-en un autre.', 'error');
+        selectedSlot = null;
+        document.getElementById('slot-confirm-box').style.display = 'none';
+        await loadAvailableSlots();
+        document.getElementById('slot-picker-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        btn.disabled = false;
+        document.getElementById('submit-text').style.display = '';
+        document.getElementById('submit-spinner').style.display = 'none';
+        return;
+      }
+
+      if (existingIvId) {
+        await updateDoc(doc(db, 'interviews', existingIvId), { ...ivData, updatedAt: serverTimestamp() });
+      } else {
+        await addDoc(collection(db, 'interviews'), { ...ivData, createdAt: serverTimestamp() });
+      }
+
+      // Update candidate statut
+      await updateDoc(doc(db, 'candidates', candidateId), { statut: 'place' });
+
+      // Redirect to confirmation page
+      window.location.href = `/confirmation.html?token=${resultToken}&campaign=${campaignId}`;
+    } else {
+      // No slot → redirect to result page
+      window.location.href = `/candidat.html?token=${resultToken}`;
+    }
+
+  } catch (err) {
+    console.error(err);
+    showToast('Erreur : ' + err.message, 'error');
+    btn.disabled = false;
+    document.getElementById('submit-text').style.display = '';
+    document.getElementById('submit-spinner').style.display = 'none';
+  }
+});
+
+init();
+</script>
+</body>
+</html>

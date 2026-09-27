@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mes disponibilités · Cooptly</title>
+  <!-- Connexions ouvertes d'avance : sans elles, chaque serveur (polices,
+       SDK, base de données) coûtait sa propre poignée de main réseau au
+       moment où la page en avait besoin. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin />
+  <!-- Le SDK est préchargé dès l'en-tête. Sinon le navigateur ne le
+       découvre qu'en arrivant au script, tout en bas de la page. -->
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js" />
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js" />
+  <!-- Polices en <link> et non plus en @import dans main.css : l'@import
+       obligeait à télécharger la feuille de style avant même de découvrir
+       les polices, trois allers-retours à la suite avant le texte. -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Antic&family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;600;700&display=swap" />
+  <link rel="stylesheet" href="/css/main.css" />
+  <style>
+    /* ── Grille heure par heure ───────────────────────────────────
+       `.hg-wrap` et `.hg-table` viennent de main.css : les redéclarer ici
+       ramenait un `overflow: hidden` sur la grille, ce qui empêche la colonne
+       des heures de rester figée. Seules les différences propres à cette page
+       (cases plus grandes, pastille ☑, état « réservé ») restent locales. */
+    .hg-corner, .hg-day-th, .hg-hour-th { background: var(--teal-soft); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .hg-day-th { display: flex; align-items: center; justify-content: center; padding: 4px; }
+    .hg-day-btn { background: var(--surface); border: 1.5px solid var(--border); cursor: pointer; padding: 7px 6px; border-radius: 7px; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 12px; font-weight: 700; color: var(--text); width: 100%; transition: background .12s, border-color .12s, color .12s; }
+    .hg-day-btn::before { content: '☑'; font-size: 11px; opacity: .45; margin-bottom: 1px; }
+    .hg-day-btn:hover { background: var(--indigo-light); color: var(--indigo); border-color: var(--indigo); }
+    .hg-day-btn:hover::before { opacity: 1; }
+    .hg-day-date { font-size: 11px; font-weight: 400; color: var(--text-muted); }
+    .hg-hour-th { display: flex; align-items: center; justify-content: flex-end; }
+    .hg-hour-btn { background: none; border: 1.5px solid transparent; cursor: pointer; padding: 4px 8px; width: 100%; text-align: right; font-size: 12px; font-weight: 600; color: var(--text-muted); border-radius: 5px; transition: background .12s, border-color .12s, color .12s; }
+    .hg-hour-btn:hover { background: var(--indigo-light); color: var(--indigo); border-color: var(--indigo); }
+    .hg-cell { border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: center; padding: 4px; }
+    .hg-toggle { width: 36px; height: 28px; border-radius: 6px; border: 1.5px solid var(--border); background: var(--surface); cursor: pointer; font-size: 13px; color: transparent; transition: background .12s, border-color .12s; display: flex; align-items: center; justify-content: center; }
+    .hg-toggle:hover { border-color: var(--indigo); background: var(--indigo-light); }
+    .hg-toggle.selected { background: var(--indigo, #4F46E5); border-color: var(--indigo, #4F46E5); color: #fff; }
+    .hg-toggle.selected::after { content: '✓'; font-size: 12px; font-weight: 700; }
+    .hg-toggle.reserved { box-shadow: inset 0 0 0 2px var(--orange, #EA580C); }
+    .hg-toggle.locked { box-shadow: inset 0 0 0 2px var(--red, #DC2626); cursor: not-allowed; }
+    .dispo-legend { display:flex; gap:16px; flex-wrap:wrap; font-size:12px; color:var(--text-muted); margin-top:10px; }
+    .dispo-legend span { display:inline-flex; align-items:center; gap:6px; }
+    .dispo-legend i { width:14px; height:14px; border-radius:4px; display:inline-block; border:1.5px solid var(--border); }
+  </style>
+</head>
+<body>
+
+<!-- Header dégradé association -->
+<header class="postuler-header" id="page-header">
+  <div id="org-logo-wrap" style="margin-bottom:12px;"></div>
+  <div style="font-size:13px;font-weight:600;opacity:.85;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px;" id="org-name">Chargement…</div>
+  <h1>📅 Mes disponibilités</h1>
+  <p id="campaign-dates">Indique quand tu es disponible pour faire passer des entretiens.</p>
+</header>
+
+<div class="postuler-body">
+
+  <!-- Chargement -->
+  <div id="loading-state" class="card" style="text-align:center;padding:48px;">
+    <div class="spinner" style="margin:0 auto 16px;"></div>
+    <p>Chargement…</p>
+  </div>
+
+  <!-- Erreur -->
+  <div id="error-state" class="card" style="display:none;text-align:center;padding:48px;color:var(--red);">
+    <div style="font-size:40px;margin-bottom:12px;">⚠️</div>
+    <p id="error-msg"></p>
+  </div>
+
+  <!-- Contenu -->
+  <div id="content" style="display:none;">
+
+    <!-- Sélecteur de campagne (si plusieurs) -->
+    <div class="card mb-16" id="campaign-card" style="display:none;">
+      <div class="form-group" style="margin:0;">
+        <label class="form-label" for="campaign-select">Pour quelle campagne ?</label>
+        <select class="form-select" id="campaign-select"></select>
+      </div>
+    </div>
+
+    <!-- Identification -->
+    <div class="card mb-16">
+      <h2 style="margin-bottom:4px;">Qui es-tu&nbsp;?</h2>
+      <p class="text-sm text-muted" style="margin-bottom:14px;">Sélectionne ton nom dans la liste, ou ajoute-le s'il n'y est pas.</p>
+
+      <div class="form-group" style="max-width:420px;">
+        <select class="form-select" id="member-select">
+          <option value="">Sélectionne ton nom</option>
+        </select>
+      </div>
+
+      <!-- Auto-ajout -->
+      <div id="self-add" style="display:none;margin-top:8px;">
+        <div style="display:flex;gap:12px;max-width:420px;">
+          <div style="flex:1;">
+            <label class="form-label" for="first-name">Prénom <span class="required">*</span></label>
+            <input class="form-input" type="text" id="first-name" placeholder="Ex : Camille" autocomplete="given-name" />
+          </div>
+          <div style="flex:1;">
+            <label class="form-label" for="last-name">Nom <span class="required">*</span></label>
+            <input class="form-input" type="text" id="last-name" placeholder="Ex : Martin" autocomplete="family-name" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Grille (cachée tant que personne n'est identifié) -->
+    <div id="grid-section" style="display:none;">
+      <div class="card mb-16">
+        <div class="flex-between mb-16">
+          <div>
+            <h2>Tes créneaux disponibles</h2>
+            <p class="text-sm text-muted mt-4">💡 <strong>Astuce :</strong> clique sur l'en-tête d'un <strong>jour</strong> pour cocher la journée entière, ou sur une <strong>heure</strong> pour la cocher sur tous les jours. Clique sur une case pour un seul créneau.</p>
+          </div>
+          <div class="flex-gap">
+            <button class="btn btn-ghost btn-sm" id="btn-select-all">Tout sélectionner</button>
+            <button class="btn btn-ghost btn-sm" id="btn-clear-all">Effacer tout</button>
+          </div>
+        </div>
+        <div class="hg-wrap"><div id="grid-container"></div></div>
+        <p class="text-sm text-muted" style="margin-top:12px;" id="selection-count">0 créneau sélectionné</p>
+        <div class="dispo-legend">
+          <span><i style="background:var(--indigo);border-color:var(--indigo);"></i> Disponible</span>
+          <span><i style="box-shadow:inset 0 0 0 2px var(--orange);"></i> Tu fais passer un entretien (à conserver)</span>
+        </div>
+      </div>
+
+      <div class="flex-gap mb-24">
+        <button class="btn btn-primary btn-lg" id="btn-save">✅ Envoyer mes disponibilités</button>
+        <span id="saved-info" class="text-sm text-muted" style="align-self:center;"></span>
+      </div>
+    </div>
+
+    <p class="text-sm text-muted" style="text-align:center;margin-top:8px;">Aucun compte requis · tes réponses sont envoyées directement à ton association.</p>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getFirestore, collection, query, where, getDocs, getDoc, doc,
+         addDoc, updateDoc, serverTimestamp }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { firebaseConfig } from '/js/firebase-config.js';
+import { showToast, getCampaignDays, localDateStr, confirmDialog, paramLien, campaignConfig } from '/js/utils.js';
+import { heuresGrille } from '/js/capacite.js';
+import { resolveOrg as resolveOrgShared } from '/js/org-lookup.js';
+
+const app = initializeApp(firebaseConfig);
+const db  = getFirestore(app);
+// Heures de la grille : 8 h-19 h par défaut, prolongées si l'asso fait passer
+// des entretiens le soir (`config.heureFin`). Fixées une fois la campagne lue.
+let HOURS = heuresGrille();
+
+const params  = new URLSearchParams(location.search);
+const orgParam = paramLien('org');
+
+let org = null, campaigns = [], currentCampaign = null;
+let roster = [];                 // [{id, displayName}]
+let currentMemberId = null;      // roster member id (ou nouvel auto-ajout)
+let campaignInterviews = [];     // entretiens réservés sur la campagne courante
+
+const $ = id => document.getElementById(id);
+const normName = s => (s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+function showError(msg) {
+  $('loading-state').style.display = 'none';
+  $('content').style.display = 'none';
+  $('error-state').style.display = '';
+  $('error-msg').textContent = msg;
+}
+function darken(hex, t) {
+  const h = hex.replace('#',''); if (h.length !== 6) return hex;
+  const r = parseInt(h.slice(0,2),16), g = parseInt(h.slice(2,4),16), b = parseInt(h.slice(4,6),16);
+  const d = v => Math.max(0, Math.round(v*(1-t)));
+  return `rgb(${d(r)},${d(g)},${d(b)})`;
+}
+
+// Résolution partagée : ID, slug courant, ou ancien slug après renommage.
+const resolveOrg = param => resolveOrgShared(db, param);
+
+async function init() {
+  org = await resolveOrg(orgParam);
+  if (!org) return showError("Association introuvable. Vérifie le lien que t'a envoyé ton association.");
+
+  // Branding
+  $('org-name').textContent = org.name || "Cooptly";
+  if (org.logoBase64) {
+    $('org-logo-wrap').innerHTML =
+      `<img src="${org.logoBase64}" style="width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.6);box-shadow:0 2px 8px rgba(0,0,0,.12);" alt="${org.name}" />`;
+  }
+  if (org.primaryColor) {
+    const hdr = $('page-header');
+    hdr.style.background = `linear-gradient(135deg,${org.primaryColor} 0%,${darken(org.primaryColor,.2)} 100%)`;
+    hdr.style.color = '#fff';
+    const h1 = hdr.querySelector('h1');
+    if (h1) h1.style.color = '#fff';
+    const p = hdr.querySelector('p');
+    if (p) p.style.color = 'rgba(255,255,255,.78)';
+  }
+
+  // Espace de recrutement de l'asso (unique)
+  const campSnap = await getDocs(query(collection(db, 'campaigns'), where('organizationId', '==', org.id)));
+  campaigns = campSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0));
+  if (!campaigns.length) return showError("Le recrutement de cette association n'est pas encore configuré.");
+
+  // Roster (liste de noms) : dédupliqué par nom (garde le 1er)
+  const rSnap = await getDocs(query(collection(db, 'roster_members'), where('organizationId', '==', org.id)));
+  const seen = new Map();
+  rSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (a.createdAt?.toMillis?.() ?? 0) - (b.createdAt?.toMillis?.() ?? 0))
+    .forEach(m => { const k = normName(m.displayName); if (!seen.has(k)) seen.set(k, m); });
+  roster = [...seen.values()].sort((a, b) => (a.displayName || '').localeCompare(b.displayName || ''));
+
+  // Liste déroulante des noms
+  const sel = $('member-select');
+  roster.forEach(m => {
+    const o = document.createElement('option');
+    o.value = m.id; o.textContent = m.displayName;
+    sel.appendChild(o);
+  });
+  const addOpt = document.createElement('option');
+  addOpt.value = '__add__'; addOpt.textContent = "➕ Je ne suis pas dans la liste";
+  sel.appendChild(addOpt);
+
+  sel.addEventListener('change', onMemberChange);
+
+  currentCampaign = campaigns[0];
+  HOURS = heuresGrille(campaignConfig(currentCampaign).heureFin);
+
+  $('btn-select-all').onclick = () => { document.querySelectorAll('.hg-toggle').forEach(t => setSel(t, true)); updateCount(); };
+  $('btn-clear-all').onclick  = () => {
+    let kept = 0;
+    document.querySelectorAll('.hg-toggle').forEach(t => {
+      if (t.dataset.locked || t.dataset.reserved) { if (t.classList.contains('selected')) kept++; return; }
+      setSel(t, false);
+    });
+    updateCount();
+    if (kept) showToast(`${kept} créneau${kept>1?'x':''} réservé${kept>1?'s':''} conservé${kept>1?'s':''}.`, 'info');
+  };
+  $('btn-save').onclick = save;
+
+  $('loading-state').style.display = 'none';
+  $('content').style.display = '';
+}
+
+function onMemberChange() {
+  const v = $('member-select').value;
+  const selfAdd = $('self-add');
+  if (v === '__add__') {
+    selfAdd.style.display = '';
+    currentMemberId = null;
+    showGrid();
+  } else if (v) {
+    selfAdd.style.display = 'none';
+    currentMemberId = v;
+    showGrid();
+    prefillExisting(v);
+  } else {
+    selfAdd.style.display = 'none';
+    $('grid-section').style.display = 'none';
+  }
+}
+
+function showGrid() {
+  rebuildGrid();
+  $('grid-section').style.display = '';
+}
+
+const frDate = d => d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
+
+async function rebuildGrid() {
+  const days = getCampaignDays(currentCampaign);  // période de l'asso, sinon fenêtre glissante
+  // Le staff doit savoir sur quelle période on lui demande ses dispos.
+  $('campaign-dates').textContent = days.length
+    ? `Indique tes disponibilités du ${frDate(days[0])} au ${frDate(days[days.length - 1])}.`
+    : 'La période d\'entretiens est terminée.';
+  renderGrid(days);
+  try {
+    const snap = await getDocs(query(collection(db, 'interviews'), where('campaignId', '==', currentCampaign.id)));
+    campaignInterviews = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch { campaignInterviews = []; }
+  markInterviews(days, campaignInterviews, currentMemberId);
+  updateCount();
+}
+
+function setSel(btn, on) { btn.classList.toggle('selected', on); }
+
+function markInterviews(days, interviews, myId) {
+  interviews.forEach(iv => {
+    const start = iv.datetimeStart?.toDate?.(); if (!start) return;
+    const end = iv.datetimeEnd?.toDate?.() || new Date(start.getTime() + 30 * 60000);
+    const ci = days.findIndex(d =>
+      d.getFullYear() === start.getFullYear() && d.getMonth() === start.getMonth() && d.getDate() === start.getDate());
+    if (ci < 0) return;
+    // Seuls les entretiens où la personne est jurée sont marqués : les autres
+    // ne la concernent pas, et les afficher faisait croire qu'elle était prise.
+    const assigned = myId && [iv.jury1Id, iv.jury2Id, iv.jury3Id].includes(myId);
+    if (!assigned) return;
+    const lastH = new Date(end.getTime() - 60000).getHours();
+    for (let h = start.getHours(); h <= lastH; h++) {
+      const ri = HOURS.indexOf(`${String(h).padStart(2,'0')}:00`);
+      if (ri < 0) continue;
+      const t = document.querySelector(`.hg-toggle[data-col="${ci}"][data-row="${ri}"]`);
+      if (!t) continue;
+      t.classList.add('reserved', 'locked');
+      t.dataset.reserved = '1'; t.dataset.locked = '1';
+      t.title = 'Tu es juré sur un entretien à ce créneau';
+    }
+  });
+}
+
+/**
+ * Renvoie true si le basculement du créneau `t` est autorisé.
+ * ⚠️ Asynchrone depuis le passage à `confirmDialog` : tout appelant DOIT
+ * l'attendre, sinon la promesse (toujours truthy) laisse passer le retrait
+ * d'une dispo sur laquelle un entretien est déjà posé.
+ */
+async function guardToggle(t) {
+  if (t.dataset.locked) { showToast('Tu es juré sur un entretien ici, préviens le sec-gé.', 'error'); return false; }
+  const turningOff = t.classList.contains('selected');
+  if (turningOff && t.dataset.reserved) {
+    return confirmDialog(
+      'Un entretien est déjà réservé sur ce créneau. Le retirer peut laisser cet entretien sans juré.',
+      { title: 'Retirer cette disponibilité ?', confirmLabel: 'Retirer quand même', danger: true });
+  }
+  return true;
+}
+
+function renderGrid(days) {
+  const container = $('grid-container');
+  container.innerHTML = '';
+  if (!days.length) { container.innerHTML = '<p class="text-muted text-sm">Aucun jour dans la période de cette campagne.</p>'; return; }
+
+  const table = document.createElement('div');
+  table.className = 'hg-table';
+  table.style.gridTemplateColumns = `64px repeat(${days.length}, minmax(52px, 1fr))`;
+
+  const corner = document.createElement('div'); corner.className = 'hg-corner'; table.appendChild(corner);
+
+  days.forEach((day, ci) => {
+    const th  = document.createElement('div'); th.className = 'hg-day-th';
+    const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'hg-day-btn';
+    const dn  = day.toLocaleDateString('fr-FR', { weekday: 'short' });
+    const dd  = day.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+    btn.innerHTML = `<span>${dn[0].toUpperCase() + dn.slice(1, 3)}</span><span class="hg-day-date">${dd}</span>`;
+    btn.addEventListener('click', () => {
+      const toggles = table.querySelectorAll(`.hg-toggle[data-col="${ci}"]`);
+      const allOn = [...toggles].every(t => t.classList.contains('selected'));
+      toggles.forEach(t => { if (!allOn) setSel(t, true); else if (!t.dataset.locked && !t.dataset.reserved) setSel(t, false); });
+      updateCount();
+    });
+    th.appendChild(btn); table.appendChild(th);
+  });
+
+  HOURS.forEach((hour, ri) => {
+    const hourTh  = document.createElement('div'); hourTh.className = 'hg-hour-th';
+    const hourBtn = document.createElement('button'); hourBtn.type = 'button'; hourBtn.className = 'hg-hour-btn';
+    hourBtn.textContent = hour;
+    hourBtn.addEventListener('click', () => {
+      const toggles = table.querySelectorAll(`.hg-toggle[data-row="${ri}"]`);
+      const allOn = [...toggles].every(t => t.classList.contains('selected'));
+      toggles.forEach(t => { if (!allOn) setSel(t, true); else if (!t.dataset.locked && !t.dataset.reserved) setSel(t, false); });
+      updateCount();
+    });
+    hourTh.appendChild(hourBtn); table.appendChild(hourTh);
+
+    days.forEach((day, ci) => {
+      const cell   = document.createElement('div'); cell.className = 'hg-cell';
+      const toggle = document.createElement('button'); toggle.type = 'button'; toggle.className = 'hg-toggle';
+      toggle.dataset.day  = localDateStr(day);
+      toggle.dataset.hour = hour;
+      toggle.dataset.row  = ri;
+      toggle.dataset.col  = ci;
+      toggle.addEventListener('click', async () => { if (!await guardToggle(toggle)) return; setSel(toggle, !toggle.classList.contains('selected')); updateCount(); });
+      cell.appendChild(toggle); table.appendChild(cell);
+    });
+  });
+
+  container.appendChild(table);
+}
+
+function updateCount() {
+  const n = document.querySelectorAll('.hg-toggle.selected').length;
+  $('selection-count').textContent = `${n} créneau${n > 1 ? 'x' : ''} sélectionné${n > 1 ? 's' : ''}`;
+}
+
+// Pré-remplit si la personne a déjà soumis pour cette campagne
+async function prefillExisting(memberId) {
+  document.querySelectorAll('.hg-toggle.selected').forEach(t => setSel(t, false));
+  const snap = await getDocs(query(
+    collection(db, 'staff_availabilities'),
+    where('userId', '==', memberId),
+    where('campaignId', '==', currentCampaign.id)
+  ));
+  if (snap.empty) { updateCount(); return; }
+  (snap.docs[0].data().creneaux || []).forEach(dayObj => {
+    const slots = new Set(dayObj.creneaux || []);
+    HOURS.forEach(h => {
+      if (slots.has(h)) {
+        const t = document.querySelector(`.hg-toggle[data-day="${dayObj.jour}"][data-hour="${h}"]`);
+        if (t) setSel(t, true);
+      }
+    });
+  });
+  updateCount();
+}
+
+async function save() {
+  const btn = $('btn-save');
+  const sel = $('member-select');
+
+  // Déterminer / créer le membre
+  let memberId = currentMemberId;
+  let displayName;
+  if (sel.value === '__add__') {
+    const fn = $('first-name').value.trim();
+    const ln = $('last-name').value.trim();
+    if (!fn) return showToast('Indique ton prénom.', 'error');
+    if (!ln) return showToast('Indique ton nom.', 'error');
+    displayName = `${fn} ${ln}`;
+    // Si ce nom existe déjà dans le roster, on le réutilise (pas de doublon)
+    const existingMember = roster.find(m => normName(m.displayName) === normName(displayName));
+    if (existingMember) { memberId = existingMember.id; displayName = existingMember.displayName; }
+  } else if (memberId) {
+    displayName = roster.find(m => m.id === memberId)?.displayName || 'Membre';
+  } else {
+    return showToast('Sélectionne ton nom d\'abord.', 'error');
+  }
+
+  // Créneaux sélectionnés
+  const byDay = {};
+  document.querySelectorAll('.hg-toggle.selected').forEach(t => {
+    (byDay[t.dataset.day] ??= []).push(t.dataset.hour);
+  });
+  const creneaux = Object.entries(byDay).map(([jour, slots]) => ({ jour, creneaux: [...new Set(slots)].sort() }));
+  if (!creneaux.length) return showToast('Sélectionne au moins un créneau.', 'error');
+
+  btn.disabled = true; btn.textContent = 'Envoi…';
+  try {
+    // Auto-ajout au roster si nécessaire
+    if (!memberId) {
+      const fn = $('first-name').value.trim(), ln = $('last-name').value.trim();
+      const ref = await addDoc(collection(db, 'roster_members'), {
+        organizationId: org.id, firstName: fn, lastName: ln, displayName, createdAt: serverTimestamp()
+      });
+      memberId = ref.id;
+    }
+
+    // Upsert des disponibilités
+    const existing = await getDocs(query(
+      collection(db, 'staff_availabilities'),
+      where('userId', '==', memberId),
+      where('campaignId', '==', currentCampaign.id)
+    ));
+    if (!existing.empty) {
+      await updateDoc(existing.docs[0].ref, { creneaux, displayName, updatedAt: serverTimestamp() });
+    } else {
+      await addDoc(collection(db, 'staff_availabilities'), {
+        userId: memberId, displayName, campaignId: currentCampaign.id,
+        organizationId: org.id, creneaux, createdAt: serverTimestamp()
+      });
+    }
+
+    const n = document.querySelectorAll('.hg-toggle.selected').length;
+    $('saved-info').textContent = `Envoyé · ${n} créneau${n > 1 ? 'x' : ''}`;
+    showToast('Merci ! Tes disponibilités ont bien été envoyées. 🎉', 'success');
+  } catch (err) {
+    showToast('Erreur : ' + err.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = '✅ Envoyer mes disponibilités';
+  }
+}
+
+init().catch(e => showError('Erreur de chargement : ' + e.message));
+</script>
+</body>
+</html>

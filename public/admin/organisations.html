@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <script>(function(){var t=localStorage.getItem("_theme");if(t)document.documentElement.setAttribute("data-theme",t);})();</script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Organisations · Admin Cooptly</title>
+  <!-- Connexions ouvertes d'avance : sans elles, chaque serveur (polices,
+       SDK, base de données) coûtait sa propre poignée de main réseau au
+       moment où la page en avait besoin. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin />
+  <!-- Le SDK est préchargé dès l'en-tête. Sinon le navigateur ne le
+       découvre qu'en arrivant au script, tout en bas de la page. -->
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js" />
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js" />
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js" />
+  <!-- Polices en <link> et non plus en @import dans main.css : l'@import
+       obligeait à télécharger la feuille de style avant même de découvrir
+       les polices, trois allers-retours à la suite avant le texte. -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Antic&family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;600;700&display=swap" />
+  <link rel="stylesheet" href="/css/main.css" />
+  <style>
+    .logo-upload-zone {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      padding: 16px;
+      background: var(--bg);
+      border: 1.5px dashed var(--border);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+    }
+    .logo-upload-zone:hover { border-color: var(--indigo); background: var(--indigo-light); }
+    .logo-preview {
+      width: 64px; height: 64px;
+      border-radius: 50%;
+      object-fit: cover;
+      flex-shrink: 0;
+    }
+    .logo-placeholder {
+      width: 64px; height: 64px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 26px; font-weight: 800; color: #fff;
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="/admin/dashboard.html" class="nav-brand">
+    <div class="nav-brand-icon" id="nav-platform-icon">C</div>
+    <span class="nav-brand-name">Cooptly</span>
+  </a>
+    <div class="nav-links">
+    <a href="/admin/dashboard.html" class="nav-link">Vue d'ensemble</a>
+    <a href="/admin/organisations.html" class="nav-link active">Organisations</a>
+    <a href="/admin/permissions.html" class="nav-link">Permissions</a>
+    <a href="/admin/data.html" class="nav-link">Base de données</a>
+  </div>
+  <div class="nav-right">
+    <button class="btn btn-ghost btn-sm" id="btn-logout">Déconnexion</button>
+  </div>
+</nav>
+
+<main class="page">
+
+  <div class="flex-between mb-24">
+    <div><h1>Organisations</h1><p>Créer et gérer les associations de la plateforme</p></div>
+    <button class="btn btn-primary" id="btn-new">+ Nouvelle organisation</button>
+  </div>
+
+  <!-- ── Branding plateforme ──────────────────────────────── -->
+  <div class="card mb-24">
+    <h2 class="mb-4">🌐 Branding de la plateforme</h2>
+    <p class="text-sm text-muted mb-16">Logo affiché dans la navigation et les emails.</p>
+
+    <div class="logo-upload-zone" id="platform-upload-zone" style="max-width:420px;">
+      <div id="platform-logo-wrap">
+        <div class="logo-placeholder" id="platform-logo-ph" style="background:var(--indigo);">C</div>
+      </div>
+      <div>
+        <div style="font-weight:600;font-size:14px;">Logo de la plateforme</div>
+        <div class="text-sm text-muted">JPG, PNG ou SVG · max 2 Mo · recommandé 256×256 px</div>
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <button type="button" class="btn btn-secondary btn-sm" id="btn-platform-logo-pick">📷 Choisir une image</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-platform-logo-remove" style="display:none;">Supprimer</button>
+        </div>
+      </div>
+      <input type="file" id="platform-logo-input" accept="image/*" style="display:none;" />
+    </div>
+
+    <div style="margin-top:14px;">
+      <button class="btn btn-primary btn-sm" id="btn-save-platform">💾 Enregistrer le logo</button>
+      <span id="platform-save-info" class="text-sm text-muted" style="margin-left:10px;"></span>
+    </div>
+  </div>
+
+  <!-- ── Formulaire création/édition org ──────────────────── -->
+  <div class="card mb-24" id="org-form-card" style="display:none;">
+    <h2 class="mb-16" id="form-title">Nouvelle organisation</h2>
+    <form id="org-form" class="stack">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="org-name">Nom <span class="required">*</span></label>
+          <input class="form-input" type="text" id="org-name" placeholder="Nom de l'association" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="org-slug">Slug <span class="required">*</span></label>
+          <input class="form-input" type="text" id="org-slug" placeholder="asso" pattern="[a-z0-9\-]+" required />
+          <span class="form-hint">Minuscules et tirets uniquement</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="org-slug-history">Anciens liens</label>
+        <input class="form-input" type="text" id="org-slug-history"
+               placeholder="ancien-slug, encore-plus-ancien" />
+        <span class="form-hint">
+          Anciens slugs qui doivent continuer de fonctionner. Renseigné automatiquement
+          à chaque renommage : les liens déjà partagés en story ou en groupe restent valides.
+        </span>
+      </div>
+
+      <!-- Logo org -->
+      <div class="form-group">
+        <label class="form-label">Logo de l'organisation</label>
+        <div class="logo-upload-zone" id="org-upload-zone" style="max-width:420px;">
+          <div id="org-logo-wrap">
+            <div class="logo-placeholder" id="org-logo-ph" style="background:var(--indigo);">?</div>
+          </div>
+          <div>
+            <div style="font-weight:600;font-size:14px;">Logo / photo de profil</div>
+            <div class="text-sm text-muted">JPG, PNG · max 2 Mo · recommandé 256×256 px</div>
+            <div style="display:flex;gap:8px;margin-top:10px;">
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-org-logo-pick">📷 Choisir une image</button>
+              <button type="button" class="btn btn-ghost btn-sm" id="btn-org-logo-remove" style="display:none;">Supprimer</button>
+            </div>
+          </div>
+          <input type="file" id="org-logo-input" accept="image/*" style="display:none;" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="org-color">Couleur principale</label>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <input type="color" id="org-color" value="#4F46E5"
+            style="width:48px;height:38px;border-radius:6px;border:1.5px solid var(--border);cursor:pointer;padding:2px;" />
+          <span class="form-hint">Couleur du portail de cette asso</span>
+        </div>
+      </div>
+
+      <div class="flex-gap">
+        <button type="submit" class="btn btn-primary" id="org-save-btn">Enregistrer</button>
+        <button type="button" class="btn btn-ghost" id="org-cancel-btn">Annuler</button>
+        <button type="button" class="btn btn-danger btn-sm" id="org-delete-btn" style="display:none;margin-left:auto;">Supprimer l'organisation</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- ── Liste des orgs ─────────────────────────────────────── -->
+  <div class="card">
+    <div id="orgs-loading" style="text-align:center;padding:40px;"><div class="spinner" style="margin:auto;"></div></div>
+    <div id="orgs-list"></div>
+  </div>
+
+</main>
+
+<script type="module">
+import { requireAdmin, logout } from '/js/auth.js';
+import { app } from '/js/auth.js';
+import { getFirestore, collection, getDocs, addDoc, updateDoc, setDoc, deleteDoc, doc, getDoc, query, where, serverTimestamp, writeBatch }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { showToast, confirmDialog } from '/js/utils.js';
+import { initBurgerMenu } from '/js/nav.js';
+
+const db = getFirestore(app);
+let editingId = null;
+let editingSlug = '';       // slug à l'ouverture du formulaire, pour détecter un renommage
+let orgLogoBase64 = null;   // null = pas de changement, '' = supprimé, 'data:...' = nouveau
+let platformLogoBase64 = null;
+
+// ── Compression image ─────────────────────────────────────────
+function compressImage(file, maxPx = 256) {
+  return new Promise((resolve, reject) => {
+    if (file.size > 2 * 1024 * 1024) { reject(new Error('Image trop lourde (max 2 Mo).')); return; }
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = e => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        const ratio  = Math.min(maxPx / img.width, maxPx / img.height, 1);
+        const canvas = document.createElement('canvas');
+        canvas.width  = Math.round(img.width  * ratio);
+        canvas.height = Math.round(img.height * ratio);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', 0.78));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+// ── Helper : rendre un avatar org ────────────────────────────
+function orgAvatarHTML(org, size = 36) {
+  if (org.logoBase64) {
+    return `<img src="${org.logoBase64}" alt="${org.name}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;flex-shrink:0;" />`;
+  }
+  return `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${org.primaryColor||'var(--indigo)'};display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:${Math.round(size*0.42)}px;flex-shrink:0;">${(org.name||'?')[0]}</div>`;
+}
+
+// ── Init ──────────────────────────────────────────────────────
+async function init() {
+  const user = await requireAdmin();
+  // Le menu se construit EN PARALLÈLE des données : l'attendre retardait
+  // tout l'affichage de la page, alors qu'il n'en conditionne rien.
+  initBurgerMenu(user).catch(e => console.warn('Menu non construit :', e));
+  document.getElementById('btn-logout').addEventListener('click', async()=>{ await logout(); location.href='/index.html'; });
+
+  // Org form listeners
+  document.getElementById('btn-new').addEventListener('click', openNew);
+  document.getElementById('org-cancel-btn').addEventListener('click', closeForm);
+  document.getElementById('org-name').addEventListener('input', e => {
+    document.getElementById('org-slug').value = e.target.value.toLowerCase()
+      .normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+  });
+  document.getElementById('org-color').addEventListener('input', () => updateOrgLogoPlaceholder());
+  document.getElementById('org-form').addEventListener('submit', saveOrg);
+  document.getElementById('org-delete-btn').addEventListener('click', deleteOrg);
+
+  // Org logo upload
+  document.getElementById('btn-org-logo-pick').addEventListener('click', () => document.getElementById('org-logo-input').click());
+  document.getElementById('org-logo-input').addEventListener('change', async e => {
+    const file = e.target.files[0]; if (!file) return;
+    try {
+      orgLogoBase64 = await compressImage(file);
+      setOrgLogoPreview(orgLogoBase64);
+      document.getElementById('btn-org-logo-remove').style.display = '';
+    } catch(err) { showToast(err.message, 'error'); }
+    e.target.value = '';
+  });
+  document.getElementById('btn-org-logo-remove').addEventListener('click', () => {
+    orgLogoBase64 = '';
+    setOrgLogoPreview(null);
+    document.getElementById('btn-org-logo-remove').style.display = 'none';
+  });
+  document.getElementById('org-upload-zone').addEventListener('click', e => {
+    if (!e.target.closest('button')) document.getElementById('org-logo-input').click();
+  });
+
+  // Platform logo upload
+  document.getElementById('btn-platform-logo-pick').addEventListener('click', () => document.getElementById('platform-logo-input').click());
+  document.getElementById('platform-logo-input').addEventListener('change', async e => {
+    const file = e.target.files[0]; if (!file) return;
+    try {
+      platformLogoBase64 = await compressImage(file, 128);
+      setPlatformLogoPreview(platformLogoBase64);
+      document.getElementById('btn-platform-logo-remove').style.display = '';
+    } catch(err) { showToast(err.message, 'error'); }
+    e.target.value = '';
+  });
+  document.getElementById('btn-platform-logo-remove').addEventListener('click', () => {
+    platformLogoBase64 = '';
+    setPlatformLogoPreview(null);
+    document.getElementById('btn-platform-logo-remove').style.display = 'none';
+  });
+  document.getElementById('platform-upload-zone').addEventListener('click', e => {
+    if (!e.target.closest('button')) document.getElementById('platform-logo-input').click();
+  });
+  document.getElementById('btn-save-platform').addEventListener('click', savePlatformLogo);
+
+  await Promise.all([loadOrgs(), loadPlatformLogo()]);
+}
+
+// ── Org list ──────────────────────────────────────────────────
+async function loadOrgs() {
+  const snap = await getDocs(collection(db, 'organizations'));
+  const orgs = snap.docs.map(d=>({id:d.id,...d.data()}));
+  document.getElementById('orgs-loading').style.display='none';
+  const list = document.getElementById('orgs-list');
+  if (!orgs.length) {
+    list.innerHTML='<div class="empty-state"><div class="empty-state-icon">🏢</div><p>Aucune organisation.</p></div>';
+    return;
+  }
+  list.innerHTML='';
+  orgs.forEach(org => {
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'border-bottom:1px solid var(--border);';
+
+    // ── Ligne principale ──
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:14px 0;gap:12px;';
+    row.innerHTML = `
+      <div style="display:flex;align-items:center;gap:12px;">
+        ${orgAvatarHTML(org, 36)}
+        <div><div style="font-weight:600;">${org.name}</div><div class="text-sm text-muted">/${org.slug}${
+          org.slugHistory?.length ? ` <span title="Anciens liens toujours valides">(aussi ${org.slugHistory.map(x => '/' + x).join(', ')})</span>` : ''
+        }</div></div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-ghost btn-sm btn-codes">🔑 Codes</button>
+        <button class="btn btn-ghost btn-sm btn-edit">✏️ Modifier</button>
+        <button class="btn btn-danger btn-sm btn-delete">🗑</button>
+      </div>`;
+    row.querySelector('.btn-edit').addEventListener('click', () => openEdit(org));
+    row.querySelector('.btn-delete').addEventListener('click', () => confirmDelete(org));
+
+    // ── Panneau codes (masqué par défaut) ──
+    const codesPanel = document.createElement('div');
+    codesPanel.style.cssText = 'display:none;padding:0 0 16px 48px;';
+    codesPanel.innerHTML = `
+      <div style="font-size:13px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;">🔑 Codes d'invitation</div>
+      <div class="codes-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px;">
+        <div class="spinner" style="margin:8px 0;"></div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <select class="form-select" style="width:160px;font-size:13px;" data-role>
+          <option value="member">Membre</option>
+          <option value="secge">Sec-gé / Bureau</option>
+        </select>
+        <input class="form-input" style="width:180px;font-size:13px;" placeholder="Label optionnel (ex: Membres 2025)" data-label />
+        <button class="btn btn-primary btn-sm btn-gen-code">+ Générer un code</button>
+      </div>`;
+
+    let codesLoaded = false;
+    row.querySelector('.btn-codes').addEventListener('click', async () => {
+      const open = codesPanel.style.display !== 'none';
+      codesPanel.style.display = open ? 'none' : '';
+      if (!open && !codesLoaded) {
+        codesLoaded = true;
+        await loadCodesPanel(org, codesPanel);
+      }
+    });
+
+    codesPanel.querySelector('.btn-gen-code').addEventListener('click', async () => {
+      const role  = codesPanel.querySelector('[data-role]').value;
+      const label = codesPanel.querySelector('[data-label]').value.trim();
+      await generateCode(org, role, label, codesPanel);
+    });
+
+    wrap.appendChild(row);
+    wrap.appendChild(codesPanel);
+    list.appendChild(wrap);
+  });
+}
+
+// ── Invite codes ──────────────────────────────────────────────
+
+const ROLE_LABELS = { member: 'Membre', secge: 'Sec-gé / Bureau', president: 'Président(e)' };
+
+async function loadCodesPanel(org, panel) {
+  const listEl = panel.querySelector('.codes-list');
+  try {
+    const snap = await getDocs(query(
+      collection(db, 'invite_codes'),
+      where('organizationId', '==', org.id)
+    ));
+    listEl.innerHTML = '';
+    if (snap.empty) {
+      // Aucun code → génération automatique des 2 codes par défaut
+      listEl.innerHTML = '<p class="text-sm text-muted">Génération des codes…</p>';
+      const pairs = await autoGenerateCodes(org.id, org.slug);
+      listEl.innerHTML = '';
+      pairs.forEach(({ code, data }) => renderCodeRow(code, data, listEl));
+      return;
+    }
+    snap.docs.forEach(d => renderCodeRow(d.id, d.data(), listEl));
+  } catch(e) {
+    listEl.innerHTML = '<p class="text-sm" style="color:var(--red);">Erreur de chargement.</p>';
+  }
+}
+
+function renderCodeRow(code, data, container) {
+  const row = document.createElement('div');
+  row.dataset.code = code;
+  row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg);border-radius:8px;border:1px solid var(--border);';
+  const active = data.active !== false;
+  row.innerHTML = `
+    <span style="font-family:monospace;font-size:14px;font-weight:800;letter-spacing:.12em;color:var(--indigo);min-width:90px;">${code}</span>
+    <span class="badge ${data.role === 'secge' ? 'badge-orange' : 'badge-indigo'}" style="font-size:11px;">${ROLE_LABELS[data.role] || data.role}</span>
+    ${data.label ? `<span class="text-sm text-muted" style="flex:1;">${data.label}</span>` : '<span style="flex:1;"></span>'}
+    <button class="btn btn-ghost btn-sm btn-copy-code" title="Copier">📋</button>
+    <button class="btn btn-danger btn-sm btn-del-code" title="Supprimer">🗑</button>`;
+  row.querySelector('.btn-copy-code').addEventListener('click', async () => {
+    await navigator.clipboard.writeText(code);
+    showToast(`Code ${code} copié !`, 'success');
+  });
+  row.querySelector('.btn-del-code').addEventListener('click', async () => {
+    if (!await confirmDialog(
+        `Supprimer le code ${code} ? Les comptes déjà créés avec ce code ne seront pas affectés.`,
+        { title: 'Supprimer le code', confirmLabel: 'Supprimer', danger: true })) return;
+    await deleteDoc(doc(db, 'invite_codes', code));
+    row.remove();
+    showToast(`Code ${code} supprimé.`, 'success');
+  });
+  container.appendChild(row);
+}
+
+/** Génère un code unique SLUG+4chiffres et l'écrit dans Firestore. Retourne { code, data }. */
+async function createCode(orgId, slug, role, label = null) {
+  const prefix = (slug || 'CODE').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4);
+  let code, attempts = 0;
+  do {
+    code = prefix + (1000 + Math.floor(Math.random() * 9000));
+    attempts++;
+  } while (attempts < 10 && (await getDoc(doc(db, 'invite_codes', code))).exists());
+
+  const data = { organizationId: orgId, role, label, active: true, createdAt: serverTimestamp() };
+  await setDoc(doc(db, 'invite_codes', code), data);
+  return { code, data };
+}
+
+/** Génère automatiquement le code d'invitation sec-gé pour une asso. */
+async function autoGenerateCodes(orgId, slug) {
+  const r1 = await createCode(orgId, slug, 'secge', 'Bureau / Sec-gé');
+  return [r1];
+}
+
+async function generateCode(org, role, label, panel) {
+  const btn = panel.querySelector('.btn-gen-code');
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    const { code, data } = await createCode(org.id, org.slug, role, label || null);
+    const listEl = panel.querySelector('.codes-list');
+    if (listEl.querySelector('p')) listEl.innerHTML = ''; // retirer "aucun code"
+    renderCodeRow(code, data, listEl);
+    panel.querySelector('[data-label]').value = '';
+    showToast(`Code ${code} créé !`, 'success');
+  } catch(e) {
+    showToast('Erreur : ' + e.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = '+ Générer un code';
+  }
+}
+
+// ── Org form ──────────────────────────────────────────────────
+function closeForm() {
+  document.getElementById('org-form-card').style.display='none';
+  orgLogoBase64 = null;
+}
+
+function openNew() {
+  editingId = null; orgLogoBase64 = null;
+  document.getElementById('form-title').textContent = 'Nouvelle organisation';
+  document.getElementById('org-name').value  = '';
+  document.getElementById('org-slug').value  = '';
+  document.getElementById('org-slug-history').value = '';
+  editingSlug = '';
+  document.getElementById('org-color').value = '#4F46E5';
+  document.getElementById('org-delete-btn').style.display = 'none';
+  setOrgLogoPreview(null);
+  document.getElementById('btn-org-logo-remove').style.display = 'none';
+  document.getElementById('org-form-card').style.display = '';
+  document.getElementById('org-form-card').scrollIntoView({ behavior:'smooth' });
+}
+
+function openEdit(org) {
+  editingId = org.id; orgLogoBase64 = null;
+  // Slug au moment de l'ouverture : sert a detecter un renommage a la sauvegarde.
+
+  document.getElementById('form-title').textContent = 'Modifier l\'organisation';
+  document.getElementById('org-name').value  = org.name  || '';
+  document.getElementById('org-slug').value  = org.slug  || '';
+  document.getElementById('org-slug-history').value = (org.slugHistory || []).join(', ');
+  document.getElementById('org-color').value = org.primaryColor || '#4F46E5';
+  editingSlug = org.slug || '';
+  document.getElementById('org-delete-btn').style.display = '';
+  setOrgLogoPreview(org.logoBase64 || null);
+  document.getElementById('btn-org-logo-remove').style.display = org.logoBase64 ? '' : 'none';
+  document.getElementById('org-form-card').style.display = '';
+  document.getElementById('org-form-card').scrollIntoView({ behavior:'smooth' });
+}
+
+function setOrgLogoPreview(base64) {
+  const wrap = document.getElementById('org-logo-wrap');
+  const color = document.getElementById('org-color').value || '#4F46E5';
+  const name  = document.getElementById('org-name').value  || '?';
+  if (base64) {
+    wrap.innerHTML = `<img src="${base64}" class="logo-preview" style="width:64px;height:64px;" />`;
+  } else {
+    wrap.innerHTML = `<div class="logo-placeholder" id="org-logo-ph" style="background:${color};">${name[0]?.toUpperCase()||'?'}</div>`;
+  }
+}
+
+function updateOrgLogoPlaceholder() {
+  // Met à jour la couleur du placeholder si pas de logo
+  if (orgLogoBase64) return;
+  const ph = document.getElementById('org-logo-ph');
+  if (ph) ph.style.background = document.getElementById('org-color').value;
+}
+
+async function saveOrg(e) {
+  e.preventDefault();
+  const btn = document.getElementById('org-save-btn');
+  btn.disabled = true; btn.textContent = 'Enregistrement…';
+
+  const slug = document.getElementById('org-slug').value.trim();
+
+  // Anciens liens : saisie manuelle, plus l'ancien slug si l'asso est renommee.
+  // Sans ca, renommer une asso cassait silencieusement tous les liens de
+  // cooptation deja partages, et le cooptant tombait sur « Association
+  // introuvable » sans que le bureau le sache.
+  const historique = new Set(
+    document.getElementById('org-slug-history').value
+      .split(',').map(x => x.trim().toLowerCase()).filter(Boolean)
+  );
+  if (editingSlug && editingSlug !== slug) historique.add(editingSlug.toLowerCase());
+  historique.delete(slug.toLowerCase());   // le slug courant n'est pas un ancien
+
+  const data = {
+    name:         document.getElementById('org-name').value.trim(),
+    slug,
+    slugHistory:  [...historique],
+    primaryColor: document.getElementById('org-color').value,
+  };
+
+  // Gestion logo : null = pas de changement, '' = suppression, 'data:...' = nouveau
+  if (orgLogoBase64 !== null) {
+    data.logoBase64 = orgLogoBase64; // '' = supprime le logo
+  }
+
+  try {
+    if (editingId) {
+      await updateDoc(doc(db,'organizations',editingId), data);
+      showToast('Organisation mise à jour.', 'success');
+    } else {
+      const ref = await addDoc(collection(db,'organizations'), { ...data, createdAt: serverTimestamp() });
+      // Génération automatique des 2 codes d'invitation (membre + sec-gé)
+      await autoGenerateCodes(ref.id, data.slug);
+      showToast('Organisation créée avec ses codes d\'invitation.', 'success');
+    }
+    closeForm();
+    document.getElementById('orgs-loading').style.display='';
+    await loadOrgs();
+  } catch(err) { showToast('Erreur : '+err.message, 'error'); }
+  finally { btn.disabled = false; btn.textContent = 'Enregistrer'; }
+}
+
+/**
+ * Toutes les collections rattachées à une asso, avec la clé de rattachement.
+ *
+ * Certains `interviews` et `interview_evaluations` portent un `campaignId` sans
+ * `organizationId` (documents antérieurs au cloisonnement) : on les ramasse
+ * donc aussi par campagne, sinon ils survivraient à la suppression.
+ */
+const COLLECTIONS_ORG = [
+  ['candidates',            'organizationId'],
+  ['interviews',            'organizationId'],
+  ['interview_evaluations', 'organizationId'],
+  ['staff_availabilities',  'organizationId'],
+  ['roster_members',        'organizationId'],
+  ['rooms',                 'organizationId'],
+  ['room_bookings',         'organizationId'],
+  ['invite_codes',          'organizationId'],
+  ['memberships',           'organizationId'],
+  ['campaigns',             'organizationId'],
+];
+const COLLECTIONS_CAMPAGNE = [
+  'candidates', 'interviews', 'interview_evaluations', 'staff_availabilities',
+];
+
+const LIBELLES = {
+  candidates: 'candidature', interviews: 'entretien',
+  interview_evaluations: 'évaluation', staff_availabilities: 'fiche de dispos',
+  roster_members: 'nom dans la liste du staff', rooms: 'salle',
+  room_bookings: 'réservation de salle', invite_codes: "code d'invitation",
+  memberships: 'membre', campaigns: 'espace de recrutement',
+};
+
+/**
+ * Recense tout ce qui appartient à une asso.
+ * @param {string} orgId
+ * @returns {Promise<Map<string, import('firebase/firestore').DocumentReference[]>>}
+ */
+async function inventaireOrg(orgId) {
+  const parCollection = new Map();
+  const vus = new Set();                      // un doc trouvé deux fois ne compte qu'une
+
+  const ajouter = (nom, docs) => {
+    const refs = parCollection.get(nom) || [];
+    docs.forEach(d => {
+      if (vus.has(d.ref.path)) return;
+      vus.add(d.ref.path);
+      refs.push(d.ref);
+    });
+    parCollection.set(nom, refs);
+  };
+
+  const parOrg = await Promise.all(
+    COLLECTIONS_ORG.map(([nom, champ]) =>
+      getDocs(query(collection(db, nom), where(champ, '==', orgId)))
+        .then(snap => [nom, snap.docs]))
+  );
+  parOrg.forEach(([nom, docs]) => ajouter(nom, docs));
+
+  const campagnes = (parCollection.get('campaigns') || []).map(r => r.id);
+  for (const campId of campagnes) {
+    const parCamp = await Promise.all(
+      COLLECTIONS_CAMPAGNE.map(nom =>
+        getDocs(query(collection(db, nom), where('campaignId', '==', campId)))
+          .then(snap => [nom, snap.docs]))
+    );
+    parCamp.forEach(([nom, docs]) => ajouter(nom, docs));
+  }
+
+  return parCollection;
+}
+
+/** Supprime des références par lots de 450 (limite Firestore : 500 opérations). */
+async function supprimerParLots(refs) {
+  for (let i = 0; i < refs.length; i += 450) {
+    const batch = writeBatch(db);
+    refs.slice(i, i + 450).forEach(ref => batch.delete(ref));
+    await batch.commit();
+  }
+}
+
+async function confirmDelete(org) {
+  // Avant, seuls les memberships et les campagnes étaient supprimés. Les
+  // candidatures, entretiens, évaluations, dispos, salles et codes de l'asso
+  // restaient en base pour toujours, sans plus aucun écran pour les retrouver
+  // ni les effacer, alors que le dialogue laissait croire à une suppression
+  // complète.
+  const inventaire = await inventaireOrg(org.id);
+  const total = [...inventaire.values()].reduce((n, refs) => n + refs.length, 0);
+
+  const detail = [...inventaire.entries()]
+    .filter(([, refs]) => refs.length)
+    .map(([nom, refs]) => {
+      const l = LIBELLES[nom] || nom;
+      return `${refs.length} ${l}${refs.length > 1 && !l.endsWith('s') ? 's' : ''}`;
+    });
+
+  const ok = await confirmDialog(
+    `Supprimer « ${org.name} » et tout ce qui lui appartient ? `
+    + (detail.length ? `Seront effacés : ${detail.join(', ')}. ` : '')
+    + 'Les candidatures contiennent des données personnelles. Cette action est irréversible.',
+    { title: `Supprimer ${org.name}`, confirmLabel: `Supprimer (${total} documents)`, danger: true }
+  );
+  if (!ok) return;
+
+  document.getElementById('orgs-loading').style.display = '';
+  try {
+    await supprimerParLots([...inventaire.values()].flat());
+    await deleteDoc(doc(db, 'organizations', org.id));   // l'asso en dernier
+    showToast(`« ${org.name} » et ${total} document(s) supprimés.`, 'success');
+  } catch (err) {
+    // L'asso reste visible : l'admin peut relancer pour finir le nettoyage.
+    showToast('Suppression incomplète : ' + err.message, 'error');
+  }
+  if (editingId === org.id) { closeForm(); editingId = null; }
+  await loadOrgs();
+}
+
+async function deleteOrg() {
+  if (!editingId) return;
+  const snap = await getDocs(collection(db,'organizations'));
+  const org  = snap.docs.find(d=>d.id===editingId);
+  if (org) await confirmDelete({ id: org.id, ...org.data() });
+}
+
+// ── Platform logo ─────────────────────────────────────────────
+async function loadPlatformLogo() {
+  try {
+    const d = await getDoc(doc(db,'platform_settings','main'));
+    if (d.exists() && d.data().logoBase64) {
+      setPlatformLogoPreview(d.data().logoBase64);
+      document.getElementById('btn-platform-logo-remove').style.display = '';
+      // Cache in localStorage for nav display
+      localStorage.setItem('_platformLogo', d.data().logoBase64);
+    }
+  } catch(e) { /* ignore */ }
+  // Update nav icon from cache
+  applyNavLogo();
+}
+
+function setPlatformLogoPreview(base64) {
+  const wrap = document.getElementById('platform-logo-wrap');
+  if (base64) {
+    wrap.innerHTML = `<img src="${base64}" class="logo-preview" style="width:64px;height:64px;" />`;
+  } else {
+    wrap.innerHTML = `<div class="logo-placeholder" id="platform-logo-ph" style="background:var(--indigo);">C</div>`;
+  }
+}
+
+async function savePlatformLogo() {
+  if (platformLogoBase64 === null) return showToast('Sélectionne d\'abord une image.', 'error');
+  const btn = document.getElementById('btn-save-platform');
+  btn.disabled = true; btn.textContent = 'Enregistrement…';
+  try {
+    await setDoc(doc(db,'platform_settings','main'), {
+      logoBase64: platformLogoBase64,
+      updatedAt:  serverTimestamp()
+    }, { merge: true });
+    if (platformLogoBase64) {
+      localStorage.setItem('_platformLogo', platformLogoBase64);
+    } else {
+      localStorage.removeItem('_platformLogo');
+    }
+    applyNavLogo();
+    showToast('Logo de la plateforme enregistré.', 'success');
+    document.getElementById('platform-save-info').textContent = `Sauvegardé à ${new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}`;
+    platformLogoBase64 = null;
+  } catch(err) { showToast('Erreur : '+err.message, 'error'); }
+  finally { btn.disabled = false; btn.textContent = '💾 Enregistrer le logo'; }
+}
+
+function applyNavLogo() {
+  const cached = localStorage.getItem('_platformLogo');
+  const icon   = document.querySelector('.nav-brand-icon');
+  if (!icon) return;
+  if (cached) {
+    icon.innerHTML = `<img src="${cached}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;" />`;
+    icon.style.background = 'transparent';
+    icon.style.padding = '0';
+  } else {
+    icon.innerHTML = 'C';
+    icon.style.background = '';
+    icon.style.padding = '';
+  }
+}
+
+init();
+</script>
+</body>
+</html>

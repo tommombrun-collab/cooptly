@@ -1,0 +1,27 @@
+# ── macOS ────────────────────────────────────────────────────
+.DS_Store
+
+# ── Firebase ─────────────────────────────────────────────────
+# Cache local de déploiement (regénéré automatiquement)
+.firebase/
+
+# Logs Firebase
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+*.log
+
+# ── Dépendances (si un jour on ajoute npm) ───────────────────
+node_modules/
+
+# ── Secrets / clés de service ────────────────────────────────
+# ⚠️ NE JAMAIS commiter une clé de compte de service Firebase Admin.
+# (La clé API dans public/js/firebase-config.js est, elle, publique
+#  par conception : ce n'est PAS un secret.)
+*serviceAccount*.json
+service-account*.json
+.env
+.env.*
+
+# Config locale d'outils
+.mcp.json

@@ -1,0 +1,1872 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <script>(function(){var t=localStorage.getItem("_theme");if(t)document.documentElement.setAttribute("data-theme",t);})();</script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cooptants · Sec-gé Cooptly</title>
+  <!-- Connexions ouvertes d'avance : sans elles, chaque serveur (polices,
+       SDK, base de données) coûtait sa propre poignée de main réseau au
+       moment où la page en avait besoin. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin />
+  <!-- Le SDK est préchargé dès l'en-tête. Sinon le navigateur ne le
+       découvre qu'en arrivant au script, tout en bas de la page. -->
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js" />
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js" />
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js" />
+  <!-- Polices en <link> et non plus en @import dans main.css : l'@import
+       obligeait à télécharger la feuille de style avant même de découvrir
+       les polices, trois allers-retours à la suite avant le texte. -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Antic&family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;600;700&display=swap" />
+  <link rel="stylesheet" href="/css/main.css" />
+  <style>
+    /* ── Score ring SVG ──────────────────────────────────────────── */
+    .score-ring-wrap {
+      display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;
+    }
+    .score-ring-label {
+      font-size:10px;font-weight:600;color:var(--text-muted);letter-spacing:.03em;
+    }
+
+    /* ── Mini criterion bar ──────────────────────────────────────── */
+    .crit-bar-row {
+      display:flex;align-items:center;gap:8px;
+      font-size:12px;color:var(--text-muted);margin-bottom:5px;
+    }
+    .crit-bar-label { min-width:110px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+    .crit-bar-track {
+      flex:1;height:6px;border-radius:99px;background:var(--border);overflow:hidden;
+    }
+    .crit-bar-fill  { height:100%;border-radius:99px;transition:width .3s; }
+    .crit-bar-value { min-width:36px;text-align:right;font-weight:600;color:var(--text); }
+
+    /* ── Ranking rows ────────────────────────────────────────────── */
+    .rank-row {
+      display:flex;align-items:center;gap:10px;
+      padding:9px 14px;background:var(--surface);border:1px solid var(--border);
+      border-radius:10px;transition:border-color .12s;position:relative;
+    }
+    .rank-row:hover { border-color:var(--indigo-mid); }
+    .rank-row.above-cut { border-left:3px solid var(--green); }
+    .rank-row.below-cut { opacity:.75; }
+
+    /* ── Glisser-déposer du classement (mode manuel) ───────────── */
+    .rank-row.draggable { cursor:grab; }
+    .rank-row.draggable:active { cursor:grabbing; }
+    .rank-row.dragging { opacity:.4; }
+    .rank-row.drop-above { box-shadow:inset 0 3px 0 var(--indigo); }
+    .rank-row.drop-below { box-shadow:inset 0 -3px 0 var(--indigo); }
+    .rank-grip {
+      flex-shrink:0;width:16px;color:var(--text-muted);font-size:13px;line-height:1;
+      cursor:grab;user-select:none;text-align:center;
+    }
+    .rank-grip:active { cursor:grabbing; }
+
+    /* ── Mode délibération (plein écran de réunion) ─────────────── */
+    #delib-bar { display:none; }
+    body.delib-on #delib-bar {
+      display:flex;align-items:center;gap:20px;
+      padding:16px 22px;margin-bottom:16px;
+      /* --indigo-dark et non --indigo : ce bandeau est lu à distance en réunion,
+         et le blanc sur --indigo ne donne que 3.4:1 (sous le seuil AA). */
+      background:var(--indigo-dark);color:#fff;border-radius:14px;
+    }
+    #delib-title { font-family:var(--font-display);font-size:22px;font-weight:700;line-height:1.2; }
+    #delib-sub   { font-size:12.5px;opacity:.92;margin-top:2px; }
+    #delib-counts { margin-left:auto;display:flex;gap:22px;font-family:var(--font-mono);text-align:center; }
+    .delib-count-val { font-size:24px;font-weight:700;line-height:1.1; }
+    /* Hiérarchie par la taille et l'espacement, pas par un contraste faible. */
+    .delib-count-lbl { font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;opacity:.92; }
+    body.delib-on #delib-bar .btn { background:rgba(255,255,255,.16);color:#fff;border-color:transparent; }
+
+    /* En délibération on masque tout le chrome : seul le classement compte. */
+    body.delib-on .nav,
+    body.delib-on #candidats-head,
+    body.delib-on #candidats-controls,
+    body.delib-on #list-view,
+    body.delib-on #evals-view,
+    body.delib-on #btn-delib { display:none !important; }
+    body.delib-on .page { max-width:1100px;padding-top:18px; }
+    /* Lisible à distance : lignes plus hautes, texte plus gros. */
+    body.delib-on .rank-row   { padding:14px 18px;gap:14px; }
+    body.delib-on .rank-name  { font-size:16px; }
+    body.delib-on .rank-email { font-size:12px; }
+    body.delib-on .rank-num   { width:34px;height:34px;font-size:14px; }
+    body.delib-on .rank-avatar{ width:38px;height:38px;font-size:14px; }
+    body.delib-on .cutoff-divider { font-size:14px;padding:10px 0; }
+
+    .rank-num {
+      width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;
+      font-size:11px;font-weight:800;flex-shrink:0;color:var(--text-muted);background:var(--bg);
+    }
+    .rank-num.top { background:var(--indigo);color:#fff; }
+
+    /* Champ de position : garde l'allure du badge, mais editable. */
+    .rank-num-input {
+      width:34px;height:28px;padding:0;text-align:center;
+      border:1.5px solid var(--border);border-radius:7px;
+      font-family:inherit;font-size:12px;font-weight:800;
+      background:var(--bg);color:var(--text-muted);
+      cursor:text;transition:border-color .12s,background .12s,color .12s;
+      -moz-appearance:textfield;
+    }
+    .rank-num-input.top { background:var(--indigo);color:#fff;border-color:var(--indigo); }
+    .rank-num-input:hover { border-color:var(--indigo-mid); }
+    .rank-num-input:focus {
+      outline:none;border-color:var(--indigo);
+      background:var(--surface);color:var(--text);
+      box-shadow:0 0 0 3px var(--indigo-light);
+    }
+    /* En délibération le champ doit rester cliquable de loin. */
+    body.delib-on .rank-num-input { width:44px;height:36px;font-size:15px; }
+    /* Sur mobile le glisser-déposer HTML5 ne marche pas : la saisie du rang est
+       le seul moyen de réordonner, elle doit donc être confortable au doigt. */
+    @media (max-width: 640px) {
+      .rank-num-input { width:42px;height:38px;font-size:14px; }
+      .rank-grip { display:none; }
+    }
+
+    .rank-avatar {
+      width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;
+      font-weight:800;font-size:13px;color:var(--indigo);background:var(--indigo-light);flex-shrink:0;
+    }
+
+    .rank-info { flex:1;min-width:0; }
+    .rank-name { font-weight:700;font-size:13px; }
+    .rank-email { font-size:11px;color:var(--text-muted); }
+    .rank-crits { display:flex;gap:5px;flex-wrap:wrap;margin-top:3px; }
+    .rank-crit-chip {
+      font-size:10px;padding:2px 7px;border-radius:99px;
+      background:var(--bg);border:1px solid var(--border);color:var(--text-muted);
+      font-weight:600;display:inline-flex;align-items:center;gap:4px;
+    }
+    .rank-crit-name {
+      max-width:72px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    }
+
+    .rank-score-block { display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;min-width:50px; }
+    .rank-score-sub { font-size:10px;color:var(--text-muted); }
+
+    /* ── Eval side panel ─────────────────────────────────────────── */
+    #eval-panel-overlay {
+      position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:900;
+      opacity:0;pointer-events:none;transition:opacity .2s;
+    }
+    #eval-panel-overlay.open { opacity:1;pointer-events:all; }
+    #eval-panel {
+      position:fixed;top:0;right:0;bottom:0;width:min(540px,100vw);
+      background:var(--surface);box-shadow:-4px 0 24px rgba(0,0,0,.15);
+      z-index:901;display:flex;flex-direction:column;
+      transform:translateX(100%);transition:transform .25s cubic-bezier(.4,0,.2,1);
+    }
+    #eval-panel.open { transform:translateX(0); }
+    #eval-panel-header {
+      display:flex;align-items:center;justify-content:space-between;
+      padding:14px 18px;border-bottom:1px solid var(--border);flex-shrink:0;
+    }
+    #eval-panel iframe { flex:1;border:none;width:100%; }
+
+    /* ── Panneau dossier ─────────────────────────────────────────────
+       Consultable pendant les délibérations : en réunion on veut relire une
+       motivation sans quitter le classement ni perdre l'ordre en cours. */
+    #dossier-panel {
+      position:fixed;top:0;right:0;bottom:0;width:min(620px,100vw);
+      background:var(--surface);box-shadow:-4px 0 24px rgba(0,0,0,.15);
+      z-index:901;display:flex;flex-direction:column;
+      transform:translateX(100%);transition:transform .25s cubic-bezier(.4,0,.2,1);
+    }
+    #dossier-panel.open { transform:translateX(0); }
+    /* Projeté en réunion : plus large et plus lisible de loin. */
+    body.delib-on #dossier-panel { width:min(760px,100vw);font-size:15px; }
+    body.delib-on .dossier-value { font-size:15.5px;line-height:1.65; }
+    #dossier-header {
+      display:flex;align-items:center;gap:12px;
+      padding:14px 18px;border-bottom:1px solid var(--border);flex-shrink:0;
+    }
+    #dossier-body { flex:1;overflow-y:auto;padding:18px; }
+    /* Sur grand écran le panneau pousse la page au lieu de la recouvrir : en
+       délibération on continue de réordonner le classement tout en lisant. */
+    @media (min-width: 1400px) {
+      body.dossier-on .page { margin-right:min(760px,100vw);transition:margin-right .25s cubic-bezier(.4,0,.2,1); }
+      body.dossier-on #delib-bar { padding-right:calc(min(760px,100vw) + 22px); }
+    }
+    /* En dessous il recouvre, et un voile permet de le fermer d'un clic. */
+    #dossier-overlay {
+      position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:900;
+      opacity:0;pointer-events:none;transition:opacity .2s;
+    }
+    @media (max-width: 1399px) {
+      body.dossier-on #dossier-overlay { opacity:1;pointer-events:all; }
+    }
+    #dossier-nav { display:flex;align-items:center;gap:6px;margin-left:auto;flex-shrink:0; }
+    .dossier-section-title {
+      font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;
+      /* --text-light tombe a 2.86:1, sous le seuil AA de 4.5:1 exige pour du
+         petit texte. --text-muted tient 5.14:1 en clair, 6.78:1 en sombre. */
+      color:var(--text-muted);margin:20px 0 8px;
+    }
+    .dossier-section-title:first-child { margin-top:0; }
+    .dossier-qa { background:var(--bg);border-radius:10px;padding:12px 16px;margin-bottom:8px; }
+    .dossier-label { font-size:12.5px;color:var(--text-muted);margin-bottom:4px; }
+    .dossier-value { font-weight:500;line-height:1.6;white-space:pre-wrap;word-break:break-word; }
+    .dossier-quote {
+      /* --indigo-mid tombe a 1.66:1 sur le fond sombre : la barre d'accent
+         disparaissait purement et simplement en theme sombre. */
+      background:var(--bg);border-left:3px solid var(--indigo);
+      border-radius:0 10px 10px 0;padding:10px 14px;margin-bottom:8px;
+      font-style:italic;line-height:1.6;white-space:pre-wrap;
+    }
+    .dossier-empty { color:var(--text-muted);font-size:13px;padding:8px 0; }
+
+    .rank-actions { display:flex;flex-direction:column;gap:5px;flex-shrink:0; }
+    .rank-move-btn {
+      width:26px;height:26px;border-radius:6px;border:1.5px solid var(--border);
+      background:var(--bg);cursor:pointer;font-size:11px;
+      display:flex;align-items:center;justify-content:center;
+      transition:all .12s;color:var(--text-muted);
+    }
+    .rank-move-btn:hover:not(:disabled) { border-color:var(--indigo);color:var(--indigo);background:var(--indigo-light); }
+    .rank-move-btn:disabled { opacity:.35;cursor:default; }
+
+    /* ── Cutoff divider ──────────────────────────────────────────── */
+    .cutoff-divider {
+      display:flex;align-items:center;gap:10px;
+      margin:8px 0;font-size:12px;font-weight:700;
+      color:var(--green);letter-spacing:.02em;
+    }
+    .cutoff-divider::before,.cutoff-divider::after {
+      content:'';flex:1;height:2px;border-radius:1px;background:var(--green);
+    }
+
+    /* ── Classement header ───────────────────────────────────────── */
+    .classement-toolbar {
+      display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+      padding:16px 20px;background:var(--surface);border:1px solid var(--border);
+      border-radius:10px;margin-bottom:16px;
+    }
+    .mode-btn {
+      display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;
+      border:1.5px solid var(--border);background:none;cursor:pointer;
+      font-size:13px;font-weight:600;font-family:inherit;color:var(--text-muted);
+      transition:all .14s;
+    }
+    .mode-btn.active { background:var(--indigo);border-color:var(--indigo);color:#fff; }
+    .mode-btn:not(.active):hover { border-color:var(--indigo-mid);color:var(--indigo); }
+
+    .places-input {
+      width:62px;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;
+      font-size:14px;font-weight:700;font-family:inherit;text-align:center;
+      background:var(--bg);color:var(--text);
+    }
+    .places-input:focus { outline:none;border-color:var(--indigo); }
+
+
+    /* ── Carte cooptant (vue Liste) ──────────────────────────────── */
+    .cand-card { padding:0; overflow:hidden; transition:border-color .15s, box-shadow .15s; }
+    .cand-card:hover { border-color:var(--border-strong); }
+    .cand-card.open { border-color:var(--indigo-mid); }
+    .cand-head {
+      display:flex; align-items:center; gap:16px;
+      padding:14px 18px; cursor:pointer;
+    }
+    .cand-head:focus-visible { outline:2px solid var(--indigo); outline-offset:-2px; border-radius:var(--radius); }
+    .cand-id { flex:1; min-width:0; }
+    .cand-name { font-weight:600; font-size:15px; color:var(--text); }
+    .cand-meta {
+      display:flex; flex-wrap:wrap; align-items:center; gap:4px 14px;
+      margin-top:3px; font-size:12.5px; color:var(--text-muted); min-width:0;
+    }
+    .cand-meta-rdv { display:inline-flex; align-items:center; gap:5px; color:var(--indigo-dark); font-weight:500; white-space:nowrap; }
+    .cand-meta-mail { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; max-width:100%; }
+    .cand-side { display:flex; align-items:center; gap:10px; flex-shrink:0; }
+    .cand-score { font-family:var(--font-mono); font-weight:700; font-size:17px; font-variant-numeric:tabular-nums; }
+    .cand-score small { font-size:11px; font-weight:600; margin-left:1px; }
+    .cand-chevron { display:inline-flex; color:var(--text-muted); transition:transform .2s ease; }
+    .cand-card.open .cand-chevron { transform:rotate(180deg); }
+
+    .cand-body { padding:16px 18px 18px; border-top:1px solid var(--border); display:flex; flex-direction:column; gap:16px; }
+    .cand-body[hidden] { display:none; }
+    .cand-body > * { margin-top:0 !important; }
+    .cand-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .cand-actions .btn { text-decoration:none; }
+    .cand-statut-select { width:auto; min-width:150px; padding-top:7px; padding-bottom:7px; font-size:13px; }
+    .cand-del { margin-left:auto; color:var(--red); }
+    .cand-del:hover:not(:disabled) { color:var(--red); border-color:var(--red-mid); background:var(--red-light); }
+
+    .cand-infos { display:grid; grid-template-columns:repeat(auto-fit, minmax(190px, 1fr)); gap:10px; }
+    .cand-info, .cand-reponse { background:var(--bg); border-radius:10px; padding:10px 14px; }
+    .cand-info-k { font-size:11.5px; color:var(--text-muted); font-weight:500; }
+    .cand-info-v { font-weight:600; font-size:13.5px; margin-top:2px; color:var(--text); }
+    .cand-info-v a { color:inherit; }
+    .cand-reponse + .cand-reponse { margin-top:6px; }
+    .cand-reponse-v { font-size:13.5px; margin-top:3px; color:var(--text); white-space:pre-wrap; overflow-wrap:anywhere; }
+    .cand-section-t {
+      display:flex; align-items:center; gap:8px;
+      font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.06em;
+      color:var(--text-muted); margin-bottom:8px;
+    }
+    .cand-notes-etat { text-transform:none; letter-spacing:0; font-weight:500; color:var(--green); }
+    @media (max-width:640px) {
+      .cand-head { flex-wrap:wrap; gap:8px 12px; }
+      .cand-side { width:100%; justify-content:flex-start; }
+      .cand-chevron { margin-left:auto; }
+      .cand-del { margin-left:0; }
+    }
+    @media (prefers-reduced-motion:reduce) { .cand-chevron { transition:none; } }
+
+    /* ── Decision dots ───────────────────────────────────────────── */
+    .decision-dots { display:flex;gap:3px;flex-shrink:0; }
+    .decision-dot {
+      width:8px;height:8px;border-radius:50%;flex-shrink:0;
+      title:attr(title);
+    }
+
+    /* ── View toggle pills ───────────────────────────────────────── */
+    .view-toggle {
+      display:inline-flex;gap:3px;background:var(--bg);padding:3px;
+      border-radius:10px;border:1px solid var(--border);
+    }
+    .view-toggle-btn {
+      padding:6px 14px;border-radius:7px;border:none;background:none;
+      cursor:pointer;font-size:13px;font-weight:600;font-family:inherit;
+      color:var(--text-muted);transition:all .14s;
+    }
+    .view-toggle-btn.active {
+      background:var(--surface);color:var(--indigo);
+      box-shadow:0 1px 4px rgba(0,0,0,.08);
+    }
+  </style>
+</head>
+<body>
+<nav class="nav">
+  <a href="/secge/dashboard.html" class="nav-brand">
+    <div class="nav-brand-icon">C</div>
+    <span class="nav-brand-name">Cooptly</span>
+  </a>
+  <div class="nav-links">
+    <a href="/secge/dashboard.html" class="nav-link">Tableau de bord</a>
+    <a href="/secge/candidats.html" class="nav-link active">Cooptants</a>
+    <a href="/planning.html"        class="nav-link">Planning</a>
+    <a href="/parametres.html"      class="nav-link">Paramètres</a>
+  </div>
+  <div class="nav-right">
+    <button class="btn btn-ghost btn-sm" id="btn-logout">Déconnexion</button>
+  </div>
+</nav>
+
+<main class="page">
+  <!-- ── Header ───────────────────────────────────────────────── -->
+  <div class="flex-between mb-24" id="candidats-head">
+    <div><h1>Cooptants</h1><p>Réponses aux formulaires et gestion des statuts</p></div>
+    <div class="flex-gap">
+      <select class="form-select" id="campaign-select" style="width:220px;font-size:14px;"><option value="">Campagne</option></select>
+      <button class="btn btn-secondary" id="btn-export">⬇️ CSV</button>
+    </div>
+  </div>
+
+  <!-- ── View toggle + Filters ────────────────────────────────── -->
+  <div class="card mb-16" style="padding:12px 20px;" id="candidats-controls">
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <div class="view-toggle">
+        <button class="view-toggle-btn active" id="btn-view-liste" onclick="setView('liste')">📋 Liste</button>
+        <button class="view-toggle-btn" id="btn-view-classement" onclick="setView('classement')">🏆 Classement</button>
+        <button class="view-toggle-btn" id="btn-view-evals" onclick="setView('evals')">📊 Évaluations</button>
+      </div>
+      <input class="form-input" id="search" placeholder="Rechercher…" style="width:180px;font-size:14px;" />
+      <select class="form-select" id="filter-statut" style="width:155px;font-size:14px;">
+        <option value="">Tous les statuts</option>
+        <option value="recu">Reçus</option>
+        <option value="place">Placés</option>
+        <option value="entretien_fait">Entretien fait</option>
+      </select>
+      <span id="score-status" class="text-sm text-muted"></span>
+    </div>
+  </div>
+
+  <div id="loading-state" style="padding:8px 0 24px;">
+    <div class="skel-list">
+      <div class="skel skel-card"></div>
+      <div class="skel skel-card" style="opacity:.75;"></div>
+      <div class="skel skel-card" style="opacity:.55;"></div>
+      <div class="skel skel-card" style="opacity:.35;"></div>
+    </div>
+  </div>
+  <div id="empty-state" class="empty-state" style="display:none;"></div>
+
+  <!-- ── Vue Liste ─────────────────────────────────────────────── -->
+  <div id="list-view" style="display:none;">
+    <div id="candidates-list" class="stack"></div>
+  </div>
+
+  <!-- ── Vue Évaluations ──────────────────────────────────────── -->
+  <div id="evals-view" style="display:none;">
+    <div id="evals-list" class="stack" style="gap:8px;"></div>
+  </div>
+
+  <!-- ── Vue Classement ────────────────────────────────────────── -->
+  <div id="classement-view" style="display:none;">
+    <!-- Toolbar -->
+    <div class="classement-toolbar">
+      <span style="font-weight:700;font-size:14px;color:var(--text);">🏆 Classement</span>
+      <div style="display:flex;gap:6px;">
+        <button class="mode-btn" id="btn-sort-auto" onclick="setSortMode('auto')">⚡ Score auto</button>
+        <button class="mode-btn active" id="btn-sort-manuel" onclick="setSortMode('manuel')">✋ Manuel</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-left:auto;">
+        <label style="font-size:13px;font-weight:600;color:var(--text-muted);">Places disponibles :</label>
+        <input type="number" class="places-input" id="nb-places-input" min="0" value="0" />
+      </div>
+      <button class="btn btn-ghost btn-sm" id="btn-reset-order" style="display:none;" title="Revenir au tri par score">↺ Réinitialiser l'ordre</button>
+      <button class="btn btn-primary btn-sm" id="btn-delib" title="Plein écran pour délibérer en réunion">🗳 Délibérer</button>
+    </div>
+
+    <!-- Bandeau du mode délibération : visible uniquement en plein écran -->
+    <div id="delib-bar">
+      <div>
+        <div id="delib-title">Délibérations</div>
+        <div id="delib-sub"></div>
+      </div>
+      <div id="delib-counts"></div>
+      <button class="btn btn-ghost btn-sm" id="btn-delib-exit">✕ Quitter</button>
+    </div>
+
+    <div id="ranking-list" class="stack" style="gap:6px;"></div>
+  </div>
+</main>
+
+<script type="module">
+import { requireSecge, logout, resolveOrgContext } from '/js/auth.js';
+import { app } from '/js/auth.js';
+import { initBurgerMenu } from '/js/nav.js';
+import { getFirestore, collection, query, where, getDocs, getDoc, doc, updateDoc, deleteDoc }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { showToast, formatDatetime, confirmDialog, normaliserNote, telephoneCooptant,
+  cleReponse, reponseA, texteReponse, reponsesOrdonnees as reponsesSelonQuestions, paramLien } from '/js/utils.js';
+import { cooptantEnCorbeille, DUREE_CORBEILLE_JOURS } from '/js/corbeille.js';
+
+const db = getFirestore(app);
+
+// ─── SÉCURITÉ : échappe les caractères HTML pour éviter les injections XSS ──
+// Icônes de la liste : `stroke="currentColor"` suit la couleur du texte.
+const SVG_CAL = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
+const SVG_CHEVRON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+
+function esc(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+let user, currentOrg, currentCampaign = null;
+let allCandidates = [], customQuestions = [], allEvaluations = [], criteriaConfig = [];
+let entretienParCooptant = {};   // candidateId → Date du premier entretien
+let currentView    = 'liste';   // 'liste' | 'classement'
+let currentSortMode = 'manuel';   // 'auto' | 'manuel'
+// Manuel par defaut : c'est le mode dans lequel on delibere. Sans ordre
+// enregistre, getSortedCandidates() retombe sur le tri par score, donc
+// l'affichage initial reste le meme qu'en mode auto.
+let rankOrderLocal = [];        // manual order (array of candidateId)
+
+const STATUTS = ['recu','place','entretien_fait'];
+const BADGES  = {
+  recu:           ['badge-orange', 'Reçu'],
+  place:          ['badge-blue', 'Placé'],
+  entretien_fait: ['badge-green',  'Entretien fait'],
+};
+
+// ─── View / sort mode toggles ────────────────────────────────────
+window.setView = function(v) {
+  currentView = v;
+  document.getElementById('btn-view-liste').classList.toggle('active', v === 'liste');
+  document.getElementById('btn-view-classement').classList.toggle('active', v === 'classement');
+  document.getElementById('btn-view-evals').classList.toggle('active', v === 'evals');
+  document.getElementById('list-view').style.display       = v === 'liste'       ? '' : 'none';
+  document.getElementById('classement-view').style.display = v === 'classement'  ? '' : 'none';
+  document.getElementById('evals-view').style.display      = v === 'evals'       ? '' : 'none';
+  if (v === 'classement') renderRanking();
+  else if (v === 'evals') renderEvalsView();
+  else applyFilters();
+};
+
+window.setSortMode = function(m) {
+  currentSortMode = m;
+  document.getElementById('btn-sort-auto').classList.toggle('active', m === 'auto');
+  document.getElementById('btn-sort-manuel').classList.toggle('active', m === 'manuel');
+  document.getElementById('btn-reset-order').style.display = m === 'manuel' && rankOrderLocal.length ? '' : 'none';
+  renderRanking();
+};
+
+// ─── Init ────────────────────────────────────────────────────────
+async function init() {
+  user = await requireSecge();
+  // Le menu se construit EN PARALLÈLE des données : l'attendre retardait
+  // tout l'affichage de la page, alors qu'il n'en conditionne rien.
+  initBurgerMenu(user).catch(e => console.warn('Menu non construit :', e));
+  document.getElementById('btn-logout').addEventListener('click', async () => { await logout(); location.href = '/index.html'; });
+
+  const orgId = await resolveOrgContext(user);
+  if (!orgId) return;
+
+  const [oDoc, campSnap] = await Promise.all([
+    getDoc(doc(db, 'organizations', orgId)),
+    getDocs(query(collection(db, 'campaigns'), where('organizationId', '==', orgId)))
+  ]);
+  currentOrg = { id: orgId, ...(oDoc.exists() ? oDoc.data() : {}) };
+
+  const camps = campSnap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0));
+
+  // Espace de recrutement unique : sélecteur masqué
+  const sel = document.getElementById('campaign-select');
+  if (sel) sel.style.display = 'none';
+  if (camps.length) { await loadCampaign(camps[0]); }
+
+  document.getElementById('search').addEventListener('input', applyFilters);
+  document.getElementById('filter-statut').addEventListener('change', applyFilters);
+  document.getElementById('btn-export').addEventListener('click', exportCSV);
+
+  document.getElementById('nb-places-input').addEventListener('change', async e => {
+    const n = parseInt(e.target.value) || 0;
+    if (currentCampaign) {
+      await updateDoc(doc(db, 'campaigns', currentCampaign.id), { nbPlaces: n });
+      currentCampaign.nbPlaces = n;
+    }
+    if (currentView === 'classement') renderRanking();
+    updateDelibCounts();
+  });
+
+  document.getElementById('btn-reset-order').addEventListener('click', async () => {
+    rankOrderLocal = [];
+    if (currentCampaign) await updateDoc(doc(db, 'campaigns', currentCampaign.id), { rankOrder: [] });
+    document.getElementById('btn-reset-order').style.display = 'none';
+    renderRanking();
+    updateDelibCounts();
+  });
+
+  document.getElementById('btn-delib').addEventListener('click', enterDelibMode);
+  document.getElementById('btn-delib-exit').addEventListener('click', exitDelibMode);
+}
+
+// ─── Load campaign data ───────────────────────────────────────────
+async function loadCampaign(campaign) {
+  currentCampaign  = campaign;
+  criteriaConfig   = campaign.interviewCriteria || [];
+  rankOrderLocal   = campaign.rankOrder || [];
+  customQuestions  = campaign.formConfig?.customQuestions || [];
+
+  document.getElementById('loading-state').style.display = '';
+  document.getElementById('list-view').style.display       = 'none';
+  document.getElementById('classement-view').style.display = 'none';
+  document.getElementById('empty-state').style.display     = 'none';
+
+  // Restore places count
+  document.getElementById('nb-places-input').value = campaign.nbPlaces || 0;
+  document.getElementById('btn-reset-order').style.display = (currentSortMode === 'manuel' && rankOrderLocal.length) ? '' : 'none';
+
+  // Parallel: candidates + evaluations
+  //
+  // Les évaluations DOIVENT être filtrées par asso. Firestore refuse une
+  // requête s'il ne peut pas prouver, à partir de ses seuls filtres, que
+  // chaque résultat serait lisible ; or la règle de lecture dépend de
+  // `organizationId`. Filtrée par campagne seulement, la requête était
+  // refusée à tout membre du bureau qui n'est pas admin : la page Cooptants
+  // ne s'ouvrait plus du tout pour eux. L'admin passait, d'où l'angle mort.
+  const [candSnap, evalSnap, ivSnap] = await Promise.all([
+    getDocs(query(collection(db, 'candidates'), where('campaignId', '==', campaign.id))),
+    getDocs(query(collection(db, 'interview_evaluations'),
+      where('organizationId', '==', campaign.organizationId),
+      where('campaignId', '==', campaign.id))),
+    // Pour afficher la date d'entretien directement dans la liste.
+    getDocs(query(collection(db, 'interviews'), where('campaignId', '==', campaign.id))),
+  ]);
+
+  entretienParCooptant = {};
+  ivSnap.docs.forEach(d => {
+    const iv = d.data();
+    const t = iv.datetimeStart?.toDate?.();
+    if (!iv.candidateId || !t) return;
+    const deja = entretienParCooptant[iv.candidateId];
+    if (!deja || t < deja) entretienParCooptant[iv.candidateId] = t;
+  });
+
+  allCandidates  = candSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (a.createdAt?.toMillis?.() ?? 0) - (b.createdAt?.toMillis?.() ?? 0));
+  allEvaluations = evalSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+  computeAllScores();
+
+  const withScore = allCandidates.filter(c => c._score !== null).length;
+  document.getElementById('score-status').textContent =
+    withScore ? `${withScore} cooptant${withScore > 1 ? 's' : ''} évalué${withScore > 1 ? 's' : ''}` : '';
+
+  document.getElementById('loading-state').style.display = 'none';
+
+  if (currentView === 'classement') {
+    document.getElementById('classement-view').style.display = '';
+    renderRanking();
+  } else {
+    renderList(allCandidates);
+  }
+
+  // Lien direct vers un dossier (ligne cliquée sur le tableau de bord).
+  // Le paramètre est retiré ensuite : recharger la page ne le rouvre pas.
+  const dossierDemande = paramLien('dossier');
+  if (dossierDemande) {
+    openDossier(dossierDemande);
+    const url = new URL(location.href);
+    url.searchParams.delete('dossier');
+    history.replaceState(null, '', url);
+  }
+}
+
+// ─── Score computation ───────────────────────────────────────────
+function computeAllScores() {
+  const evalsByCandidate = {};
+  allEvaluations.forEach(ev => {
+    if (!evalsByCandidate[ev.candidateId]) evalsByCandidate[ev.candidateId] = [];
+    evalsByCandidate[ev.candidateId].push(ev);
+  });
+
+  // Liste blanche explicite : seuls ces types sont chiffrés et entrent dans le
+  // score. Un nouveau type de critère est hors score par défaut : il faut
+  // l'ajouter ici sciemment, plutôt que de compter sur l'absence de `max`.
+  const SCORED_TYPES = ['echelle', 'note'];
+
+  const numericCriteria = criteriaConfig.filter(cr => SCORED_TYPES.includes(cr.type) && cr.max > 0);
+
+  allCandidates.forEach(c => {
+    const evals = evalsByCandidate[c.id] || [];
+    c._nbEvals        = evals.length;
+    c._criteriaAvgs   = {};
+    c._score          = null;
+    c._noteGlobaleAvg = null;
+    c._comments       = [];
+    c._decisions      = { reserve: 0 };
+
+    if (!evals.length) return;
+
+    // Decisions & comments
+    evals.forEach(ev => {
+      if (ev.decision === 'reserve') c._decisions.reserve = (c._decisions.reserve || 0) + 1;
+      if (ev.commentaire) c._comments.push({ text: ev.commentaire });
+    });
+
+    // Per-criterion average (normalized 0-100)
+    numericCriteria.forEach(cr => {
+      const vals = evals
+        .map(e => e.criteria?.[cr.id])
+        .filter(v => v != null && typeof v === 'number');
+      if (vals.length) {
+        const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+        c._criteriaAvgs[cr.id] = {
+          avg, max: cr.max, label: cr.label,
+          normalized: normaliserNote(avg, cr),
+        };
+      }
+    });
+    // Couverture : sur combien de critères ce cooptant a-t-il été noté ?
+    c._nbCriteresNotes = Object.keys(c._criteriaAvgs).length;
+    c._nbCriteresTotal = numericCriteria.length;
+    c._partiel = c._nbCriteresTotal > 0 && c._nbCriteresNotes < c._nbCriteresTotal;
+
+    // Collect text criteria responses for display
+    const textCriteria = criteriaConfig.filter(cr => cr.type === 'texte');
+    c._textAnswers = [];
+    textCriteria.forEach(cr => {
+      const vals = evals.map(e => e.criteria?.[cr.id]).filter(v => v);
+      if (vals.length) c._textAnswers.push({ id: cr.id, label: cr.label, values: vals });
+    });
+
+    // Score global = moyenne des critères, en %.
+    //
+    // Pas de score tant que la grille n'est pas remplie en entier : une moyenne
+    // sur un seul critère à 90 % passait devant une moyenne sur cinq à 70 %,
+    // alors qu'elle repose sur bien moins de matière. Mieux vaut ne rien
+    // afficher qu'un chiffre qu'on ne peut pas comparer. Le badge
+    // « 2/5 critères » dit pourquoi la case est vide.
+    const normalized = Object.values(c._criteriaAvgs).map(s => s.normalized);
+    if (normalized.length && !c._partiel) {
+      c._score = Math.round(normalized.reduce((a, b) => a + b, 0) / normalized.length);
+    }
+
+    // noteGlobale average
+    const notes = evals.map(e => e.noteGlobale).filter(v => v != null && typeof v === 'number');
+    if (notes.length) {
+      c._noteGlobaleAvg = Math.round((notes.reduce((a, b) => a + b, 0) / notes.length) * 10) / 10;
+    }
+
+    // Yesno criteria: collect oui/non counts
+    const yesnoCriteria = criteriaConfig.filter(cr => cr.type === 'yesno');
+    c._yesnoAnswers = [];
+    yesnoCriteria.forEach(cr => {
+      const vals = evals.map(e => e.criteria?.[cr.id]).filter(v => v);
+      if (vals.length) {
+        const oui = vals.filter(v => v === 'oui').length;
+        c._yesnoAnswers.push({ id: cr.id, label: cr.label, oui, non: vals.length - oui, total: vals.length });
+      }
+    });
+
+    // Case à cocher simple : combien de jurés l'ont cochée. Une case non
+    // cochée vaut « non renseigné », donc on compare au nombre d'évaluations.
+    criteriaConfig.filter(cr => cr.type === 'check').forEach(cr => {
+      const coches = evals.filter(e => e.criteria?.[cr.id] === true).length;
+      if (coches > 0) {
+        c._yesnoAnswers.push({ id: cr.id, label: cr.label, oui: coches, non: 0, total: evals.length });
+      }
+    });
+
+    // Choix unique / cases à cocher : on compte combien de jurés ont retenu
+    // chaque option. Non chiffré, donc hors score : c'est une distribution.
+    const choiceCriteria = criteriaConfig.filter(cr => cr.type === 'select' || cr.type === 'multi');
+    c._choiceAnswers = [];
+    choiceCriteria.forEach(cr => {
+      const counts = {};
+      let nbRepondants = 0;
+      evals.forEach(e => {
+        const v = e.criteria?.[cr.id];
+        if (v == null) return;
+        // 'select' stocke une chaîne, 'multi' un tableau
+        const picked = Array.isArray(v) ? v : [v];
+        if (!picked.length) return;
+        nbRepondants++;
+        picked.forEach(opt => { counts[opt] = (counts[opt] || 0) + 1; });
+      });
+      if (nbRepondants) {
+        // Options dans l'ordre configuré, puis les valeurs orphelines
+        // (option renommée ou supprimée après une évaluation).
+        const ordered = [
+          ...(cr.options || []).filter(o => counts[o]),
+          ...Object.keys(counts).filter(o => !(cr.options || []).includes(o)),
+        ];
+        c._choiceAnswers.push({
+          id: cr.id,
+          label: cr.label,
+          multi: cr.type === 'multi',
+          total: nbRepondants,
+          items: ordered.map(o => ({ option: o, n: counts[o] })),
+        });
+      }
+    });
+  });
+}
+
+// ─── Vue Évaluations ─────────────────────────────────────────────
+function renderEvalsView() {
+  const el = document.getElementById('evals-list');
+  if (!currentCampaign) { el.innerHTML = '<p class="text-muted text-sm">Sélectionne une campagne.</p>'; return; }
+  if (!allCandidates.length) { el.innerHTML = '<p class="text-muted text-sm">Aucun cooptant.</p>'; return; }
+
+  // Sort: 0 évals first, then by count desc
+  const sorted = [...allCandidates].sort((a, b) => a._nbEvals - b._nbEvals);
+
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+      <span class="text-sm text-muted">${sorted.length} cooptant${sorted.length > 1 ? 's' : ''}</span>
+      <span class="text-sm text-muted">${sorted.filter(c => c._nbEvals > 0).length} évalué${sorted.filter(c => c._nbEvals > 0).length > 1 ? 's' : ''} · ${sorted.filter(c => c._nbEvals === 0).length} sans évaluation</span>
+    </div>`;
+
+  sorted.forEach(c => {
+    const n      = c._nbEvals;
+    const done   = n > 0;
+    const color  = done ? 'var(--green)' : 'var(--red)';
+    const bg     = done ? 'var(--green-light)' : 'var(--red-light)';
+    const border = done ? 'var(--green-mid)' : 'var(--red-mid)';
+    const initials = `${(c.prenom||'?')[0]}${(c.nom||'?')[0]}`.toUpperCase();
+    const name     = esc(`${c.prenom || ''} ${c.nom || ''}`.trim());
+    const label    = n === 0 ? 'Pas encore évalué' : `${n} évaluation${n > 1 ? 's' : ''}`;
+
+    const row = document.createElement('div');
+    row.style.cssText = `display:flex;align-items:center;gap:14px;padding:14px 18px;border-radius:10px;border:1.5px solid ${border};background:${bg};`;
+    row.innerHTML = `
+      <div style="width:38px;height:38px;border-radius:9px;background:var(--indigo-light);color:var(--indigo);font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${initials}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:700;font-size:14px;">${name}</div>
+        <div style="font-size:12px;font-weight:600;color:${color};margin-top:3px;">${label}</div>
+      </div>
+      <a href="/secge/evaluer.html?candidateId=${c.id}&campaignId=${currentCampaign.id}"
+         class="btn btn-ghost btn-sm" style="text-decoration:none;white-space:nowrap;">
+        ${done ? '🔍 Voir / Ajouter' : '✏️ Évaluer'}
+      </a>`;
+    el.appendChild(row);
+  });
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────
+function scoreColor(pct) {
+  if (pct === null) return 'var(--text-light)';
+  if (pct >= 70)    return 'var(--green)';
+  if (pct >= 45)    return 'var(--orange)';
+  return 'var(--red)';
+}
+
+function scoreRingSVG(pct, size = 50) {
+  const r = size / 2 - 5;
+  const circ = 2 * Math.PI * r;
+  const offset = pct === null ? circ : circ * (1 - pct / 100);
+  const color  = scoreColor(pct);
+  const label  = pct === null ? '·' : pct;
+  const fs     = size <= 50 ? 11 : 14;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="flex-shrink:0;">
+    <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" style="stroke:var(--border)" stroke-width="3.5"/>
+    ${pct !== null ? `<circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" style="stroke:${color}" stroke-width="3.5"
+      stroke-dasharray="${circ}" stroke-dashoffset="${offset}"
+      stroke-linecap="round" transform="rotate(-90 ${size/2} ${size/2})"/>` : ''}
+    <text x="${size/2}" y="${size/2 + fs*0.38}" text-anchor="middle"
+      font-size="${fs}" font-weight="800" style="fill:${color}"
+      font-family="Montserrat,Helvetica Neue,Arial,sans-serif">${label}</text>
+  </svg>`;
+}
+
+// ─── LIST VIEW ───────────────────────────────────────────────────
+/**
+ * Supprime définitivement une candidature, son entretien et son évaluation.
+ *
+ * Les trois documents sont liés par `candidateId` : ne retirer que la
+ * candidature laisserait un entretien fantôme sur le planning et une évaluation
+ * orpheline dans les stats.
+ *
+ * @param {object} c    cooptant
+ * @param {HTMLElement} card carte à retirer de la liste en cas de succès
+ */
+async function supprimerCandidat(c, card) {
+  const nom = `${c.prenom || ''} ${c.nom || ''}`.trim() || c.email;
+  const ok = await confirmDialog(
+    `Supprimer la candidature de ${nom} ? `
+    + `Son entretien et son évaluation partent avec. Tout reste récupérable ${DUREE_CORBEILLE_JOURS} jours dans Paramètres, onglet Corbeille.`,
+    { title: 'Supprimer la candidature', confirmLabel: 'Supprimer', danger: true }
+  );
+  if (!ok) return;
+
+  try {
+    const orgId = c.organizationId || currentOrg?.id;
+    const [candDoc, ivSnap, evalSnap] = await Promise.all([
+      // Relu plutôt que pris dans la liste : la copie de la corbeille doit être
+      // le document tel qu'il est en base, sans les champs calculés par la page.
+      getDoc(doc(db, 'candidates', c.id)),
+      getDocs(query(collection(db, 'interviews'),            where('candidateId', '==', c.id))),
+      // Filtre par asso indispensable, voir le chargement des évaluations.
+      getDocs(query(collection(db, 'interview_evaluations'),
+        where('organizationId', '==', orgId),
+        where('candidateId', '==', c.id))),
+    ]);
+    // Copie en corbeille et suppressions partent dans le même lot.
+    await cooptantEnCorbeille(db,
+      { id: c.id, ...(candDoc.exists() ? candDoc.data() : c) },
+      ivSnap.docs, evalSnap.docs, orgId, user?.email || null);
+
+    allCandidates = allCandidates.filter(x => x.id !== c.id);
+    card.remove();
+    applyFilters();
+    showToast(`Candidature de ${esc(nom)} mise à la corbeille (Paramètres › Corbeille).`, 'success');
+  } catch (err) {
+    showToast('Erreur : ' + err.message, 'error');
+  }
+}
+
+function renderList(cands) {
+  const list = document.getElementById('candidates-list');
+  list.innerHTML = '';
+  document.getElementById('empty-state').style.display = 'none';
+  document.getElementById('list-view').style.display   = 'none';
+
+  if (!cands.length) {
+    const es = document.getElementById('empty-state');
+    const SVG_INBOX = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z"/></svg>`;
+    const SVG_SEARCH = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`;
+    if (!allCandidates.length) {
+      es.innerHTML = `<div class="empty-state-icon">${SVG_INBOX}</div><h3>Aucun cooptant reçu</h3><p>Les candidatures arrivent via le formulaire de cooptation.</p><button class="empty-state-action" id="es-copy-link">Copier le lien du formulaire</button>`;
+      es.style.display = '';
+      document.getElementById('es-copy-link').addEventListener('click', () => {
+        const url = `${location.origin}/postuler.html?org=${currentOrg?.slug || currentOrg?.id || ''}`;
+        navigator.clipboard.writeText(url)
+          .then(() => showToast('Lien du formulaire copié !', 'success'))
+          .catch(() => showToast('Impossible de copier.', 'error'));
+      });
+    } else {
+      es.innerHTML = `<div class="empty-state-icon">${SVG_SEARCH}</div><h3>Aucun résultat</h3><p>Aucun cooptant ne correspond aux filtres sélectionnés.</p><button class="empty-state-action" id="es-clear-filters">Effacer les filtres</button>`;
+      es.style.display = '';
+      document.getElementById('es-clear-filters').addEventListener('click', () => {
+        document.getElementById('search').value = '';
+        document.getElementById('filter-statut').value = '';
+        applyFilters();
+      });
+    }
+    return;
+  }
+  document.getElementById('list-view').style.display = '';
+
+  cands.forEach(c => {
+    const [bc, label] = BADGES[c.statut] || ['badge-gray', c.statut];
+    const card = document.createElement('div');
+    card.className = 'card cand-card';
+
+    // ── En-tête (toujours visible) ────────────────────────────────
+    // Rien n'est affiché « à vide » : pas de rond gris tant que personne n'a
+    // évalué, pas de date d'entretien s'il n'y en a pas. On ne montre que ce
+    // qui renseigne.
+    const header = document.createElement('div');
+    header.className = 'cand-head';
+    header.setAttribute('role', 'button');
+    header.tabIndex = 0;
+
+    const entretien = entretienParCooptant[c.id];
+    const meta = [];
+    if (entretien) {
+      meta.push(`<span class="cand-meta-rdv">${SVG_CAL} ${entretien.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })}, ${entretien.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>`);
+    }
+    if (c.email) meta.push(`<span class="cand-meta-mail">${esc(c.email)}</span>`);
+
+    let scoreHtml = '';
+    if (c._score !== null && c._score !== undefined) {
+      scoreHtml = `<span class="cand-score" style="color:${scoreColor(c._score)};" title="Score moyen sur ${c._nbEvals} évaluation${c._nbEvals > 1 ? 's' : ''}">${Math.round(c._score)}<small>%</small></span>`;
+    } else if (c._partiel) {
+      scoreHtml = `<span class="badge badge-orange" title="Évaluation incomplète : ${c._nbCriteresNotes} critère(s) notés sur ${c._nbCriteresTotal}. Le score apparaîtra quand la grille sera remplie.">${c._nbCriteresNotes}/${c._nbCriteresTotal} critères</span>`;
+    }
+
+    const decisionHtml = c._decisions?.reserve > 0
+      ? `<div class="decision-dots">${
+          Array(c._decisions.reserve).fill('<span class="decision-dot" style="background:var(--orange);" title="À revoir"></span>').join('')
+        }</div>` : '';
+
+    header.innerHTML = `
+      <div class="cand-id">
+        <div class="cand-name">${esc(c.prenom)} ${esc(c.nom)}</div>
+        ${meta.length ? `<div class="cand-meta">${meta.join('')}</div>` : ''}
+      </div>
+      <div class="cand-side">
+        ${decisionHtml}
+        ${scoreHtml}
+        <span class="badge ${bc} cand-statut">${label}</span>
+        <span class="cand-chevron" aria-hidden="true">${SVG_CHEVRON}</span>
+      </div>`;
+
+    // ── Détail (déplié au clic) ───────────────────────────────────
+    const body = document.createElement('div');
+    body.className = 'cand-body';
+    body.hidden = true;
+
+    // ── Score breakdown (if evaluated) ────────────────────────────
+    if (c._nbEvals > 0) {
+      const evalSection = document.createElement('div');
+      evalSection.style.cssText = 'margin-top:16px;padding:14px 16px;background:var(--bg);border-radius:10px;';
+
+      let evalHtml = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-light);">Évaluations</div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          ${c._noteGlobaleAvg !== null ? `<span style="font-size:12px;color:var(--text-muted);">Note globale : <strong>${c._noteGlobaleAvg}/20</strong></span>` : ''}
+          <span style="font-size:12px;color:var(--text-muted);">${c._nbEvals} jury${c._nbEvals > 1 ? 's' : ''}</span>
+        </div>
+      </div>`;
+
+      // Criteria bars
+      const numCrits = Object.values(c._criteriaAvgs);
+      if (numCrits.length) {
+        evalHtml += numCrits.map(cr => {
+          const pct = Math.round(cr.normalized);
+          const col = scoreColor(pct);
+          return `<div class="crit-bar-row">
+            <span class="crit-bar-label" title="${cr.label}">${cr.label}</span>
+            <div class="crit-bar-track"><div class="crit-bar-fill" style="width:${pct}%;background:${col};"></div></div>
+            <span class="crit-bar-value" style="color:${col};">${cr.avg.toFixed(1)}/${cr.max}</span>
+          </div>`;
+        }).join('');
+      }
+
+      // Yesno criteria
+      if (c._yesnoAnswers?.length) {
+        evalHtml += c._yesnoAnswers.map(yn => `
+          <div class="crit-bar-row">
+            <span class="crit-bar-label" title="${esc(yn.label)}">${esc(yn.label)}</span>
+            <div style="display:flex;gap:5px;flex:1;">
+              <span style="padding:1px 8px;border-radius:4px;background:var(--green-light);color:var(--green);font-weight:700;font-size:11px;">✓ ${yn.oui}</span>
+              ${yn.non > 0 ? `<span style="padding:1px 8px;border-radius:4px;background:var(--red-light);color:var(--red);font-weight:700;font-size:11px;">✗ ${yn.non}</span>` : ''}
+            </div>
+            <span class="crit-bar-value" style="color:var(--text-muted);font-size:11px;">${yn.oui}/${yn.total}</span>
+          </div>`).join('');
+      }
+
+      // Choix unique / cases à cocher : distribution des options retenues
+      if (c._choiceAnswers?.length) {
+        c._choiceAnswers.forEach(ch => {
+          const top = Math.max(...ch.items.map(i => i.n));
+          evalHtml += `<div style="margin-top:10px;">
+            <div style="font-size:11px;font-weight:600;color:var(--text-light);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;">
+              ${esc(ch.label)}${ch.multi ? ' <span style="text-transform:none;letter-spacing:0;font-weight:500;">(plusieurs choix)</span>' : ''}
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:5px;">
+              ${ch.items.map(i => {
+                // L'option la plus citée est mise en avant : c'est la seule
+                // lecture utile d'une distribution en un coup d'œil.
+                const lead = i.n === top;
+                return `<span style="display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:99px;font-size:11.5px;font-weight:600;
+                  background:${lead ? 'var(--indigo-light)' : 'var(--bg)'};
+                  color:${lead ? 'var(--indigo)' : 'var(--text-muted)'};
+                  border:1px solid ${lead ? 'var(--indigo-mid)' : 'var(--border)'};">
+                  ${esc(i.option)}
+                  <span style="font-family:var(--font-mono);opacity:.85;">${i.n}/${ch.total}</span>
+                </span>`;
+              }).join('')}
+            </div>
+          </div>`;
+        });
+      }
+
+      // Text criteria responses
+      if (c._textAnswers?.length) {
+        c._textAnswers.forEach(t => {
+          evalHtml += `<div style="margin-top:10px;"><div style="font-size:11px;font-weight:600;color:var(--text-light);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">${esc(t.label)}</div>`;
+          t.values.forEach(v => {
+            evalHtml += `<div style="font-size:13px;color:var(--text-muted);padding:6px 10px;background:var(--surface);border-radius:6px;margin-bottom:4px;">"${esc(v)}"</div>`;
+          });
+          evalHtml += '</div>';
+        });
+      }
+
+      // Comments
+      if (c._comments?.length) {
+        evalHtml += `<div style="margin-top:10px;"><div style="font-size:11px;font-weight:600;color:var(--text-light);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Commentaires jury</div>`;
+        c._comments.forEach(cm => {
+          evalHtml += `<div style="font-size:13px;color:var(--text-muted);padding:6px 10px;background:var(--surface);border-radius:6px;margin-bottom:4px;">"${esc(cm.text)}"</div>`;
+        });
+        evalHtml += '</div>';
+      }
+
+      evalSection.innerHTML = evalHtml;
+      body.appendChild(evalSection);
+    }
+
+    // ── Actions ───────────────────────────────────────────────────
+    // Le statut s'enregistre dès qu'on le change : l'ancien bouton
+    // « Mettre à jour » était oublié une fois sur deux.
+    const actions = document.createElement('div');
+    actions.className = 'cand-actions';
+    const statSel = document.createElement('select');
+    statSel.className = 'form-select cand-statut-select';
+    statSel.setAttribute('aria-label', 'Statut du cooptant');
+    STATUTS.forEach(st => { const o = document.createElement('option'); o.value = st; o.textContent = BADGES[st]?.[1] || st; if (st === c.statut) o.selected = true; statSel.appendChild(o); });
+    statSel.addEventListener('change', async () => {
+      const avant = c.statut;
+      statSel.disabled = true;
+      try {
+        await updateDoc(doc(db, 'candidates', c.id), { statut: statSel.value });
+        c.statut = statSel.value;
+        const badge = header.querySelector('.cand-statut');
+        badge.className = `badge ${BADGES[statSel.value]?.[0] || 'badge-gray'} cand-statut`;
+        badge.textContent = BADGES[statSel.value]?.[1] || statSel.value;
+        showToast('Statut mis à jour.', 'success');
+      } catch (err) {
+        statSel.value = avant;
+        showToast('Erreur : ' + err.message, 'error');
+      } finally {
+        statSel.disabled = false;
+      }
+    });
+
+    const bouton = (tag, texte, titre) => {
+      const el = document.createElement(tag);
+      el.className = 'btn btn-ghost btn-sm';
+      el.innerHTML = texte; el.title = titre;
+      return el;
+    };
+    const dossierBtn2 = bouton('button', 'Dossier', 'Réponses au formulaire et retours du jury');
+    dossierBtn2.addEventListener('click', () => openDossier(c.id));
+    const evalBtn = bouton('a', 'Fiche d\'entretien', 'Remplir la fiche d\'évaluation pour ce cooptant');
+    evalBtn.href = `/secge/evaluer.html?candidateId=${c.id}&campaignId=${currentCampaign?.id}`;
+    // Suppression : désistement, doublon, test. Efface aussi entretien et évaluation.
+    const delBtn = bouton('button', 'Supprimer', 'Supprimer définitivement cette candidature');
+    delBtn.classList.add('cand-del');
+    delBtn.addEventListener('click', () => supprimerCandidat(c, card));
+
+    actions.append(statSel, dossierBtn2, evalBtn, delBtn);
+    body.prepend(actions);   // les actions d'abord, avant les évaluations
+
+    // ── Infos : seulement celles qui existent ─────────────────────
+    const tel = telephoneCooptant(c, customQuestions);
+    const tuiles = [];
+    if (c.createdAt) tuiles.push(['Candidature reçue', formatDatetime(c.createdAt)]);
+    if (entretien)   tuiles.push(['Entretien', `${entretien.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })} à ${entretien.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`]);
+    if (tel)         tuiles.push(['Téléphone', `<a href="tel:${esc(tel.replace(/\s+/g, ''))}">${esc(tel)}</a>`]);
+    if (tuiles.length) {
+      const info = document.createElement('div');
+      info.className = 'cand-infos';
+      info.innerHTML = tuiles.map(([k, v]) => `<div class="cand-info"><div class="cand-info-k">${k}</div><div class="cand-info-v">${k === 'Téléphone' ? v : esc(v)}</div></div>`).join('');
+      actions.after(info);
+    }
+
+    // ── Custom questions ───────────────────────────────────────────
+    if (c.customAnswers && Object.keys(c.customAnswers).length) {
+      const qDiv = document.createElement('div'); qDiv.style.marginTop = '14px';
+      qDiv.innerHTML = '<div class="cand-section-t">Réponses au formulaire</div>';
+      // Les questions laissées sans réponse sont masquées plutôt qu'affichées vides.
+      // Le téléphone est déjà en tuile au-dessus, inutile de le répéter.
+      const remplies = reponsesOrdonnees(c).filter(({ value }) => {
+        const v = String(value ?? '').trim();
+        return v !== '' && v !== tel;
+      });
+      remplies.forEach(({ label, value }) => {
+        const p = document.createElement('div'); p.className = 'cand-reponse';
+        p.innerHTML = `<div class="cand-info-k">${esc(label)}</div><div class="cand-reponse-v">${esc(value)}</div>`;
+        qDiv.appendChild(p);
+      });
+      if (remplies.length) body.appendChild(qDiv);
+    }
+
+    // ── Disponibilités ────────────────────────────────────────────
+    if (c.disponibilites?.length) {
+      const dDiv = document.createElement('div'); dDiv.style.marginTop = '14px';
+      dDiv.innerHTML = '<div class="cand-section-t">Disponibilités déclarées</div>';
+      const dysGrid = document.createElement('div'); dysGrid.style.cssText = 'display:flex;flex-direction:column;gap:6px;';
+      c.disponibilites.forEach(d => {
+        const date = new Date(d.jour + 'T12:00:00');
+        const dayLabel = date.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+        const row = document.createElement('div'); row.style.cssText = 'display:flex;align-items:center;gap:6px;flex-wrap:wrap;';
+        const lbl = document.createElement('span'); lbl.style.cssText = 'font-size:12px;font-weight:600;color:var(--text-muted);min-width:90px;'; lbl.textContent = dayLabel;
+        row.appendChild(lbl);
+        (d.creneaux || []).forEach(h => {
+          const chip = document.createElement('span'); chip.style.cssText = 'font-size:11px;font-weight:600;padding:2px 8px;background:var(--indigo-light);color:var(--indigo);border-radius:99px;'; chip.textContent = h;
+          row.appendChild(chip);
+        });
+        dysGrid.appendChild(row);
+      });
+      dDiv.appendChild(dysGrid); body.appendChild(dDiv);
+    }
+
+    // ── Notes internes : enregistrées en quittant le champ ────────
+    const notesDiv = document.createElement('div');
+    notesDiv.className = 'cand-notes';
+    notesDiv.innerHTML = `<label class="cand-section-t" for="notes-${c.id}">Notes internes <span class="cand-notes-etat" aria-live="polite"></span></label>
+      <textarea class="form-textarea" id="notes-${c.id}" rows="2" placeholder="Visible uniquement par le bureau">${esc(c.notesInternes || '')}</textarea>`;
+    body.appendChild(notesDiv);
+    const notesArea = notesDiv.querySelector('textarea');
+    const notesEtat = notesDiv.querySelector('.cand-notes-etat');
+    notesArea.addEventListener('blur', async () => {
+      const v = notesArea.value;
+      if (v === (c.notesInternes || '')) return;
+      notesEtat.textContent = 'Enregistrement…';
+      try {
+        await updateDoc(doc(db, 'candidates', c.id), { notesInternes: v });
+        c.notesInternes = v;
+        notesEtat.textContent = 'Enregistré';
+      } catch (err) {
+        notesEtat.textContent = '';
+        showToast('Notes non enregistrées : ' + err.message, 'error');
+      }
+    });
+
+    // ── Déplier / replier ─────────────────────────────────────────
+    const basculer = () => {
+      body.hidden = !body.hidden;
+      card.classList.toggle('open', !body.hidden);
+      header.setAttribute('aria-expanded', String(!body.hidden));
+    };
+    header.setAttribute('aria-expanded', 'false');
+    header.addEventListener('click', basculer);
+    header.addEventListener('keydown', e => {
+      if (e.target === header && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); basculer(); }
+    });
+
+    card.appendChild(header); card.appendChild(body);
+    list.appendChild(card);
+  });
+}
+
+// ─── CLASSEMENT VIEW ─────────────────────────────────────────────
+function getSortedCandidates() {
+  let sorted;
+  if (currentSortMode === 'manuel' && rankOrderLocal.length) {
+    const indexMap = {};
+    rankOrderLocal.forEach((id, i) => { indexMap[id] = i; });
+    sorted = [...allCandidates].sort((a, b) => {
+      const ia = indexMap[a.id] ?? 9999;
+      const ib = indexMap[b.id] ?? 9999;
+      if (ia !== ib) return ia - ib;
+      return (b._score ?? -1) - (a._score ?? -1);
+    });
+  } else {
+    // Auto: sort by effective score desc, unevaluated at end
+    // _score (criteria %) takes priority; fallback to noteGlobale/20*100 when no numeric criteria
+    const eff = c => c._score ?? (c._noteGlobaleAvg !== null ? Math.round(c._noteGlobaleAvg * 5) : null);
+    sorted = [...allCandidates].sort((a, b) => {
+      const sa = eff(a), sb = eff(b);
+      if (sa === null && sb === null) return 0;
+      if (sa === null) return 1;
+      if (sb === null) return -1;
+      return sb - sa;
+    });
+  }
+  return sorted;
+}
+
+function renderRanking() {
+  const container = document.getElementById('ranking-list');
+  container.innerHTML = '';
+
+  if (!allCandidates.length) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z"/></svg></div><h3>Aucun cooptant reçu</h3><p>Le classement apparaîtra dès réception des premières candidatures.</p></div>';
+    return;
+  }
+
+  const sorted = getSortedCandidates();
+  const nbPlaces = parseInt(document.getElementById('nb-places-input').value) || 0;
+  const isManuel = currentSortMode === 'manuel';
+
+  sorted.forEach((c, idx) => {
+    const rank = idx + 1;
+    const isAbove = nbPlaces > 0 && rank <= nbPlaces;
+    const isBelow = nbPlaces > 0 && rank > nbPlaces;
+
+    // Cutoff divider
+    if (nbPlaces > 0 && rank === nbPlaces + 1) {
+      const div = document.createElement('div');
+      div.className = 'cutoff-divider';
+      div.textContent = `↑ ${nbPlaces} place${nbPlaces > 1 ? 's' : ''} retenue${nbPlaces > 1 ? 's' : ''}`;
+      container.appendChild(div);
+    }
+
+    const [bc, blabel] = BADGES[c.statut] || ['badge-gray', c.statut];
+    const row = document.createElement('div');
+    row.className = `rank-row${isAbove ? ' above-cut' : isBelow ? ' below-cut' : ''}${isManuel ? ' draggable' : ''}`;
+    row.dataset.candId = c.id;
+
+    // Glisser-déposer : en délibération on remonte quelqu'un de 10 rangs d'un
+    // seul geste, là où les flèches ↑↓ demanderaient 10 clics.
+    if (isManuel) {
+      const grip = document.createElement('div');
+      grip.className = 'rank-grip';
+      grip.textContent = '⋮⋮';
+      grip.title = 'Glisser pour déplacer';
+      row.appendChild(grip);
+      attachDragHandlers(row, c.id);
+
+      // La poignée est le SEUL point de départ du glisser. Si toute la ligne
+      // était draggable, impossible de sélectionner le contenu du champ de
+      // position : le navigateur démarrerait un drag à la place.
+      row.draggable = false;
+      grip.addEventListener('mousedown', () => { row.draggable = true; });
+      grip.addEventListener('mouseup',   () => { row.draggable = false; });
+      row.addEventListener('dragend',    () => { row.draggable = false; });
+    }
+
+    // Numero de rang. En manuel c'est un champ : taper la position voulue
+    // evite de remonter quelqu'un rang par rang.
+    const isTop = rank <= 3 && (c._score !== null || c._noteGlobaleAvg !== null);
+    let numEl;
+    if (isManuel) {
+      numEl = document.createElement('input');
+      numEl.type = 'text';
+      numEl.inputMode = 'numeric';
+      numEl.className = `rank-num rank-num-input${isTop ? ' top' : ''}`;
+      numEl.value = rank;
+      numEl.title = 'Taper une position, puis Entrée';
+      numEl.setAttribute('aria-label', `Position de ${c.prenom || ''} ${c.nom || ''}`.trim());
+      attachRankInput(numEl, c.id, rank, sorted.length);
+    } else {
+      numEl = document.createElement('div');
+      numEl.className = `rank-num${isTop ? ' top' : ''}`;
+      numEl.textContent = `#${rank}`;
+    }
+
+    // Avatar
+    const avatarEl = document.createElement('div');
+    avatarEl.className = 'rank-avatar';
+    avatarEl.textContent = `${(c.prenom || '?')[0]}${(c.nom || '?')[0]}`;
+
+    // Info (name, email, criteria chips)
+    const infoEl = document.createElement('div');
+    infoEl.className = 'rank-info';
+    const critsHtml = Object.values(c._criteriaAvgs).map(cr => {
+      const pct = Math.round(cr.normalized);
+      return `<span class="rank-crit-chip" title="${esc(cr.label)}: ${cr.avg.toFixed(1)}/${cr.max}">
+        <span class="rank-crit-name">${esc(cr.label)}</span>
+        <span style="color:${scoreColor(pct)};font-weight:800;">${pct}%</span>
+      </span>`;
+    }).join('');
+    infoEl.innerHTML = `
+      <div class="rank-name">${esc(c.prenom)} ${esc(c.nom)}</div>
+      <div class="rank-email">${esc(c.email)}</div>
+      ${critsHtml ? `<div class="rank-crits">${critsHtml}</div>` : ''}`;
+
+    // Score block
+    const scoreEl = document.createElement('div');
+    scoreEl.className = 'rank-score-block';
+    if (c._score !== null) {
+      scoreEl.innerHTML = `${scoreRingSVG(c._score, 44)}
+        <div class="rank-score-sub">${c._nbEvals}j${c._noteGlobaleAvg !== null ? ` · ${c._noteGlobaleAvg}/20` : ''}${
+          c._partiel ? ` · <span style="color:var(--orange);font-weight:700;" title="Noté sur ${c._nbCriteresNotes} critère(s) sur ${c._nbCriteresTotal}">${c._nbCriteresNotes}/${c._nbCriteresTotal} crit.</span>` : ''
+        }</div>`;
+    } else if (c._noteGlobaleAvg !== null) {
+      scoreEl.innerHTML = `${scoreRingSVG(Math.round(c._noteGlobaleAvg * 5), 44)}
+        <div class="rank-score-sub">${c._nbEvals}j · /20</div>`;
+    } else {
+      scoreEl.innerHTML = `${scoreRingSVG(null, 44)}
+        <div class="rank-score-sub">${c._nbEvals > 0 ? `${c._nbEvals} éval.` : '·'}</div>`;
+    }
+
+    // Status + decisions
+    const statusEl = document.createElement('div');
+    statusEl.style.cssText = 'flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:6px;';
+    statusEl.innerHTML = `<span class="badge ${bc}">${blabel}</span>
+      ${c._decisions.reserve > 0 ? `<div class="decision-dots" style="justify-content:flex-end;">
+        ${Array(c._decisions.reserve).fill('<span class="decision-dot" style="background:var(--orange);" title="À revoir"></span>').join('')}
+      </div>` : ''}`;
+
+    // Quick actions
+    const actionsEl = document.createElement('div');
+    actionsEl.style.cssText = 'flex-shrink:0;display:flex;flex-direction:column;gap:5px;';
+
+    // Dossier : réponses au formulaire et retours du jury, lisibles en délib.
+    const dossierBtn = document.createElement('button');
+    dossierBtn.className = 'btn btn-ghost btn-sm';
+    dossierBtn.textContent = '📄';
+    dossierBtn.title = `Dossier de ${c.prenom || ''} ${c.nom || ''}`.trim();
+    dossierBtn.setAttribute('aria-label', dossierBtn.title);
+    dossierBtn.style.cssText = 'padding:4px 8px;';
+    dossierBtn.addEventListener('click', () => openDossier(c.id));
+    actionsEl.appendChild(dossierBtn);
+
+    // View/eval link
+    const evalLink = document.createElement('button');
+    evalLink.className = 'btn btn-ghost btn-sm';
+    evalLink.textContent = '🎙';
+    evalLink.title = 'Fiche d\'entretien';
+    evalLink.style.cssText = 'padding:4px 8px;';
+    evalLink.addEventListener('click', () => openEvalPanel(c.id));
+    actionsEl.appendChild(evalLink);
+
+    // Move up/down in manuel mode
+    if (isManuel) {
+      const moveWrap = document.createElement('div');
+      moveWrap.className = 'rank-actions';
+      const upBtn = document.createElement('button'); upBtn.className = 'rank-move-btn'; upBtn.textContent = '↑'; upBtn.title = 'Monter';
+      const dnBtn = document.createElement('button'); dnBtn.className = 'rank-move-btn'; dnBtn.textContent = '↓'; dnBtn.title = 'Descendre';
+      if (idx === 0) upBtn.disabled = true;
+      if (idx === sorted.length - 1) dnBtn.disabled = true;
+      upBtn.addEventListener('click', () => moveCandidate(c.id, sorted, -1));
+      dnBtn.addEventListener('click', () => moveCandidate(c.id, sorted, +1));
+      moveWrap.appendChild(upBtn); moveWrap.appendChild(dnBtn);
+      actionsEl.appendChild(moveWrap);
+    }
+
+    // En réunion, on désigne quelqu'un par son nom : cliquer sur le bloc
+    // d'infos ouvre son dossier, sans gêner le champ de rang ni la poignée.
+    infoEl.style.cursor = 'pointer';
+    infoEl.title = 'Voir le dossier';
+    infoEl.addEventListener('click', () => openDossier(c.id));
+
+    row.appendChild(numEl);
+    row.appendChild(avatarEl);
+    row.appendChild(infoEl);
+    row.appendChild(scoreEl);
+    row.appendChild(statusEl);
+    row.appendChild(actionsEl);
+    container.appendChild(row);
+  });
+
+  refreshDossierPosition();
+}
+
+/**
+ * Remet à jour le « 4/46 » et les flèches du dossier après un réordonnancement.
+ * On ne re-rend pas le corps : on perdrait le défilement en pleine lecture.
+ */
+function refreshDossierPosition() {
+  if (!dossierCandId) return;
+  const sorted = getSortedCandidates();
+  const idx    = sorted.findIndex(x => x.id === dossierCandId);
+  document.getElementById('dossier-pos').textContent =
+    idx >= 0 ? `${idx + 1}/${sorted.length}` : '';
+  document.getElementById('dossier-prev').disabled = idx <= 0;
+  document.getElementById('dossier-next').disabled = idx < 0 || idx >= sorted.length - 1;
+}
+
+// ─── Panneau dossier ─────────────────────────────────────────────
+// En délibération, le classement n'affiche que nom, score et critères. Or
+// c'est précisément le moment où l'on veut relire une motivation ou un
+// commentaire de jury. Ce panneau les rend consultables sans quitter la
+// vue ni perdre l'ordre en cours de réordonnancement.
+
+let dossierCandId = null;
+
+/**
+ * Ouvre (ou recharge) le dossier d'un cooptant.
+ * @param {string} candId
+ */
+function openDossier(candId) {
+  const c = allCandidates.find(x => x.id === candId);
+  if (!c) return;
+  dossierCandId = candId;
+
+  const sorted = getSortedCandidates();
+  const idx    = sorted.findIndex(x => x.id === candId);
+
+  const nom = `${c.prenom || ''} ${c.nom || ''}`.trim() || c.email || 'Cooptant';
+  document.getElementById('dossier-name').textContent = nom;
+
+  const [bc, blabel] = BADGES[c.statut] || ['badge-gray', c.statut];
+  const score = c._score !== null ? `${c._score} %`
+              : (c._noteGlobaleAvg !== null ? `${c._noteGlobaleAvg}/20`
+              : (c._partiel ? 'évaluation incomplète' : 'pas encore évalué'));
+  const couverture = c._partiel
+    ? ` · <span style="color:var(--orange);font-weight:700;">${c._nbCriteresNotes}/${c._nbCriteresTotal} critères notés</span>`
+    : '';
+  document.getElementById('dossier-meta').innerHTML =
+    `<span class="badge ${bc}" style="font-size:10px;">${blabel}</span> `
+    + `<span style="margin-left:6px;">${esc(c.email || '')}</span>`
+    + `<span style="margin-left:6px;">· ${esc(score)}</span>${couverture}`;
+
+  document.getElementById('dossier-pos').textContent =
+    idx >= 0 ? `${idx + 1}/${sorted.length}` : '';
+  document.getElementById('dossier-prev').disabled = idx <= 0;
+  document.getElementById('dossier-next').disabled = idx < 0 || idx >= sorted.length - 1;
+
+  document.getElementById('dossier-body').innerHTML = dossierHtml(c);
+
+  document.body.classList.add('dossier-on');
+  document.getElementById('dossier-panel').classList.add('open');
+}
+
+function closeDossier() {
+  dossierCandId = null;
+  document.body.classList.remove('dossier-on');
+  document.getElementById('dossier-panel').classList.remove('open');
+}
+
+/** Passe au cooptant suivant (+1) ou précédent (-1) dans l'ordre affiché. */
+function dossierStep(delta) {
+  if (!dossierCandId) return;
+  const sorted = getSortedCandidates();
+  const idx    = sorted.findIndex(x => x.id === dossierCandId);
+  const next   = sorted[idx + delta];
+  if (next) openDossier(next.id);
+}
+
+/** Contenu du dossier : réponses au formulaire, puis retours du jury. */
+function dossierHtml(c) {
+  let html = '';
+
+  // Réponses au formulaire de cooptation
+  const reponses = reponsesOrdonnees(c);
+  html += '<div class="dossier-section-title">Réponses au formulaire</div>';
+  if (!reponses.length) {
+    html += '<div class="dossier-empty">Ce cooptant n\'a répondu à aucune question personnalisée.</div>';
+  } else {
+    reponses.forEach(({ label, value }) => {
+      html += `<div class="dossier-qa">
+        <div class="dossier-label">${esc(label)}</div>
+        <div class="dossier-value">${esc(value) || '<span class="text-muted">Sans réponse</span>'}</div>
+      </div>`;
+    });
+  }
+
+  // Réponses libres des jurys aux critères de type texte
+  if (c._textAnswers?.length) {
+    html += '<div class="dossier-section-title">Réponses libres du jury</div>';
+    c._textAnswers.forEach(t => {
+      html += `<div class="dossier-qa"><div class="dossier-label">${esc(t.label)}</div>`;
+      t.values.forEach(v => { html += `<div class="dossier-value" style="margin-top:6px;">${esc(v)}</div>`; });
+      html += '</div>';
+    });
+  }
+
+  // Commentaires généraux des jurys
+  if (c._comments?.length) {
+    html += '<div class="dossier-section-title">Commentaires du jury</div>';
+    c._comments.forEach(cm => { html += `<div class="dossier-quote">${esc(cm.text)}</div>`; });
+  }
+
+  if (!c._textAnswers?.length && !c._comments?.length) {
+    html += '<div class="dossier-section-title">Retours du jury</div>'
+          + `<div class="dossier-empty">${c._nbEvals > 0
+              ? 'Les jurys ont noté sans laisser de commentaire.'
+              : 'Aucune évaluation reçue pour le moment.'}</div>`;
+  }
+
+  return html;
+}
+
+document.getElementById('dossier-close').addEventListener('click', closeDossier);
+document.getElementById('dossier-overlay').addEventListener('click', closeDossier);
+document.getElementById('dossier-prev').addEventListener('click', () => dossierStep(-1));
+document.getElementById('dossier-next').addEventListener('click', () => dossierStep(+1));
+
+document.addEventListener('keydown', e => {
+  if (!dossierCandId) return;
+
+  // Échap : en délibération l'écran est en plein écran natif, et aucun script ne
+  // peut empêcher Échap d'en sortir. Lui faire aussi fermer le dossier ferait
+  // donc quitter la délibération d'une seule touche. Hors plein écran, elle
+  // ferme le dossier comme partout ailleurs ; en plein écran, `fullscreenchange`
+  // s'en charge en sortant.
+  if (e.key === 'Escape') {
+    if (!document.fullscreenElement) closeDossier();
+    return;
+  }
+
+  // Ne pas voler les flèches à la saisie du rang.
+  const tag = document.activeElement?.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+  if (e.key === 'ArrowUp'   || e.key === 'ArrowLeft')  { e.preventDefault(); dossierStep(-1); }
+  else if (e.key === 'ArrowDown' || e.key === 'ArrowRight') { e.preventDefault(); dossierStep(+1); }
+});
+
+// ─── Mode délibération ───────────────────────────────────────────
+// Plein écran de réunion : on masque le chrome, on agrandit les lignes et on
+// affiche en permanence le décompte retenus / places. L'ordre reste le même
+// objet `rankOrder` : c'est la même donnée, juste présentée pour un groupe.
+
+function updateDelibCounts() {
+  if (!document.body.classList.contains('delib-on')) return;
+  const total    = allCandidates.length;
+  const nbPlaces = parseInt(document.getElementById('nb-places-input').value) || 0;
+  const retenus  = nbPlaces > 0 ? Math.min(nbPlaces, total) : total;
+  const evalues  = allCandidates.filter(c => c._nbEvals > 0).length;
+
+  const cell = (val, lbl) =>
+    `<div><div class="delib-count-val">${val}</div><div class="delib-count-lbl">${lbl}</div></div>`;
+  document.getElementById('delib-counts').innerHTML =
+    cell(retenus, 'retenus') + cell(total, 'cooptants') + cell(`${evalues}/${total}`, 'évalués');
+
+  document.getElementById('delib-sub').textContent = nbPlaces > 0
+    ? `${nbPlaces} place${nbPlaces > 1 ? 's' : ''}, glisse les lignes pour réordonner`
+    : 'Aucune limite de places, glisse les lignes pour réordonner';
+}
+
+async function enterDelibMode() {
+  // Délibérer, c'est décider d'un ordre : le mode manuel est le seul qui le permette.
+  if (currentSortMode !== 'manuel') setSortMode('manuel');
+  document.body.classList.add('delib-on');
+  renderRanking();
+  updateDelibCounts();
+  try { await document.documentElement.requestFullscreen(); }
+  catch { /* refus ou non supporté : le mode reste utilisable sans plein écran */ }
+}
+
+async function exitDelibMode() {
+  closeDossier();
+  document.body.classList.remove('delib-on');
+  renderRanking();
+  if (document.fullscreenElement) {
+    try { await document.exitFullscreen(); } catch { /* ignore */ }
+  }
+}
+
+// Sortie via Échap ou le bouton natif du navigateur : garder le CSS synchronisé.
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement && document.body.classList.contains('delib-on')) {
+    closeDossier();
+    document.body.classList.remove('delib-on');
+    renderRanking();
+  }
+});
+
+// ─── Glisser-déposer du classement ───────────────────────────────
+let _dragCandId = null;
+
+function clearDropMarks() {
+  document.querySelectorAll('.rank-row.drop-above, .rank-row.drop-below')
+    .forEach(r => r.classList.remove('drop-above', 'drop-below'));
+}
+
+function attachDragHandlers(row, candId) {
+  row.addEventListener('dragstart', e => {
+    _dragCandId = candId;
+    row.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    // Firefox exige des données pour déclencher le drag
+    e.dataTransfer.setData('text/plain', candId);
+  });
+
+  row.addEventListener('dragend', () => {
+    row.classList.remove('dragging');
+    clearDropMarks();
+    _dragCandId = null;
+  });
+
+  row.addEventListener('dragover', e => {
+    if (!_dragCandId || _dragCandId === candId) return;
+    e.preventDefault();                       // autorise le drop
+    e.dataTransfer.dropEffect = 'move';
+    // Au-dessus ou en dessous, selon la moitié de ligne survolée
+    const r = row.getBoundingClientRect();
+    const before = (e.clientY - r.top) < r.height / 2;
+    row.classList.toggle('drop-above', before);
+    row.classList.toggle('drop-below', !before);
+  });
+
+  row.addEventListener('dragleave', () => row.classList.remove('drop-above', 'drop-below'));
+
+  row.addEventListener('drop', async e => {
+    e.preventDefault();
+    const dragged = _dragCandId;
+    const before  = row.classList.contains('drop-above');
+    clearDropMarks();
+    if (!dragged || dragged === candId) return;
+    await reorderCandidate(dragged, candId, before);
+  });
+}
+
+/**
+ * Champ de position : taper un rang et valider deplace le cooptant a cet
+ * endroit. Entree valide, Echap annule, et sortir du champ valide aussi
+ * (on tape souvent un chiffre puis on clique ailleurs).
+ */
+function attachRankInput(input, candId, currentRank, total) {
+  let annule = false;
+
+  const valider = async () => {
+    if (annule) return;
+    const val = parseInt(input.value, 10);
+
+    // Saisie vide ou non numerique : on remet la valeur affichee.
+    if (isNaN(val)) { input.value = currentRank; return; }
+
+    // Bornes : 1 = premier, total = dernier. On clampe plutot que de refuser,
+    // « 99 » veut clairement dire « tout en bas ».
+    const cible = Math.min(Math.max(val, 1), total);
+    if (cible === currentRank) { input.value = currentRank; return; }
+
+    await moveCandidateToPosition(candId, cible);
+  };
+
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter')  { e.preventDefault(); input.blur(); }
+    if (e.key === 'Escape') { annule = true; input.value = currentRank; input.blur(); }
+  });
+  input.addEventListener('blur', valider);
+  // Selectionner tout au focus : on remplace le numero, on ne l'edite pas.
+  input.addEventListener('focus', () => input.select());
+}
+
+/** Place `candId` a la position `pos` (1 = premier) et persiste l'ordre. */
+async function moveCandidateToPosition(candId, pos) {
+  const ids = getSortedCandidates().map(c => c.id);
+  if (!ids.includes(candId)) return;
+
+  const next = ids.filter(id => id !== candId);
+  // pos est en base 1 ; apres retrait, l'insertion se fait a pos-1.
+  next.splice(Math.min(Math.max(pos - 1, 0), next.length), 0, candId);
+
+  await persistRankOrder(next);
+
+  // Redonner le focus au champ deplace : on enchaine souvent plusieurs
+  // repositionnements pendant une deliberation.
+  requestAnimationFrame(() => {
+    const row = document.querySelector(`.rank-row[data-cand-id="${candId}"]`);
+    row?.querySelector('.rank-num-input')?.focus();
+  });
+}
+
+/** Déplace `draggedId` juste avant/après `targetId` et persiste l'ordre. */
+async function reorderCandidate(draggedId, targetId, before) {
+  const ids = getSortedCandidates().map(c => c.id);
+
+  // On valide AVANT de muter : retirer puis abandonner sur cible introuvable
+  // ferait disparaître le cooptant de la liste.
+  if (draggedId === targetId) return;
+  if (!ids.includes(draggedId) || !ids.includes(targetId)) return;
+
+  const next = ids.filter(id => id !== draggedId);
+  const to   = next.indexOf(targetId);
+  next.splice(before ? to : to + 1, 0, draggedId);
+
+  await persistRankOrder(next);
+}
+
+// ─── Manual ordering ─────────────────────────────────────────────
+async function moveCandidate(candId, currentSorted, direction) {
+  // Build/refresh the local order from current sorted view
+  const ids = currentSorted.map(c => c.id);
+  const idx = ids.indexOf(candId);
+  if (idx === -1) return;
+  const newIdx = idx + direction;
+  if (newIdx < 0 || newIdx >= ids.length) return;
+
+  [ids[idx], ids[newIdx]] = [ids[newIdx], ids[idx]];
+  await persistRankOrder(ids);
+}
+
+/** Enregistre l'ordre du classement : partagé par les flèches et le drag&drop. */
+async function persistRankOrder(ids) {
+  const previous = rankOrderLocal;
+  rankOrderLocal = ids;
+  renderRanking();                            // retour visuel immédiat
+  updateDelibCounts();
+  try {
+    await updateDoc(doc(db, 'campaigns', currentCampaign.id), { rankOrder: ids });
+    currentCampaign.rankOrder = ids;
+    document.getElementById('btn-reset-order').style.display = '';
+  } catch (err) {
+    // Ne pas laisser l'écran mentir sur un ordre qui n'a pas été enregistré.
+    rankOrderLocal = previous;
+    renderRanking();
+    updateDelibCounts();
+    showToast('Ordre non enregistré : ' + err.message, 'error');
+  }
+}
+
+
+// ─── Filters (list mode only) ─────────────────────────────────────
+function applyFilters() {
+  if (currentView === 'classement') { renderRanking(); return; }
+  const s = document.getElementById('search').value.toLowerCase();
+  const f = document.getElementById('filter-statut').value;
+  renderList(allCandidates.filter(c =>
+    (!s || `${c.prenom} ${c.nom} ${c.email}`.toLowerCase().includes(s)) &&
+    (!f || c.statut === f)
+  ));
+}
+
+// ─── Réponses au formulaire ───────────────────────────────────────
+// La logique vit dans utils.js (partagée avec le popup du planning).
+function reponsesOrdonnees(c) { return reponsesSelonQuestions(c, customQuestions); }
+
+// ─── CSV Export ───────────────────────────────────────────────────
+function exportCSV() {
+  if (!allCandidates.length) return showToast('Aucun cooptant à exporter.', 'error');
+
+  // Ce que l'export faisait mal, et qu'il ne faut pas réintroduire :
+  //  - intitulés non entre guillemets : une question contenant une virgule
+  //    (« …relations humaines, etc. ») se coupait en plusieurs colonnes et
+  //    décalait tout le fichier ;
+  //  - séparateur « , » : Excel en français attend « ; » et mettait tout dans
+  //    une seule colonne ;
+  //  - téléphone lu dans l'ancien champ fixe (vide) ;
+  //  - statut brut (« place »), zéro effacé par `v || ''` ;
+  //  - colonnes d'évaluation toutes vides tant que personne n'est évalué.
+  const SEP = ';';
+  const cellule = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const nombre  = (v, dec = 0) => v === null || v === undefined || v === '' ? '' : Number(v).toFixed(dec).replace('.', ',');
+  const hm = d => d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+
+  const sorted  = getSortedCandidates();
+  const evalues = allCandidates.some(c => c._nbEvals > 0);
+  // Le rang n'a de sens qu'une fois un classement établi (scores ou ordre manuel).
+  const classe  = evalues || rankOrderLocal.length > 0;
+
+  // Téléphone : colonne dédiée, donc la question correspondante n'est pas répétée.
+  const questionsTel = new Set(sorted.map(c => {
+    const t = telephoneCooptant(c, customQuestions);
+    return customQuestions.findIndex((q, qi) => t && texteReponse(reponseA(c, q, qi)).trim() === t);
+  }).filter(i => i >= 0));
+  const questions = customQuestions.map((q, qi) => ({ q, qi })).filter(({ qi }) => !questionsTel.has(qi));
+
+  const colonnes = [];
+  if (classe) colonnes.push(['Rang', (c, i) => i + 1]);
+  colonnes.push(
+    ['Prénom', c => c.prenom],
+    ['Nom', c => c.nom],
+    ['Email', c => c.email],
+    ['Téléphone', c => telephoneCooptant(c, customQuestions)],
+    ['Statut', c => BADGES[c.statut]?.[1] || c.statut || ''],
+    ['Entretien', c => {
+      const d = entretienParCooptant[c.id];
+      return d ? `${d.toLocaleDateString('fr-FR')} ${hm(d)}` : '';
+    }],
+  );
+  questions.forEach(({ q, qi }) => colonnes.push([q.label, c => texteReponse(reponseA(c, q, qi))]));
+  if (evalues) {
+    colonnes.push(
+      ['Score %', c => nombre(c._score)],
+      ['Critères notés', c => c._nbCriteresTotal && c._nbEvals ? `${c._nbCriteresNotes}/${c._nbCriteresTotal}` : ''],
+      ['Nb jurys', c => c._nbEvals || ''],
+      ['Note globale /20', c => nombre(c._noteGlobaleAvg, 1)],
+    );
+    criteriaConfig.forEach(cr => colonnes.push([`Jury : ${cr.label}`, c => {
+      // Chaque type a sa propre lecture : la moyenne n'a de sens que pour les
+      // critères chiffrés, les autres exportent leur réponse agrégée.
+      const avg = c._criteriaAvgs?.[cr.id];
+      if (avg) return nombre(avg.avg, 2);
+      const choice = c._choiceAnswers?.find(x => x.id === cr.id);
+      if (choice) return choice.items.map(i => `${i.option} (${i.n}/${choice.total})`).join(' · ');
+      const yn = c._yesnoAnswers?.find(x => x.id === cr.id);
+      if (yn) return cr.type === 'check' ? `${yn.oui}/${yn.total}` : `oui ${yn.oui} / non ${yn.non}`;
+      const txt = c._textAnswers?.find(x => x.id === cr.id);
+      if (txt) return txt.values.join(' | ');
+      return '';
+    }]));
+    colonnes.push(['Commentaires jury', c => (c._comments || []).map(cm => cm.text).join(' | ')]);
+  }
+  colonnes.push(
+    ['Notes internes', c => c.notesInternes || ''],
+    ['Candidature reçue le', c => c.createdAt ? formatDatetime(c.createdAt) : ''],
+  );
+
+  const lignes = [
+    colonnes.map(([titre]) => cellule(titre)).join(SEP),
+    ...sorted.map((c, i) => colonnes.map(([, val]) => cellule(val(c, i))).join(SEP)),
+  ];
+  // BOM : sans lui, Excel lit les accents de travers. \r\n : fin de ligne attendue par Excel.
+  const blob = new Blob(['﻿' + lignes.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const nomAsso = (currentOrg?.slug || 'asso').replace(/[^a-z0-9-]/gi, '');
+  const a = document.createElement('a'); a.href = url; a.download = `cooptants-${nomAsso}-${localDateISO()}.csv`; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  showToast('Export CSV téléchargé.', 'success');
+}
+
+function localDateISO() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+init();
+
+// ── Eval side panel ───────────────────────────────────────────
+function openEvalPanel(candidateId) {
+  const url = `/secge/evaluer.html?candidateId=${candidateId}&campaignId=${currentCampaign?.id}&panel=1`;
+  document.getElementById('eval-panel-iframe').src = url;
+  document.getElementById('eval-panel-overlay').classList.add('open');
+  document.getElementById('eval-panel').classList.add('open');
+}
+
+function closeEvalPanel() {
+  document.getElementById('eval-panel-overlay').classList.remove('open');
+  document.getElementById('eval-panel').classList.remove('open');
+  document.getElementById('eval-panel-iframe').src = '';
+  if (currentCampaign) loadCampaign(currentCampaign);
+}
+
+window.closeEvalPanel = closeEvalPanel;
+
+window.addEventListener('message', e => {
+  if (e.data === 'eval-saved') closeEvalPanel();
+});
+
+document.getElementById('eval-panel-overlay').addEventListener('click', closeEvalPanel);
+</script>
+
+<div id="dossier-overlay"></div>
+<div id="dossier-panel">
+  <div id="dossier-header">
+    <div style="min-width:0;">
+      <div id="dossier-name" style="font-weight:700;font-size:16px;"></div>
+      <div id="dossier-meta" class="text-sm text-muted" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
+    </div>
+    <div id="dossier-nav">
+      <button class="btn btn-ghost btn-sm" id="dossier-prev" title="Cooptant précédent (←)" style="padding:4px 10px;">↑</button>
+      <span id="dossier-pos" class="text-sm text-muted" style="font-family:var(--font-mono);min-width:52px;text-align:center;"></span>
+      <button class="btn btn-ghost btn-sm" id="dossier-next" title="Cooptant suivant (→)" style="padding:4px 10px;">↓</button>
+      <button class="btn btn-ghost btn-sm" id="dossier-close" title="Fermer" style="padding:4px 10px;">×</button>
+    </div>
+  </div>
+  <div id="dossier-body"></div>
+</div>
+
+<div id="eval-panel-overlay" onclick="closeEvalPanel()"></div>
+<div id="eval-panel" onclick="event.stopPropagation()">
+  <div id="eval-panel-header">
+    <span style="font-weight:700;font-size:15px;">🎙 Fiche d'entretien</span>
+    <button onclick="closeEvalPanel()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text-muted);line-height:1;padding:0 4px;">×</button>
+  </div>
+  <iframe id="eval-panel-iframe" src="" title="Évaluation"></iframe>
+</div>
+</body>
+</html>

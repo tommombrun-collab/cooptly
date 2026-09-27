@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <script>(function(){var t=localStorage.getItem("_theme");if(t)document.documentElement.setAttribute("data-theme",t);})();</script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rejoindre une association · Cooptly</title>
+  <!-- Connexions ouvertes d'avance : sans elles, chaque serveur (polices,
+       SDK, base de données) coûtait sa propre poignée de main réseau au
+       moment où la page en avait besoin. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin />
+  <!-- Le SDK est préchargé dès l'en-tête. Sinon le navigateur ne le
+       découvre qu'en arrivant au script, tout en bas de la page. -->
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js" />
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js" />
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js" />
+  <!-- Polices en <link> et non plus en @import dans main.css : l'@import
+       obligeait à télécharger la feuille de style avant même de découvrir
+       les polices, trois allers-retours à la suite avant le texte. -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Antic&family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;600;700&display=swap" />
+  <link rel="stylesheet" href="/css/main.css" />
+</head>
+<body>
+
+<nav class="nav">
+  <a href="/secge/dashboard.html" class="nav-brand">
+    <div class="nav-brand-icon">C</div>
+    <span class="nav-brand-name">Cooptly</span>
+  </a>
+  <div class="nav-links">
+    <a href="/secge/dashboard.html"  class="nav-link">Tableau de bord</a>
+    <a href="/secge/candidats.html"  class="nav-link">Cooptants</a>
+    <a href="/planning.html"         class="nav-link">Planning</a>
+    <a href="/parametres.html"       class="nav-link">Paramètres</a>
+  </div>
+  <div class="nav-right">
+    <button class="btn btn-ghost btn-sm" id="btn-logout">Déconnexion</button>
+  </div>
+</nav>
+
+<main class="page" style="max-width:620px;">
+
+  <div class="mb-24">
+    <h1 style="margin:0;">Rejoindre une association</h1>
+    <p style="margin-top:4px;">Si tu fais partie du bureau de plusieurs assos, tu peux les gérer avec ce même compte.</p>
+  </div>
+
+  <!-- Assos déjà rejointes -->
+  <div class="card mb-24">
+    <div class="settings-head mb-16">
+      <div class="settings-head-icon teal">🏢</div>
+      <div>
+        <h2>Tes associations</h2>
+        <p class="text-sm text-muted mt-4">Bascule d'une asso à l'autre depuis le menu ☰.</p>
+      </div>
+    </div>
+    <div id="my-orgs" class="stack">
+      <div class="skel skel-row" style="width:60%;"></div>
+    </div>
+  </div>
+
+  <!-- Ajouter une asso via un code -->
+  <div class="card">
+    <div class="settings-head mb-16">
+      <div class="settings-head-icon teal">🔑</div>
+      <div>
+        <h2>Ajouter une association</h2>
+        <p class="text-sm text-muted mt-4">
+          Demande son code d'accès au bureau de l'asso concernée.
+        </p>
+      </div>
+    </div>
+
+    <form id="join-form" class="stack">
+      <div class="form-group">
+        <label class="form-label" for="join-code">Code d'accès</label>
+        <input class="form-input" type="text" id="join-code"
+          placeholder="Ex : ASSO1234" autocomplete="off"
+          style="max-width:240px;text-transform:uppercase;font-family:var(--font-mono);letter-spacing:.08em;" />
+        <span class="form-hint">Le code détermine l'asso et ton rôle : tu ne les choisis pas toi-même.</span>
+        <span class="form-error" id="err-code"></span>
+      </div>
+      <div class="flex-gap">
+        <button type="submit" class="btn btn-primary" id="btn-join">Rejoindre</button>
+        <a class="btn btn-ghost" href="/secge/dashboard.html">Retour</a>
+      </div>
+    </form>
+
+    <div id="join-success" class="callout-green" style="display:none;margin-top:16px;padding:14px 16px;border-radius:10px;">
+      <div style="font-weight:700;margin-bottom:4px;" id="join-success-title"></div>
+      <div class="text-sm" id="join-success-text"></div>
+    </div>
+  </div>
+
+</main>
+
+<script type="module">
+import { requireSecge, logout, app, getMyMemberships, clearMembershipCache } from '/js/auth.js';
+import { initBurgerMenu } from '/js/nav.js';
+import { getFirestore, doc, getDoc, setDoc, serverTimestamp }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { showToast, esc } from '/js/utils.js';
+
+const db = getFirestore(app);
+let user;
+
+document.getElementById('btn-logout').addEventListener('click', async () => {
+  await logout(); window.location.href = '/index.html';
+});
+
+async function init() {
+  user = await requireSecge();
+  initBurgerMenu(user);
+  await renderMyOrgs();
+}
+
+async function renderMyOrgs() {
+  const box = document.getElementById('my-orgs');
+  const memberships = await getMyMemberships(user);
+
+  if (!memberships.length) {
+    box.innerHTML = '<p class="text-muted text-sm">Aucune association pour le moment.</p>';
+    return;
+  }
+
+  const orgs = await Promise.all(
+    memberships.map(async m => {
+      const d = await getDoc(doc(db, 'organizations', m.organizationId));
+      return { id: m.organizationId, role: m.role, name: d.exists() ? d.data().name : m.organizationId };
+    })
+  );
+  orgs.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+  box.innerHTML = orgs.map(o => `
+    <div style="display:flex;align-items:center;gap:12px;padding:11px 14px;border:1px solid var(--border);border-radius:10px;background:var(--bg);">
+      <span style="font-size:18px;flex-shrink:0;">🏛️</span>
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:600;font-size:14px;">${esc(o.name)}</div>
+        <div class="text-sm text-muted">${o.role === 'president' ? 'Président(e)' : 'Sec-gé'}</div>
+      </div>
+      <a class="btn btn-ghost btn-sm" href="/secge/dashboard.html?org=${encodeURIComponent(o.id)}">Ouvrir</a>
+    </div>`).join('');
+}
+
+document.getElementById('join-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const errEl = document.getElementById('err-code');
+  errEl.textContent = '';
+
+  const code = document.getElementById('join-code').value.trim().toUpperCase();
+  if (!code) { errEl.textContent = 'Saisis le code d\'accès.'; return; }
+
+  const btn = document.getElementById('btn-join');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner" style="width:14px;height:14px;border-width:2px;margin-right:6px;"></span>Vérification…';
+
+  try {
+    // 1. Le code décide de l'asso ET du rôle : jamais l'utilisateur.
+    const codeSnap = await getDoc(doc(db, 'invite_codes', code));
+    if (!codeSnap.exists() || codeSnap.data().active === false) {
+      errEl.textContent = 'Code invalide ou expiré. Demande-en un au bureau de l\'asso.';
+      return;
+    }
+    const { organizationId, role } = codeSnap.data();
+
+    // 2. Déjà membre ? Inutile de réécrire, on propose d'y aller.
+    const existing = await getMyMemberships(user);
+    if (existing.some(m => m.organizationId === organizationId)) {
+      errEl.textContent = 'Tu fais déjà partie de cette association.';
+      return;
+    }
+
+    // L'asso existe-t-elle encore ? Un code d'une asso supprimée créait un
+    // membership vers le vide, et l'utilisateur atterrissait sur un tableau de
+    // bord sans nom ni données.
+    const orgDoc = await getDoc(doc(db, 'organizations', organizationId));
+    if (!orgDoc.exists()) {
+      errEl.textContent = "Cette association n'existe plus. Ce code n'est plus utilisable.";
+      return;
+    }
+    const orgName = orgDoc.data().name || organizationId;
+
+    // 3. ID canonique {uid}_{orgId} : c'est ce chemin que les règles
+    //    Firestore vérifient pour accorder les droits sur l'asso.
+    //    `viaCode` est le justificatif exigé par la règle de création.
+    await setDoc(doc(db, 'memberships', `${user.uid}_${organizationId}`), {
+      userId:         user.uid,
+      organizationId,
+      role,
+      email:          user.email,
+      displayName:    user.displayName || user.email.split('@')[0],
+      joinedAt:       serverTimestamp(),
+      viaCode:        code,
+    });
+
+    document.getElementById('join-form').style.display = 'none';
+    document.getElementById('join-success-title').textContent = `Bienvenue chez ${orgName} !`;
+    document.getElementById('join-success-text').innerHTML =
+      `Tu peux maintenant basculer entre tes assos depuis le menu ☰. `
+      + `<a href="/secge/dashboard.html?org=${encodeURIComponent(organizationId)}" style="color:var(--indigo);font-weight:600;">Ouvrir ${esc(orgName)}</a>`;
+    document.getElementById('join-success').style.display = '';
+    showToast('Association ajoutée ✓', 'success');
+    clearMembershipCache();   // sinon la liste resterait celle d'avant
+    await renderMyOrgs();
+
+  } catch (err) {
+    console.error(err);
+    // Un refus de permission ici signifie que le code ne couvre pas l'asso
+    // ou le rôle demandés : la règle Firestore l'a rejeté.
+    errEl.textContent = err?.code === 'permission-denied'
+      ? 'Ce code ne permet pas de rejoindre cette association.'
+      : 'Erreur : ' + (err?.message || err);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Rejoindre';
+  }
+});
+
+init();
+</script>
+</body>
+</html>

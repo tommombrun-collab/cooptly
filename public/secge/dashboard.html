@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <script>(function(){var t=localStorage.getItem("_theme");if(t)document.documentElement.setAttribute("data-theme",t);})();</script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Connexions ouvertes d'avance : sans elles, chaque serveur (polices,
+       SDK, base de données) coûtait sa propre poignée de main réseau au
+       moment où la page en avait besoin. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin />
+  <!-- Le SDK est préchargé dès l'en-tête. Sinon le navigateur ne le
+       découvre qu'en arrivant au script, tout en bas de la page. -->
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js" />
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js" />
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js" />
+  <!-- Polices en <link> et non plus en @import dans main.css : l'@import
+       obligeait à télécharger la feuille de style avant même de découvrir
+       les polices, trois allers-retours à la suite avant le texte. -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Antic&family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;600;700&display=swap" />
+  <link rel="stylesheet" href="/css/main.css" />
+  <style>
+    /* ── Fenêtre « dossier » d'un cooptant récent ─────────────── */
+    #cp-overlay { display:none; position:fixed; inset:0; z-index:9990; background:rgba(0,0,0,.5);
+      backdrop-filter:blur(3px); align-items:center; justify-content:center; padding:16px; }
+    #cp-overlay.open { display:flex; }
+    #cp-modal { background:var(--surface); border:1px solid var(--border); border-radius:18px;
+      width:100%; max-width:560px; max-height:calc(100dvh - 32px); display:flex; flex-direction:column;
+      box-shadow:0 24px 64px rgba(0,0,0,.22), 0 4px 16px rgba(0,0,0,.08); animation:fadeInUp .18s ease backwards; }
+    .cp-head { display:flex; align-items:flex-start; gap:12px; padding:20px 22px 16px; border-bottom:1px solid var(--border); }
+    .cp-head h3 { margin:0; font-size:17px; font-weight:700; }
+    .cp-sub { font-size:12.5px; color:var(--text-muted); margin-top:3px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .cp-close { margin-left:auto; background:var(--bg); border:1px solid var(--border); width:32px; height:32px;
+      border-radius:8px; cursor:pointer; color:var(--text-muted); flex-shrink:0; font-size:14px; }
+    .cp-body { padding:18px 22px; overflow-y:auto; display:flex; flex-direction:column; gap:16px; }
+    .cp-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:8px; }
+    .cp-tile, .cp-rep { background:var(--bg); border-radius:10px; padding:9px 12px; }
+    .cp-rep + .cp-rep { margin-top:6px; }
+    .cp-k { font-size:11px; font-weight:600; color:var(--text-muted); }
+    .cp-v { font-size:13.5px; font-weight:600; margin-top:2px; overflow-wrap:anywhere; }
+    .cp-v a { color:inherit; }
+    .cp-rep .cp-v { font-weight:500; white-space:pre-wrap; }
+    .cp-section { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); margin-bottom:8px; }
+    /* En-têtes de tri du tableau des cooptants */
+    .th-tri { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;
+      font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; }
+    .th-tri:hover { color: var(--text); }
+    .th-tri:focus-visible { outline: 2px solid var(--indigo); outline-offset: 2px; border-radius: 4px; }
+    .tri-fleche { display: inline-block; width: 10px; font-size: 10px; opacity: .35; }
+    .tri-fleche::after { content: '↕'; }
+    th[aria-sort="ascending"]  .tri-fleche { opacity: 1; color: var(--indigo); }
+    th[aria-sort="descending"] .tri-fleche { opacity: 1; color: var(--indigo); }
+    th[aria-sort="ascending"]  .tri-fleche::after { content: '▲'; }
+    th[aria-sort="descending"] .tri-fleche::after { content: '▼'; }
+    .cp-foot { display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap; padding:14px 22px; border-top:1px solid var(--border); }
+  </style>
+  <title>Tableau de bord · Sec-gé Cooptly</title>
+</head>
+<body>
+<nav class="nav">
+  <a href="/secge/dashboard.html" class="nav-brand">
+    <div class="nav-brand-icon">C</div>
+    <span class="nav-brand-name">Cooptly</span>
+  </a>
+  <div class="nav-links">
+    <a href="/secge/dashboard.html"  class="nav-link active">Tableau de bord</a>
+    <a href="/secge/candidats.html"  class="nav-link">Cooptants</a>
+    <a href="/planning.html"         class="nav-link">Planning</a>
+    <a href="/parametres.html"       class="nav-link">Paramètres</a>
+  </div>
+  <div class="nav-right">
+    <span id="user-name" style="font-size:13px;color:var(--text-muted);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+    <button class="btn btn-ghost btn-sm" id="btn-logout">Déconnexion</button>
+  </div>
+</nav>
+
+<main class="page">
+  <div class="flex-between mb-24">
+    <div style="display:flex;align-items:center;gap:16px;">
+      <div id="org-logo-wrap" style="flex-shrink:0;"></div>
+      <div>
+        <h1 style="margin:0;">Tableau de bord</h1>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
+          <p id="org-info" style="margin:0;">Chargement…</p>
+          <span id="campaign-status-badge" class="badge" style="display:none;"></span>
+        </div>
+      </div>
+    </div>
+    <div class="flex-gap">
+      <button class="btn btn-ghost btn-sm" id="btn-qr-code" title="QR Code cooptation">📱 QR Code</button>
+      <button class="btn btn-primary" id="btn-copy-link">🔗 Copier le lien</button>
+    </div>
+  </div>
+
+  <!-- Sélecteur campagne masqué (conservé pour la logique JS) -->
+  <select id="campaign-select" style="display:none;"></select>
+
+  <div class="stats-grid mb-16">
+    <div class="stat-card"><div class="stat-value" id="stat-total">·</div><div class="stat-label">Cooptants reçus</div></div>
+    <div class="stat-card"><div class="stat-value" id="stat-places" style="color:var(--green);">·</div><div class="stat-label">Placés</div></div>
+    <div class="stat-card"><div class="stat-value" id="stat-attente" style="color:var(--orange);">·</div><div class="stat-label">En attente</div></div>
+    <div class="stat-card"><div class="stat-value" id="stat-faits" style="color:var(--indigo);">·</div><div class="stat-label">Entretiens faits</div></div>
+  </div>
+
+  <!-- Liens staff : discrets, entre les stats et le tableau -->
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px;">
+    <button class="btn btn-ghost btn-sm" id="btn-copy-dispo">📅 Dispos (staff)</button>
+    <button class="btn btn-ghost btn-sm" id="btn-copy-eval">🎙 Lien évaluation</button>
+    <button class="btn btn-ghost btn-sm" id="btn-copy-planning">📋 Planning public</button>
+  </div>
+
+  <!-- Modal QR Code -->
+  <div id="qr-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9990;align-items:center;justify-content:center;backdrop-filter:blur(3px);">
+    <div style="background:var(--surface);border-radius:20px;padding:32px 28px;max-width:380px;width:90%;box-shadow:0 24px 64px rgba(0,0,0,.22),0 4px 16px rgba(0,0,0,.08);position:relative;text-align:center;border:1px solid var(--border);">
+      <button id="qr-close" style="position:absolute;top:14px;right:14px;background:var(--bg);border:1px solid var(--border);width:30px;height:30px;border-radius:8px;font-size:14px;cursor:pointer;color:var(--text-muted);display:flex;align-items:center;justify-content:center;line-height:1;">✕</button>
+      <h3 style="margin:0 0 2px;font-size:17px;font-weight:700;letter-spacing:-0.02em;">QR Code cooptation</h3>
+      <p id="qr-campaign-name" style="font-size:13px;color:var(--text-muted);margin:0 0 20px;"></p>
+      <div style="display:inline-block;padding:14px;border:2px solid var(--border);border-radius:14px;background:#fff;">
+        <img id="qr-img" src="" alt="QR Code" style="width:220px;height:220px;display:block;border-radius:6px;" />
+      </div>
+      <p id="qr-url" style="font-size:11px;color:var(--text-light);margin:14px 0 20px;word-break:break-all;line-height:1.5;padding:0 4px;"></p>
+      <div style="display:flex;gap:10px;justify-content:center;">
+        <button class="btn btn-primary" id="qr-download">⬇️ Télécharger</button>
+        <button class="btn btn-ghost" id="qr-copy">🔗 Copier le lien</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dossier d'un cooptant récent (clic sur une ligne du tableau) -->
+  <div id="cp-overlay" role="dialog" aria-modal="true" aria-labelledby="cp-nom">
+    <div id="cp-modal">
+      <div class="cp-head">
+        <div style="min-width:0;">
+          <h3 id="cp-nom"></h3>
+          <div class="cp-sub" id="cp-sub"></div>
+        </div>
+        <button class="cp-close" id="cp-close" aria-label="Fermer">✕</button>
+      </div>
+      <div class="cp-body" id="cp-body"></div>
+      <div class="cp-foot">
+        <button class="btn btn-ghost btn-sm" id="cp-fermer">Fermer</button>
+        <a class="btn btn-primary btn-sm" id="cp-fiche" href="#" style="text-decoration:none;">Ouvrir la fiche complète</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Génération du planning : uniquement en mode « dispos » (le cooptant donne
+       ses disponibilités, le bureau place). Masqué en mode « créneaux ». -->
+  <div class="card mb-24" id="placement-card" style="display:none;">
+    <div class="settings-head mb-16">
+      <div class="settings-head-icon teal">🗓</div>
+      <div>
+        <h2>Générer le planning</h2>
+        <p class="text-sm text-muted mt-4">
+          Croise les disponibilités des cooptants et celles du staff, puis place
+          automatiquement chaque entretien en équilibrant la charge des jurés.
+        </p>
+      </div>
+    </div>
+
+    <div class="callout-orange" style="margin-bottom:14px;">
+      Relancer la génération <strong>remplace</strong> les entretiens pas encore passés.
+      Les entretiens déjà réalisés ne sont jamais touchés.
+    </div>
+
+    <div class="flex-gap">
+      <button class="btn btn-primary" id="btn-run-algo">⚡ Générer le planning</button>
+      <a class="btn btn-ghost" id="btn-goto-planning" href="/planning.html">Voir le planning</a>
+    </div>
+
+    <div id="algo-progress" style="display:none;margin-top:16px;">
+      <div style="height:8px;background:var(--bg);border-radius:999px;overflow:hidden;border:1px solid var(--border);">
+        <div id="algo-progress-bar" style="height:100%;width:0;background:var(--indigo);transition:width .3s;"></div>
+      </div>
+      <div id="algo-log" style="margin-top:12px;font-size:12.5px;line-height:1.7;color:var(--text-muted);font-family:var(--font-mono);max-height:220px;overflow-y:auto;"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="flex-between mb-16">
+      <h2>Cooptants récents</h2>
+      <div class="flex-gap">
+        <input class="form-input" id="search" placeholder="Rechercher…" style="width:180px;font-size:14px;" />
+        <select class="form-select" id="filter" style="width:150px;font-size:14px;">
+          <option value="">Tous</option>
+          <option value="recu">Reçus</option>
+          <option value="place">Placés</option>
+          <option value="entretien_fait">Entretien fait</option>
+          <option value="accepte">Acceptés</option>
+          <option value="refuse">Refusés</option>
+        </select>
+      </div>
+    </div>
+    <div id="cands-loading" style="padding:8px 0 16px;">
+      <div class="skel-list">
+        <div class="skel skel-row" style="width:85%;"></div>
+        <div class="skel skel-row" style="width:70%;opacity:.75;"></div>
+        <div class="skel skel-row" style="width:78%;opacity:.55;"></div>
+      </div>
+    </div>
+    <div id="cands-empty" class="empty-state" style="display:none;"></div>
+    <div class="table-wrap" id="cands-wrap" style="display:none;">
+      <table><thead><tr>
+        <th aria-sort="none"><button class="th-tri" data-tri="nom">Cooptant <span class="tri-fleche" aria-hidden="true"></span></button></th>
+        <th aria-sort="none"><button class="th-tri" data-tri="email">Email <span class="tri-fleche" aria-hidden="true"></span></button></th>
+        <th aria-sort="none"><button class="th-tri" data-tri="statut">Statut <span class="tri-fleche" aria-hidden="true"></span></button></th>
+        <th aria-sort="descending"><button class="th-tri" data-tri="date">Soumis le <span class="tri-fleche" aria-hidden="true"></span></button></th>
+        <th>Lien</th>
+      </tr></thead><tbody id="cands-body"></tbody></table>
+    </div>
+  </div>
+</main>
+
+<script type="module">
+import { requireSecge, logout, getMyMemberships, resolveOrgContext } from '/js/auth.js';
+import { app } from '/js/auth.js';
+import { initBurgerMenu } from '/js/nav.js';
+import { getFirestore, collection, query, where, getDocs, getDoc, doc }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { getOrCreateOrgCampaign } from '/js/db.js';
+import { showToast, formatDatetime, esc, campaignConfig, confirmDialog, telephoneCooptant, reponsesOrdonnees } from '/js/utils.js';
+import { runPlacementAlgorithm } from '/js/algo.js';
+
+const db = getFirestore(app);
+let user, currentOrg, currentCampaignId, currentCampaign=null, allCandidates=[];
+const BADGES={recu:['badge-orange','Reçu'],place:['badge-blue','Placé'],entretien_fait:['badge-green','Entretien fait'],accepte:['badge-green','Accepté ✓'],refuse:['badge-gray','Refusé']};
+
+async function init() {
+  user = await requireSecge();
+  // Le menu se construit EN PARALLÈLE des données : l'attendre retardait
+  // tout l'affichage de la page, alors qu'il n'en conditionne rien.
+  initBurgerMenu(user).catch(e => console.warn('Menu non construit :', e));
+  document.getElementById('btn-logout').addEventListener('click',async()=>{await logout();location.href='/index.html';});
+
+  // Contexte org partagé : ?org= puis asso mémorisée, validé contre les
+  // memberships de l'utilisateur (un admin peut viser n'importe quelle asso).
+  const memberships = await getMyMemberships(user);
+  const orgId = await resolveOrgContext(user);
+  if (!orgId) { window.location.href = '/admin/dashboard.html'; return; }
+
+  // Badge de rôle (propre à cette asso) : posé par nav.js, identique partout.
+
+  // Asso et espace de recrutement en parallèle. Avant, les campagnes étaient
+  // lues ici sans jamais servir, puis relues par getOrCreateOrgCampaign après
+  // coup : une requête en double, sur le chemin de l'affichage.
+  const [oDoc, standing] = await Promise.all([
+    getDoc(doc(db,'organizations',orgId)),
+    getOrCreateOrgCampaign(orgId),
+  ]);
+
+  currentOrg={id:orgId,...(oDoc.exists()?oDoc.data():{})};
+  document.getElementById('org-info').textContent=currentOrg.name||orgId;
+
+  // Logo de l'asso
+  const wrap = document.getElementById('org-logo-wrap');
+  const color = currentOrg.primaryColor || 'var(--indigo)';
+  const initial = (currentOrg.name||'?')[0].toUpperCase();
+  wrap.innerHTML = currentOrg.logoBase64
+    ? `<img src="${currentOrg.logoBase64}" style="width:56px;height:56px;border-radius:50%;object-fit:cover;" />`
+    : `<div style="width:56px;height:56px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:22px;">${initial}</div>`;
+  // Espace de recrutement unique : plus de sélecteur de campagne
+  const sel=document.getElementById('campaign-select'); if(sel) sel.style.display='none';
+  if(standing){
+    currentCampaignId=standing.id;
+    currentCampaign=standing;
+    const ouvert = standing.recrutementOuvert !== false && standing.statut !== 'fermee';
+    const csb = document.getElementById('campaign-status-badge');
+    csb.className = `badge ${ouvert ? 'badge-green' : 'badge-gray'}`;
+    csb.textContent = ouvert ? 'Recrutement ouvert' : 'Recrutement fermé';
+    csb.style.display = '';
+
+    // Le placement n'a de sens qu'en mode « dispos » et si l'asso fait des entretiens.
+    const cfg = campaignConfig(standing);
+    if (cfg.avecEntretien && cfg.modeRdv === 'dispos') {
+      document.getElementById('placement-card').style.display = '';
+      const gotoBtn = document.getElementById('btn-goto-planning');
+      gotoBtn.href = `/planning.html?org=${orgId}`;
+    }
+
+    await loadCandidates(currentCampaignId);
+  } else { showNoCandidates(); }
+
+  document.getElementById('btn-copy-link').addEventListener('click',copyLink);
+  document.getElementById('btn-copy-dispo').addEventListener('click',()=>{
+    if(!currentOrg)return showToast('Organisation non chargée.','error');
+    const url=`${location.origin}/dispos-publique.html?org=${currentOrg.slug||currentOrg.id}`;
+    navigator.clipboard.writeText(url).then(()=>showToast('Lien des disponibilités copié !','success'));
+  });
+  document.getElementById('btn-copy-planning').addEventListener('click',()=>{
+    if(!currentOrg)return showToast('Organisation non chargée.','error');
+    const url=`${location.origin}/planning-public.html?org=${currentOrg.slug||currentOrg.id}`;
+    navigator.clipboard.writeText(url).then(()=>showToast('Lien du planning copié !','success'));
+  });
+  document.getElementById('btn-copy-eval').addEventListener('click',()=>{
+    if(!currentOrg)return showToast('Organisation non chargée.','error');
+    const url=`${location.origin}/evaluer-publique.html?org=${currentOrg.slug||currentOrg.id}`;
+    navigator.clipboard.writeText(url).then(()=>showToast('Lien d\'évaluation copié !','success'));
+  });
+  document.getElementById('btn-qr-code').addEventListener('click',showQR);
+  document.getElementById('btn-run-algo').addEventListener('click',runPlacement);
+  document.getElementById('search').addEventListener('input',applyFilters);
+  document.getElementById('filter').addEventListener('change',applyFilters);
+
+  // QR modal close
+  document.getElementById('qr-close').addEventListener('click',closeQR);
+  document.getElementById('qr-overlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeQR();});
+}
+
+// ─── Génération du planning (mode « dispos ») ─────────────────────
+async function runPlacement(){
+  if(!currentCampaignId) return showToast('Espace de recrutement non chargé.','error');
+
+  const ok = await confirmDialog(
+    'Les entretiens pas encore passés seront remplacés par un nouveau planning. '
+    + 'Les entretiens déjà réalisés ne seront pas touchés.',
+    { title:'Générer le planning', confirmLabel:'Générer', danger:false }
+  );
+  if(!ok) return;
+
+  const btn      = document.getElementById('btn-run-algo');
+  const progress = document.getElementById('placement-card').querySelector('#algo-progress');
+  const logEl    = document.getElementById('algo-log');
+  const bar      = document.getElementById('algo-progress-bar');
+
+  btn.disabled = true;
+  const btnLabel = btn.textContent;
+  btn.innerHTML = '<span class="spinner" style="width:14px;height:14px;border-width:2px;margin-right:6px;"></span>Génération…';
+  progress.style.display = '';
+  logEl.innerHTML = '';
+  bar.style.width = '8%';
+
+  let step = 0;
+  const onProgress = msg => {
+    const line = document.createElement('div');
+    line.textContent = `▸ ${msg}`;   // textContent : les noms viennent de la base
+    logEl.appendChild(line);
+    logEl.scrollTop = logEl.scrollHeight;
+    bar.style.width = `${Math.min(8 + ++step * 12, 92)}%`;
+  };
+
+  try{
+    const res = await runPlacementAlgorithm(currentCampaignId, onProgress);
+    bar.style.width = '100%';
+    const done = document.createElement('div');
+    done.style.cssText = 'color:var(--green);font-weight:600;margin-top:4px;';
+    done.textContent = `✅ Terminé : ${res.placed} placé(s), ${res.failed} sans créneau.`;
+    logEl.appendChild(done);
+    showToast(`Planning généré : ${res.placed} entretien(s).`,'success');
+    await loadCandidates(currentCampaignId);
+  }catch(err){
+    console.error(err);
+    const fail = document.createElement('div');
+    fail.style.cssText = 'color:var(--red);font-weight:600;margin-top:4px;';
+    fail.textContent = `❌ ${err.message}`;
+    logEl.appendChild(fail);
+    showToast('Erreur lors de la génération.','error');
+  }finally{
+    btn.disabled = false;
+    btn.textContent = btnLabel;
+  }
+}
+
+function showNoCandidates() {
+  document.getElementById('cands-loading').style.display='none';
+  document.getElementById('cands-wrap').style.display='none';
+  const es = document.getElementById('cands-empty');
+  const url = `${location.origin}/postuler.html?org=${currentOrg?.slug||currentOrg?.id||''}`;
+  es.innerHTML = `<div class="empty-state-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z"/></svg></div><h3>Aucun cooptant pour l'instant</h3><p>Partagez le formulaire de cooptation pour recevoir les premières candidatures.</p><button class="empty-state-action" id="es-dash-copy">Copier le lien du formulaire</button>`;
+  es.style.display='';
+  document.getElementById('es-dash-copy').addEventListener('click', () => {
+    navigator.clipboard.writeText(url)
+      .then(()=>showToast('Lien du formulaire copié !','success'))
+      .catch(()=>showToast('Impossible de copier.','error'));
+  });
+}
+
+async function loadCandidates(cid) {
+  document.getElementById('cands-loading').style.display='';
+  document.getElementById('cands-wrap').style.display='none';
+  document.getElementById('cands-empty').style.display='none';
+  try {
+    const snap=await getDocs(query(collection(db,'candidates'),where('campaignId','==',cid)));
+    allCandidates=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.createdAt?.toMillis?.()??0)-(b.createdAt?.toMillis?.()??0));
+    document.getElementById('stat-total').textContent=allCandidates.length;
+    document.getElementById('stat-places').textContent=allCandidates.filter(c=>['place','entretien_fait'].includes(c.statut)).length;
+    document.getElementById('stat-attente').textContent=allCandidates.filter(c=>c.statut==='recu').length;
+    document.getElementById('stat-faits').textContent=allCandidates.filter(c=>['entretien_fait','accepte'].includes(c.statut)).length;
+    applyFilters();   // applique le tri (plus récents en haut) et les filtres
+  } catch(err) {
+    showNoCandidates();
+  } finally {
+    document.getElementById('cands-loading').style.display='none';
+  }
+}
+
+function renderTable(cands) {
+  const tbody=document.getElementById('cands-body'); tbody.innerHTML='';
+  if(!cands.length){document.getElementById('cands-empty').style.display='';document.getElementById('cands-wrap').style.display='none';return;}
+  document.getElementById('cands-wrap').style.display='';
+  cands.forEach(c=>{
+    const [bc,label]=BADGES[c.statut]||['badge-gray',c.statut];
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td><strong>${esc(c.prenom||'')} ${esc(c.nom||'')}</strong></td><td>${esc(c.email||'·')}</td><td><span class="badge ${bc}">${label}</span></td><td style="color:var(--text-muted);font-size:13px;">${c.createdAt?formatDatetime(c.createdAt):'·'}</td><td><a href="/candidat.html?token=${esc(c.resultToken||'')}" target="_blank" class="btn btn-ghost btn-sm" title="Page de suivi vue par le cooptant" aria-label="Page de suivi vue par le cooptant">🔗</a></td>`;
+    // Toute la ligne ouvre le dossier du cooptant dans une fenêtre, sans
+    // quitter le tableau de bord. Le bouton 🔗 garde son rôle : la page de suivi.
+    tr.className='row-link'; tr.tabIndex=0; tr.title='Voir le dossier du cooptant';
+    tr.addEventListener('click',e=>{ if(e.target.closest('a,button')) return; ouvrirDossier(c, tr); });
+    tr.addEventListener('keydown',e=>{ if(e.target===tr&&(e.key==='Enter'||e.key===' ')){e.preventDefault();ouvrirDossier(c, tr);} });
+    tbody.appendChild(tr);
+  });
+}
+
+// ─── Fenêtre « dossier » d'un cooptant ────────────────────────────
+let cpDeclencheur = null;   // pour rendre le focus à la ligne à la fermeture
+const tuile = (k, v) => `<div class="cp-tile"><div class="cp-k">${k}</div><div class="cp-v">${v}</div></div>`;
+
+async function ouvrirDossier(c, declencheur) {
+  cpDeclencheur = declencheur || null;
+  const [bc, label] = BADGES[c.statut] || ['badge-gray', c.statut || ''];
+  const questions = currentCampaign?.formConfig?.customQuestions || [];
+  const tel = telephoneCooptant(c, questions);
+
+  document.getElementById('cp-nom').textContent = `${c.prenom || ''} ${c.nom || ''}`.trim() || c.email || 'Cooptant';
+  document.getElementById('cp-sub').innerHTML = `<span class="badge ${bc}">${esc(label)}</span>`
+    + (c.createdAt ? `<span>Candidature reçue le ${esc(formatDatetime(c.createdAt))}</span>` : '');
+  document.getElementById('cp-fiche').href =
+    `/secge/candidats.html?org=${encodeURIComponent(currentOrg?.id || '')}&dossier=${encodeURIComponent(c.id)}`;
+
+  // Réponses au formulaire : vides et téléphone (déjà en tuile) masqués.
+  const reps = reponsesOrdonnees(c, questions).filter(({ value }) => {
+    const v = String(value ?? '').trim();
+    return v !== '' && v !== tel;
+  });
+
+  const tuiles = [];
+  if (c.email) tuiles.push(tuile('Email', `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>`));
+  if (tel)     tuiles.push(tuile('Téléphone', `<a href="tel:${esc(tel.replace(/\s+/g, ''))}">${esc(tel)}</a>`));
+
+  document.getElementById('cp-body').innerHTML = `
+    ${tuiles.length ? `<div class="cp-grid">${tuiles.join('')}</div>` : ''}
+    <div id="cp-entretien"></div>
+    ${reps.length ? `<div><div class="cp-section">Réponses au formulaire</div>${reps.map(({ label, value }) =>
+      `<div class="cp-rep"><div class="cp-k">${esc(label)}</div><div class="cp-v">${esc(value)}</div></div>`).join('')}</div>`
+      : '<p class="text-sm text-muted" style="margin:0;">Aucune réponse au formulaire.</p>'}`;
+
+  document.getElementById('cp-overlay').classList.add('open');
+  document.getElementById('cp-close').focus();
+
+  // L'entretien se charge après l'ouverture : la fenêtre s'affiche tout de suite.
+  const zone = document.getElementById('cp-entretien');
+  try {
+    const ivSnap = await getDocs(query(collection(db, 'interviews'), where('candidateId', '==', c.id)));
+    if (!document.getElementById('cp-overlay').classList.contains('open') || !zone.isConnected) return;
+    const iv = ivSnap.docs.map(d => d.data()).filter(x => x.datetimeStart?.toDate)
+      .sort((a, b) => a.datetimeStart.toMillis() - b.datetimeStart.toMillis())[0];
+    if (!iv) { zone.innerHTML = `<div class="cp-grid">${tuile('Entretien', 'Pas encore planifié')}</div>`; return; }
+    const s = iv.datetimeStart.toDate();
+    const e = iv.datetimeEnd?.toDate?.();
+    const hm = d => d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    const juryIds = [iv.jury1Id, iv.jury2Id, iv.jury3Id].filter(Boolean);
+    // Noms des jurés et salle : lus là où ils sont lisibles (liste du staff,
+    // dispos déposées), comme sur la page de suivi.
+    const [salle, jures] = await Promise.all([
+      iv.roomId
+        ? getDoc(doc(db, 'rooms', iv.roomId)).then(r => r.exists() ? (r.data().code || r.data().nom || r.data().name) : iv.salleNom).catch(() => iv.salleNom)
+        : Promise.resolve(iv.salleNom || ''),
+      Promise.all(juryIds.map(async id => {
+        try {
+          const r = await getDoc(doc(db, 'roster_members', id));
+          if (r.exists() && r.data().displayName) return r.data().displayName;
+          const sa = await getDocs(query(collection(db, 'staff_availabilities'), where('userId', '==', id)));
+          return sa.docs.map(d => d.data().displayName).find(Boolean) || null;
+        } catch { return null; }
+      })),
+    ]);
+    if (!zone.isConnected) return;
+    const date = s.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+    zone.innerHTML = `<div class="cp-grid">
+      ${tuile('Entretien', `${esc(date)}, ${hm(s)}${e ? ' - ' + hm(e) : ''}`)}
+      ${tuile('Salle', salle ? esc(salle) : '<span style="color:var(--orange);">À définir</span>')}
+      ${tuile('Jury', juryIds.length ? esc(jures.map(n => n || 'Membre du jury').join(', ')) : '<span style="color:var(--red);">À définir</span>')}
+    </div>`;
+  } catch (err) {
+    console.warn('Entretien non chargé :', err);
+    zone.innerHTML = '';
+  }
+}
+
+function fermerDossier() {
+  document.getElementById('cp-overlay').classList.remove('open');
+  cpDeclencheur?.focus?.();
+}
+document.getElementById('cp-close').addEventListener('click', fermerDossier);
+document.getElementById('cp-fermer').addEventListener('click', fermerDossier);
+document.getElementById('cp-overlay').addEventListener('click', e => { if (e.target === e.currentTarget) fermerDossier(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.getElementById('cp-overlay').classList.contains('open')) fermerDossier();
+});
+
+// ─── Tri du tableau ───────────────────────────────────────────────
+// Par défaut les plus récents en haut. Clic sur un en-tête : trie sur cette
+// colonne, second clic : inverse le sens.
+let tri = { cle: 'date', sens: -1 };
+const ORDRE_STATUT = { recu: 0, place: 1, entretien_fait: 2, accepte: 3, refuse: 4 };
+const valeurTri = {
+  nom:    c => `${c.nom || ''} ${c.prenom || ''}`.trim().toLocaleLowerCase('fr'),
+  email:  c => (c.email || '').toLocaleLowerCase('fr'),
+  statut: c => ORDRE_STATUT[c.statut] ?? 9,
+  date:   c => c.createdAt?.toMillis?.() ?? 0,
+};
+function trier(liste) {
+  const v = valeurTri[tri.cle];
+  return [...liste].sort((a, b) => {
+    const x = v(a), y = v(b);
+    const r = typeof x === 'string' ? x.localeCompare(y, 'fr') : x - y;
+    return r * tri.sens || ((b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0));
+  });
+}
+document.querySelectorAll('.th-tri').forEach(b => b.addEventListener('click', () => {
+  const cle = b.dataset.tri;
+  // Premier clic : dates et statuts du plus récent / plus avancé, textes de A à Z.
+  tri = tri.cle === cle ? { cle, sens: -tri.sens } : { cle, sens: cle === 'date' || cle === 'statut' ? -1 : 1 };
+  document.querySelectorAll('.th-tri').forEach(x => x.closest('th').setAttribute('aria-sort',
+    x.dataset.tri === tri.cle ? (tri.sens === 1 ? 'ascending' : 'descending') : 'none'));
+  applyFilters();
+}));
+
+function applyFilters(){
+  const s=document.getElementById('search').value.toLowerCase();
+  const f=document.getElementById('filter').value;
+  renderTable(trier(allCandidates.filter(c=>(!s||`${c.prenom} ${c.nom} ${c.email}`.toLowerCase().includes(s))&&(!f||c.statut===f))));
+}
+
+function copyLink(){
+  if(!currentOrg)return showToast('Organisation non chargée.','error');
+  const url=`${location.origin}/postuler.html?org=${currentOrg.slug||currentOrg.id}`;
+  navigator.clipboard.writeText(url).then(()=>showToast('Lien copié !','success'));
+}
+
+function showQR(){
+  if(!currentOrg)return showToast('Organisation non chargée.','error');
+  const url=`${location.origin}/postuler.html?org=${currentOrg.slug||currentOrg.id}`;
+  const apiUrl=`https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(url)}&margin=10&color=000000&bgcolor=ffffff`;
+
+  // Populate modal
+  document.getElementById('qr-campaign-name').textContent=currentOrg.name||'';
+  document.getElementById('qr-url').textContent=url;
+  const img=document.getElementById('qr-img');
+  img.onerror=()=>{
+    img.style.display='none';
+    let fb=document.getElementById('qr-fallback');
+    if(!fb){
+      fb=document.createElement('p');
+      fb.id='qr-fallback';
+      fb.style.cssText='text-align:center;color:var(--text-muted);font-size:13px;padding:8px 0;';
+      fb.textContent='QR code indisponible. Utilise le lien ci-dessous.';
+      img.parentNode.insertBefore(fb,img.nextSibling);
+    }
+    fb.style.display='';
+  };
+  img.onload=()=>{
+    img.style.display='';
+    const fb=document.getElementById('qr-fallback');
+    if(fb) fb.style.display='none';
+  };
+  img.src=''; // reset
+  img.src=apiUrl;
+
+  // Download button
+  document.getElementById('qr-download').onclick=()=>{
+    const a=document.createElement('a');
+    a.href=`https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${encodeURIComponent(url)}&margin=10&color=000000&bgcolor=ffffff`;
+    a.download=`qr-candidature-${currentCampaignId}.png`;
+    a.target='_blank'; a.click();
+  };
+
+  // Copy link inside modal
+  document.getElementById('qr-copy').onclick=()=>{
+    navigator.clipboard.writeText(url).then(()=>showToast('Lien copié !','success'));
+  };
+
+  const overlay=document.getElementById('qr-overlay');
+  overlay.style.display='flex';
+  requestAnimationFrame(()=>overlay.querySelector('div').style.animation='fadeInUp .2s ease both');
+}
+
+function closeQR(){
+  document.getElementById('qr-overlay').style.display='none';
+}
+
+init();
+</script>
+</body>
+</html>
