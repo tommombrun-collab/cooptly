@@ -25,7 +25,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - uses: actions/setup-java@v4       # l'émulateur Firestore tourne sur Java
         with:
           distribution: temurin
@@ -45,7 +45,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - run: node scripts/build-demo.mjs "/${{ github.event.repository.name }}"
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

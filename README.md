@@ -132,7 +132,7 @@ npm install
 npm test          # démarre l'émulateur Firestore et lance les tests en série
 ```
 
-Prérequis : Node 18+, Java (pour l'émulateur) et `firebase-tools`.
+Prérequis : Node 22+, Java (pour l'émulateur) et `firebase-tools`.
 
 ---
 
