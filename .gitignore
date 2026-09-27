@@ -25,3 +25,6 @@ service-account*.json
 
 # Config locale d'outils
 .mcp.json
+
+# Démo construite (scripts/build-demo.mjs)
+_site/
