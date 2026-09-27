@@ -7,7 +7,7 @@
  * Le tirage est déterministe (graine fixe) : deux visiteurs voient la même
  * démo. Aucune personne réelle : noms et réponses sont inventés.
  */
-export const VERSION_SEED = 4;
+export const VERSION_SEED = 7;
 
 export const DEMO_COMPTES = {
   bureau: { email: 'bureau@demo.cooptly', mdp: 'demo1234', libelle: 'Bureau du BDA' },
@@ -59,37 +59,37 @@ const HEURES_STAFF = {
 };
 
 const QUESTIONS = [
-  { id: 'q_fb',       label: 'Quel est ton pseudo Facebook', type: 'text', required: true },
-  { id: 'q_tel',      label: 'Numéro de téléphone', type: 'tel', required: true },
-  { id: 'q_parcours', label: 'Parcours', type: 'select', required: true, options: ['Prépa', 'AST', 'ASTi', 'MSc', 'MS'] },
-  { id: 'q_pole',     label: 'Quel pôle t\'attire le plus ?', type: 'select', required: true, options: ['Musique', 'Théâtre', 'Arts plastiques', 'Cinéma', 'Événementiel'] },
-  { id: 'q_motiv',    label: 'Pourquoi veux-tu coopter BDA ? T\'as des motivations en particulier ?', type: 'longtext', required: true },
-  { id: 'q_autre',    label: 'Autre chose ?', type: 'longtext', required: false },
+  { id: 'q_fb',       label: 'Your Facebook name', type: 'text', required: true },
+  { id: 'q_tel',      label: 'Phone number', type: 'tel', required: true },
+  { id: 'q_parcours', label: 'Programme', type: 'select', required: true, options: ['Prépa', 'AST', 'ASTi', 'MSc', 'MS'] },
+  { id: 'q_pole',     label: 'Which team appeals to you most?', type: 'select', required: true, options: ['Music', 'Theatre', 'Visual arts', 'Cinema', 'Events'] },
+  { id: 'q_motiv',    label: 'Why do you want to join the BDA? Anything that motivates you in particular?', type: 'longtext', required: true },
+  { id: 'q_autre',    label: 'Anything else?', type: 'longtext', required: false },
 ];
 
 const CRITERES = [
-  { id: 'c_impression', label: 'Impression globale', type: 'echelle', max: 5 },
-  { id: 'c_investi',    label: 'A-t-iel l\'air investi(e) ?', type: 'echelle', max: 5 },
-  { id: 'c_ambiance',   label: 'Est-ce qu\'iel feat avec l\'ambiance du mandat ?', type: 'echelle', max: 5 },
-  { id: 'c_competences', label: 'Quelles compétences peut-iel apporter à l\'asso ?', type: 'texte' },
-  { id: 'c_events',     label: 'Quels événements l\'intéressent, et pourquoi ?', type: 'texte' },
+  { id: 'c_impression',  label: 'Overall impression', type: 'echelle', max: 5 },
+  { id: 'c_investi',     label: 'Do they seem committed?', type: 'echelle', max: 5 },
+  { id: 'c_ambiance',    label: 'Would they fit in with this year\'s team?', type: 'echelle', max: 5 },
+  { id: 'c_competences', label: 'What skills could they bring to the association?', type: 'texte' },
+  { id: 'c_events',      label: 'Which events interest them, and why?', type: 'texte' },
 ];
 
 const COOPTANTS = [
-  ['Emma', 'Rousseau', 'AST', 'Théâtre', 'J\'ai monté deux pièces au lycée, et le BDA a l\'air d\'être l\'endroit parfait pour continuer.'],
-  ['Nathan', 'Girard', 'Prépa', 'Musique', 'Guitariste depuis 10 ans, je rêve d\'organiser une scène ouverte sur le campus.'],
-  ['Zoé', 'Faure', 'ASTi', 'Arts plastiques', 'Je fais de l\'illustration, je pourrais créer les affiches et les visuels des événements.'],
-  ['Lucas', 'Mercier', 'MSc', 'Cinéma', 'Ciné-club dans mon ancienne fac : projections, débats, j\'aimerais relancer ça ici.'],
-  ['Manon', 'Blanc', 'Prépa', 'Événementiel', 'J\'adore organiser, j\'ai géré la billetterie du gala de mon ancienne école.'],
-  ['Adam', 'Guerin', 'AST', 'Musique', 'DJ le week-end, je peux m\'occuper du son des soirées du BDA.'],
-  ['Jade', 'Boyer', 'MS', 'Arts plastiques', 'Peinture et photo argentique : j\'aimerais proposer une expo des étudiants.'],
-  ['Louis', 'Chevalier', 'Prépa', 'Cinéma', 'Je réalise des courts-métrages, je peux filmer les événements et faire les aftermovies.'],
-  ['Lina', 'Robin', 'MSc', 'Théâtre', 'Conservatoire pendant 6 ans, je veux partager ce que j\'ai appris.'],
-  ['Hugo', 'Masson', 'AST', 'Événementiel', 'Pas artiste moi-même mais très motivé pour faire vivre la culture à l\'école.'],
-  ['Chloé', 'Henry', 'ASTi', 'Musique', 'Chorale depuis toute petite, j\'aimerais créer un groupe vocal au BDA.'],
-  ['Tom', 'Lefebvre', 'Prépa', 'Théâtre', 'J\'écris des courtes pièces et j\'aimerais en voir une jouée sur scène.'],
-  ['Rose', 'Nicolas', 'MSc', 'Arts plastiques', 'Je viens d\'arriver à Lyon, je cherche une asso pour rencontrer des gens qui créent.'],
-  ['Yanis', 'Perrin', 'AST', 'Cinéma', 'Passionné de cinéma d\'auteur, je veux organiser des sorties et des avant-premières.'],
+  ['Emma', 'Rousseau', 'AST', 'Theatre', 'I staged two plays in high school, and the BDA looks like the perfect place to keep going.'],
+  ['Nathan', 'Girard', 'Prépa', 'Music', 'I\'ve played guitar for 10 years and I\'d love to run an open mic night on campus.'],
+  ['Zoé', 'Faure', 'ASTi', 'Visual arts', 'I\'m an illustrator: I could design the posters and visuals for our events.'],
+  ['Lucas', 'Mercier', 'MSc', 'Cinema', 'I ran a film club at my previous university, with screenings and debates. I\'d like to bring it back here.'],
+  ['Manon', 'Blanc', 'Prépa', 'Events', 'I love organising things: I ran ticketing for my previous school\'s gala.'],
+  ['Adam', 'Guerin', 'AST', 'Music', 'I DJ at weekends, so I could take care of the sound at BDA parties.'],
+  ['Jade', 'Boyer', 'MS', 'Visual arts', 'Painting and film photography: I\'d like to put on an exhibition of student work.'],
+  ['Louis', 'Chevalier', 'Prépa', 'Cinema', 'I make short films, so I can film our events and cut the aftermovies.'],
+  ['Lina', 'Robin', 'MSc', 'Theatre', 'Six years at the conservatoire, and I want to share what I\'ve learnt.'],
+  ['Hugo', 'Masson', 'AST', 'Events', 'Not an artist myself, but really keen to bring culture to life at school.'],
+  ['Chloé', 'Henry', 'ASTi', 'Music', 'I\'ve sung in choirs since I was little and I\'d love to start a vocal group at the BDA.'],
+  ['Tom', 'Lefebvre', 'Prépa', 'Theatre', 'I write short plays and I\'d love to see one performed on stage.'],
+  ['Rose', 'Nicolas', 'MSc', 'Visual arts', 'I\'ve just moved to Lyon and I\'m looking for an association to meet people who create.'],
+  ['Yanis', 'Perrin', 'AST', 'Cinema', 'I\'m passionate about arthouse cinema and I want to organise outings and premieres.'],
 ];
 
 export function genererBase() {
@@ -103,17 +103,17 @@ export function genererBase() {
 
   // ── Comptes de démo (pas de vrais mots de passe) ─────────────────
   b.__comptes[UID_BUREAU] = { uid: UID_BUREAU, email: DEMO_COMPTES.bureau.email, mdp: DEMO_COMPTES.bureau.mdp, displayName: 'Camille Martin' };
-  b.__comptes[UID_ADMIN]  = { uid: UID_ADMIN,  email: DEMO_COMPTES.admin.email,  mdp: DEMO_COMPTES.admin.mdp,  displayName: 'Admin démo' };
+  b.__comptes[UID_ADMIN]  = { uid: UID_ADMIN,  email: DEMO_COMPTES.admin.email,  mdp: DEMO_COMPTES.admin.mdp,  displayName: 'Demo admin' };
   b.platform_admins[UID_ADMIN] = { email: DEMO_COMPTES.admin.email, createdAt: ts(jour(-30)) };
 
   // ── Association et espace de recrutement ─────────────────────────
   b.organizations[ORG] = { name: 'Bureau des Arts (BDA)', slug: 'bda', primaryColor: '#9C2F8C', createdAt: ts(jour(-40)) };
   b.campaigns[CAMP] = {
-    organizationId: ORG, name: 'Recrutement', recrutementOuvert: true, statut: 'ouverte', createdAt: ts(jour(-20)),
+    organizationId: ORG, name: 'Recruitment', recrutementOuvert: true, statut: 'ouverte', createdAt: ts(jour(-20)),
     nbPlaces: 6, rankOrder: [], defaultRoomsSeeded: true,
     config: {
       dureeMinutes: 30, nbJurys: 2, permettreAppart: false, modeRdv: 'creneaux',
-      dateDebut: iso(jour(-6)), dateFin: iso(jour(14)), battementMinutes: 0,
+      dateDebut: iso(jour(0)), dateFin: iso(jour(14)), battementMinutes: 0,
       heureFin: 19, pasCreneauxMinutes: 30, delaiReservationJours: 2,
       deadlineCandidature: null, avecEntretien: true, entretienCollectif: true, maxParGroupe: 2,
       maxEntretiensAffiles: 4, staffToujoursDispo: false,
@@ -125,7 +125,7 @@ export function genererBase() {
     userId: UID_BUREAU, organizationId: ORG, role: 'secge', email: DEMO_COMPTES.bureau.email,
     firstName: 'Camille', lastName: 'Martin', displayName: 'Camille Martin', createdAt: ts(jour(-40)),
   };
-  b.invite_codes.DEMO1234 = { organizationId: ORG, role: 'secge', label: 'Code de démonstration', active: true, createdAt: ts(jour(-10)) };
+  b.invite_codes.DEMO1234 = { organizationId: ORG, role: 'secge', label: 'Demo code', active: true, createdAt: ts(jour(-10)) };
   ['C1-109', 'B0-113', 'A2-124', 'D1-105'].forEach((code, i) => {
     b.rooms[`room_${i}`] = { organizationId: ORG, code, type: 'salle_emlyon', responsableUserId: null };
   });
@@ -174,12 +174,12 @@ export function genererBase() {
       statut: !plan ? 'recu' : (plan[0] < 0 ? 'entretien_fait' : 'place'),
       resultToken: hex(r, 40), notesInternes: '', createdAt: ts(recu),
       customAnswers: {
-        q_tel:      { label: 'Numéro de téléphone', value: `06 ${String(10 + i * 7).padStart(2, '0')} ${String(20 + i * 3).padStart(2, '0')} ${String(30 + i).padStart(2, '0')} ${String(40 + i * 2).padStart(2, '0')}` },
-        q_fb:       { label: 'Quel est ton pseudo Facebook', value: `${prenom} ${nom}` },
-        q_parcours: { label: 'Parcours', value: parcours },
-        q_pole:     { label: 'Quel pôle t\'attire le plus ?', value: pole },
-        q_motiv:    { label: 'Pourquoi veux-tu coopter BDA ? T\'as des motivations en particulier ?', value: motiv },
-        ...(i % 4 === 0 ? { q_autre: { label: 'Autre chose ?', value: 'Dispo aussi le week-end pour les événements.' } } : {}),
+        q_tel:      { label: 'Phone number', value: `06 ${String(10 + i * 7).padStart(2, '0')} ${String(20 + i * 3).padStart(2, '0')} ${String(30 + i).padStart(2, '0')} ${String(40 + i * 2).padStart(2, '0')}` },
+        q_fb:       { label: 'Your Facebook name', value: `${prenom} ${nom}` },
+        q_parcours: { label: 'Programme', value: parcours },
+        q_pole:     { label: 'Which team appeals to you most?', value: pole },
+        q_motiv:    { label: 'Why do you want to join the BDA? Anything that motivates you in particular?', value: motiv },
+        ...(i % 4 === 0 ? { q_autre: { label: 'Anything else?', value: 'Also available at weekends for events.' } } : {}),
       },
     };
     b.candidates[id] = cand;
@@ -203,14 +203,14 @@ export function genererBase() {
       const partielle = i === 4;
       b.interview_evaluations[`${CAMP}_${id}`] = {
         campaignId: CAMP, organizationId: ORG, candidateId: id,
-        evaluatorName: 'Jury', createdAt: ts(fin), updatedAt: ts(fin),
+        evaluatorName: 'Panel', createdAt: ts(fin), updatedAt: ts(fin),
         criteria: {
           c_impression: note(), c_investi: note(),
           ...(partielle ? {} : { c_ambiance: note() }),
-          c_competences: ['Graphisme, réseaux sociaux.', 'Organisation, gestion de budget.', 'Technique son et lumière.',
-            'Photo et vidéo.', 'Contact facile, réseau dans les autres assos.'][i % 5],
-          c_events: ['Les soirées concerts, pour la scène ouverte.', 'Le festival de fin d\'année.', 'Les sorties théâtre et cinéma.',
-            'Les expos et le vernissage.', 'Un peu tout, surtout le gala.'][i % 5],
+          c_competences: ['Graphic design, social media.', 'Organisation, budgeting.', 'Sound and lighting.',
+            'Photography and video.', 'Easy-going, well connected with other associations.'][i % 5],
+          c_events: ['Concert nights, for the open mic.', 'The end-of-year festival.', 'Theatre and cinema outings.',
+            'Exhibitions and the private view.', 'A bit of everything, especially the gala.'][i % 5],
         },
         noteGlobale: 11 + Math.floor(r() * 8),
         decision: i === 3 ? 'reserve' : '',

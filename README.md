@@ -10,7 +10,7 @@ A solo project, from needs analysis to production (AI-assisted development), bui
 
 Interactive, no sign-up: one click on **“Enter as the board”**, or try the public flows (apply and book a slot, share your availability, public schedule). The example is based on the BDA, with made-up people and answers. Everything stays in your browser, and a button resets the demo.
 
-> The application's interface is in **French**: it was built for French-speaking student associations.
+> The production app is in **French** (it was built for French-speaking student associations). **The demo is in English**, translated at display time without touching the application code.
 >
 > This is a showcase repository: no Firebase configuration is included (see [Running the project](#running-the-project)). The demo swaps Firebase for a simulated backend without changing a single line of the application (see [How the demo works](#how-the-demo-works)).
 
@@ -108,6 +108,7 @@ Backlog prioritised after the campaign:
 The demo site is built from `public/` by `scripts/build-demo.mjs`, **without modifying the application**:
 - an *import map* points the Firebase modules to simulated versions (`demo/firebase/`): Firestore, Auth and Storage are emulated for the functions the app actually uses, with a database kept in the visitor's `localStorage`;
 - `demo/seed.js` generates a consistent dataset (association, staff, availability, candidates, interviews, evaluations), dated relative to the day of the visit;
+- `demo/i18n.js` translates the interface into English at display time: it replaces visible text and attributes (including content added later, through a `MutationObserver`) from a dictionary of about 1,000 strings and 120 templates with placeholders (`demo/i18n/en.json`), and switches dates to an English locale; the long help page is served as a fully translated copy (`demo/overrides/`);
 - paths are rewritten for GitHub Pages, which serves the site under `/cooptly/`.
 
 The `.github/workflows/demo.yml` workflow runs the tests, then builds and publishes the demo on every push to `main`.
@@ -168,7 +169,7 @@ public/
   js/                     shared logic (auth, panels, capacity, algorithm…)
 firestore.rules           security rules
 tests/                    rule and logic tests
-demo/                     simulated Firebase and demo data
+demo/                     simulated Firebase, demo data and English translation
 scripts/build-demo.mjs    builds the demo for GitHub Pages
 ```
 

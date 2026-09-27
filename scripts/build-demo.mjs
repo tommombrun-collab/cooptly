@@ -9,13 +9,16 @@
  *     modules factices de demo/firebase/ : l'appli croit parler à Firebase,
  *     elle parle à une base en mémoire (demo/store.js, demo/seed.js) ;
  *  2. le préchargement du vrai SDK est retiré (inutile, et c'était du réseau) ;
- *  3. le bandeau de démo (demo/banner.js) est ajouté ;
+ *  3. le bandeau de démo (demo/banner.js) et la traduction anglaise de
+ *     l'interface (demo/i18n.js + dictionnaire demo/i18n/en.json) sont ajoutés ;
+ *     les pages entièrement réécrites en anglais (demo/overrides/, ex. l'aide)
+ *     remplacent leur version française ;
  *  4. les chemins absolus (« /js/… », « /secge/… ») sont préfixés par la base,
  *     car un site de projet GitHub Pages est servi sous /<nom-du-dépôt>/.
  *
  * Résultat dans _site/, prêt à publier.
  */
-import { cpSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -28,6 +31,14 @@ rmSync(SORTIE, { recursive: true, force: true });
 mkdirSync(SORTIE, { recursive: true });
 cpSync(join(RACINE, 'public'), SORTIE, { recursive: true });
 cpSync(join(RACINE, 'demo'), join(SORTIE, 'demo'), { recursive: true });
+// Pages traduites en entier (documentation longue) : elles remplacent l'original.
+const OVERRIDES = join(RACINE, 'demo', 'overrides');
+if (existsSync(OVERRIDES)) cpSync(OVERRIDES, SORTIE, { recursive: true });
+rmSync(join(SORTIE, 'demo', 'overrides'), { recursive: true, force: true });
+// Dictionnaire servi comme script classique : il doit être prêt AVANT les
+// modules de l'appli, qui s'exécutent dès le chargement.
+const dico = JSON.parse(readFileSync(join(RACINE, 'demo', 'i18n', 'en.json'), 'utf8'));
+writeFileSync(join(SORTIE, 'demo', 'i18n-en.js'), `window.__I18N_EN = ${JSON.stringify(dico)};\n`);
 writeFileSync(join(SORTIE, '.nojekyll'), '');   // GitHub Pages : servir les fichiers tels quels
 
 // Entrées de premier niveau du site : seuls les chemins qui y mènent sont
@@ -61,7 +72,8 @@ for (const f of fichiers(SORTIE)) {
   if (f.endsWith('.html')) {
     s = s.replace(/\s*<link rel="modulepreload" href="https:\/\/www\.gstatic\.com\/[^"]+" \/>/g, '');
     // L'import map doit précéder tout script module : juste après <head>.
-    s = s.replace(/<head>/i, `<head>\n  <script type="importmap">\n${importMap}\n  </script>`);
+    s = s.replace(/<head>/i, `<head>\n  <script type="importmap">\n${importMap}\n  </script>\n  <script src="/demo/i18n-en.js"></script>\n  <script src="/demo/i18n.js"></script>`);
+    s = s.replace(/<html lang="fr">/i, '<html lang="en">');
     s = s.replace(/<\/body>/i, `  <script type="module" src="/demo/banner.js"></script>\n</body>`);
     pages++;
   }

@@ -59,7 +59,7 @@ function accueil() {
   bloc.className = 'demo-accueil';
   bloc.innerHTML = `
     <h2>Welcome to the Cooptly demo</h2>
-    <p>The <strong>Bureau des Arts (BDA)</strong>, emlyon's arts society, is recruiting. Inspired by a real campaign, with made-up people and answers. Everything stays in your browser. <em>The app itself is in French.</em></p>
+    <p>The <strong>Bureau des Arts (BDA)</strong>, emlyon's arts society, is recruiting. Inspired by a real campaign, with made-up people and answers. Everything stays in your browser.</p>
     <div class="demo-btns">
       <button type="button" class="btn btn-primary btn-sm" data-compte="bureau">Enter as the board</button>
       <button type="button" class="btn btn-ghost btn-sm" data-compte="admin">Platform admin</button>
