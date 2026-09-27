@@ -1,175 +1,177 @@
 # Cooptly
 
-[![Tests et démo](https://github.com/tommombrun-collab/cooptly/actions/workflows/demo.yml/badge.svg)](https://github.com/tommombrun-collab/cooptly/actions/workflows/demo.yml)
+[![Tests and demo](https://github.com/tommombrun-collab/cooptly/actions/workflows/demo.yml/badge.svg)](https://github.com/tommombrun-collab/cooptly/actions/workflows/demo.yml)
 
-Plateforme de **cooptation pour associations étudiantes** : les candidats postulent et réservent leur entretien en ligne, le staff dépose ses disponibilités, les jurys sont attribués automatiquement, et le bureau centralise évaluations, classement et délibérations.
+**Recruitment platform for student associations**: candidates apply and book their interview online, staff members share their availability, interview panels are assigned automatically, and the board centralises evaluations, ranking and final deliberations.
 
-Projet mené seul, de l'analyse du besoin à la mise en production (développement assisté par IA), pour les associations étudiantes d'emlyon business school. Mise en production pour la campagne de recrutement du Bureau des Arts (BDA) en septembre 2026.
+A solo project, from needs analysis to production (AI-assisted development), built for the student associations of emlyon business school. Put into production for the recruitment campaign of the Bureau des Arts (BDA, the school's arts society) in September 2026.
 
-### ▶ [Essayer la démo en ligne](https://tommombrun-collab.github.io/cooptly/)
+### ▶ [Try the live demo](https://tommombrun-collab.github.io/cooptly/)
 
-Démo interactive, sans inscription : un clic sur « Entrer en tant que bureau », ou les parcours publics (postuler, déposer ses dispos, planning). L'exemple reprend le BDA, avec des personnes et des réponses inventées. Tout reste dans le navigateur, un bouton remet la démo à zéro.
+Interactive, no sign-up: one click on **“Enter as the board”**, or try the public flows (apply and book a slot, share your availability, public schedule). The example is based on the BDA, with made-up people and answers. Everything stays in your browser, and a button resets the demo.
 
-> Dépôt vitrine : aucune configuration Firebase n'est fournie (voir [Lancer le projet](#lancer-le-projet)). La démo remplace Firebase par une base simulée, sans changer une ligne de l'application (voir [La démo](#la-démo)).
-
----
-
-## Ce que fait la plateforme
-
-**Côté candidat, sans compte**
-- Formulaire de candidature configurable par l'asso (questions réordonnables, types texte, choix, téléphone, date…).
-- Réservation d'un créneau dans un calendrier jours × heures, calculé en temps réel à partir des disponibilités du staff et des entretiens déjà pris.
-- Page de suivi personnelle (lien à jeton), changement de créneau sans tout ressaisir, ajout à l'agenda (Google / `.ics`).
-
-**Côté staff, sans compte**
-- Dépôt de ses disponibilités sur une grille heure par heure.
-- Évaluation des entretiens via un lien jury.
-- Planning public en lecture seule, copie en un clic de la liste des entretiens d'une journée.
-
-**Côté bureau**
-- Tableau de bord, liste des candidats, fiche d'évaluation avec score normalisé, classement et mode délibération plein écran (glisser-déposer, ligne de coupe).
-- Planning interne : carte de chaleur des disponibilités, placement manuel, entretiens simultanés côte à côte.
-- Paramètres : période, durée et pas des créneaux, pause entre entretiens, délai minimum de réservation, nombre de jurés, entretiens en groupe, codes d'invitation, liste du staff.
-- Corbeille : toute suppression reste récupérable 30 jours.
-
-**Multi-associations** : un compte peut appartenir à plusieurs bureaux ; chaque asso est strictement cloisonnée.
+> The application's interface is in **French**: it was built for French-speaking student associations.
+>
+> This is a showcase repository: no Firebase configuration is included (see [Running the project](#running-the-project)). The demo swaps Firebase for a simulated backend without changing a single line of the application (see [How the demo works](#how-the-demo-works)).
 
 ---
 
-## Démarche produit
+## What the platform does
 
-### Le problème
-Chaque rentrée, les bureaux d'associations recrutent des dizaines de « cooptants » en quelques semaines. Avant Cooptly, tout passait par des formulaires, des tableurs partagés et des messages de groupe : créneaux en double, jurys constitués à la main, notes éparpillées, délibérations sur un fichier que personne n'avait à jour.
+**For candidates, no account needed**
+- Application form configured by each association (reorderable questions; text, choice, phone, date fields…).
+- Slot booking in a days × hours calendar, computed live from staff availability and the interviews already booked.
+- Personal tracking page (token link), rescheduling without re-typing anything, add-to-calendar (Google / `.ics`).
 
-### Les utilisateurs
-| Qui | Ce qu'il lui faut | Contrainte |
-|---|---|---|
-| Le **cooptant** | Postuler et réserver un créneau en deux minutes, sur téléphone | Pas de compte à créer |
-| Le **staff** (jurés) | Dire quand il est libre, savoir quand il fait passer un entretien | Pas de compte non plus |
-| Le **bureau** (sec-gé, président) | Voir, planifier, évaluer, délibérer | Données de l'asso inaccessibles aux autres assos |
-| L'**admin plateforme** | Créer les assos, donner les accès | |
+**For staff, no account needed**
+- Hour-by-hour availability grid.
+- Interview evaluation through a panel link.
+- Read-only public schedule, and a one-click copy of a day's interviews to share with the team.
 
-Deux décisions en découlent : **tout ce qui est public se fait sans compte** (l'accès est porté par des liens et des jetons), et **la sécurité repose entièrement sur les règles Firestore**, puisque le client n'est pas digne de confiance.
+**For the board**
+- Dashboard, candidate list, evaluation form with a normalised score, ranking, and a full-screen deliberation mode (drag and drop, cut-off line).
+- Internal schedule: availability heatmap, manual placement, simultaneous interviews side by side.
+- Settings: interview period, slot length and step, break between interviews, minimum booking notice, panel size, group interviews, invite codes, staff list.
+- Recycle bin: every deletion can be undone for 30 days.
 
-### Méthode : des itérations courtes, pilotées par l'usage
-Pas de Scrum au sens strict (projet solo, sans équipe ni cérémonies), mais les mêmes principes :
-- **Incréments courts et livrables** : chaque changement est déployé en production dès qu'il est testé (131 versions en 15 semaines, du 15 juin au 27 septembre 2026).
-- **Backlog alimenté par les utilisateurs** : les membres du bureau remontent un problème (souvent une capture d'écran), il est priorisé selon son impact sur la campagne en cours.
-- **Cycles « audit puis correctifs »** en guise de rétrospectives : audit de sécurité, audit des algorithmes, audit des suppressions en cascade, chacun suivi d'un lot de corrections et de tests qui verrouillent le comportement.
-- **Définition du « fini »** : le correctif est testé (tests automatisés quand la logique s'y prête), déployé, et documenté (aide utilisateur et notes techniques).
-
-### Les itérations
-| Période | Objectif | Livré |
-|---|---|---|
-| **Juin** | MVP puis simplification | Formulaire public, réservation, planning. Puis simplification : l'espace « membre » est retiré au profit de liens publics sans compte, et la réservation directe devient le parcours principal à la place de l'algorithme de placement. |
-| **Juillet** | Qualité et expérience | Lots de sécurité (XSS, règles), correction d'un décalage de fuseau horaire, design system avec mode sombre, états de chargement et états vides, version mobile. |
-| **Fin août** | Fonctionnalités de rentrée | Deux modes de prise de rendez-vous, délibérations plein écran, entretiens à plusieurs, un compte pour plusieurs bureaux, cloisonnement strict des assos. |
-| **Début septembre** | Fiabilisation avant la campagne | 36 premiers tests des règles de sécurité, audit (12 bugs corrigés), suppressions en cascade, audit des algorithmes (5 bugs corrigés), continuité des jurés. |
-| **Semaine de campagne** (21-27 sept.) | Boucle de retours quotidienne | **37 versions en 7 jours**, chacune issue d'un retour du bureau pendant la campagne réelle (exemples ci-dessous). |
-
-### Exemples de retours traités pendant la campagne
-| Retour du bureau | Cause trouvée | Correction |
-|---|---|---|
-| « Pourquoi ce créneau affiche *Complet* ? » | Le calcul retirait deux jurés par entretien voisin, même quand ces jurés n'étaient pas disponibles sur ce créneau. | On retire les personnes réellement mobilisées. Test reproduisant le cas exact. |
-| « Impossible de supprimer un cooptant » | Une requête ne filtrait pas par association : refusée par les règles pour le bureau, acceptée pour l'admin, d'où un bug invisible en test manuel. | Filtre ajouté partout, test qui rejoue la suppression avec un compte bureau. |
-| « Des gens apparaissent en double dans le staff » | Un membre invité par email puis connecté a deux fiches. | Regroupement par personne, et toute action touche toutes ses fiches. |
-| « Le lien du formulaire ne marche pas » | Le lien avait été copié avec la suite du message (« %0A%0AViens… »). | Tout ce qui suit l'identifiant est ignoré, sur toutes les pages. |
-| « L'export CSV n'a aucun sens » | Intitulés non protégés (une virgule décalait les colonnes), séparateur inadapté à Excel en français. | Export réécrit, colonnes vides retirées. |
-| « Deux entretiens se superposent sur le planning » | Chaque carte prenait toute la hauteur de sa case. | Entretiens simultanés côte à côte, colonne du jour élargie. |
-
-### Qualité en continu
-- **171 tests automatisés** dans la version en production (164 dans cette vitrine), lancés à chaque envoi par l'intégration continue : règles de sécurité sur l'émulateur Firestore, et logique pure (jurés, capacité, score, questions).
-- **Chaque bug de campagne devient un test** : le cas réel est rejoué, pour qu'il ne revienne pas.
-- **Filets de sécurité en production** : corbeille de 30 jours sur toute suppression, protection contre la suppression de la base.
-
-### Et ensuite
-Backlog priorisé à l'issue de la campagne :
-1. Sauvegardes automatiques et restauration à une date donnée (nécessite l'offre payante Firebase).
-2. Notifications (confirmation et rappel d'entretien par email), bloquées aujourd'hui par le filtrage des emails de l'école.
-3. Tests de bout en bout du parcours candidat dans un vrai navigateur.
-4. Statistiques de campagne pour le bureau (taux de remplissage, charge des jurés).
+**Multi-association**: one account can belong to several boards, and each association's data is strictly isolated.
 
 ---
 
-## Points techniques notables
+## Product approach
 
-- **Sécurité par les règles Firestore** (`firestore.rules`) : cloisonnement par association (`ownsOrg`, `isSecge`), écritures anonymes *bornées* plutôt qu'interdites (un candidat peut faire avancer son statut, jamais le faire reculer ni l'inventer), création de rôle conditionnée à un justificatif vérifiable (code d'invitation ou promotion d'un rattachement existant).
-- **Attribution des jurés** (`public/js/jury.js`) : exclut les jurés déjà pris sur un créneau qui chevauche (pause comprise), privilégie la continuité (ceux qui viennent de passer), équilibre la charge et impose une relève au-delà d'un nombre d'entretiens d'affilée.
-- **Capacité des créneaux** (`public/js/capacite.js`) : un juré n'est compté libre que s'il l'est sur toute la durée de l'entretien ; un créneau n'est « complet » qu'en retirant les personnes réellement mobilisées, pas un forfait par entretien.
-- **Placement automatique** (`public/js/algo.js`) : greedy first-fit chronologique, idempotent, qui tient compte des entretiens déjà réalisés.
-- **Opérations atomiques** : mise en corbeille et suppressions en un seul lot Firestore (tout ou rien), restauration limitée aux collections prévues.
-- **Performance** : lectures indépendantes parallélisées, préchargement du SDK, barre de navigation posée avant toute lecture réseau.
-- **Accessibilité** : navigation clavier, `aria-*`, contrastes AA, thème clair et sombre.
+### The problem
+Every September, association boards recruit dozens of new members in a few weeks. Before Cooptly, everything went through online forms, shared spreadsheets and group chats: double-booked slots, panels put together by hand, scattered notes, and deliberations run on a file nobody had up to date.
 
-## La démo
+### The users
+| Who | What they need | Constraint |
+|---|---|---|
+| **Candidate** | Apply and book a slot in two minutes, on a phone | No account to create |
+| **Staff member** (interviewer) | Say when they're free, know when they're interviewing | No account either |
+| **Board** (secretary general, president) | See, schedule, evaluate, deliberate | Other associations must never see their data |
+| **Platform admin** | Create associations, grant access | |
 
-Le site de démo est construit à partir de `public/` par `scripts/build-demo.mjs`, **sans modifier l'application** :
-- une *import map* redirige les modules Firebase vers des versions simulées (`demo/firebase/`) : Firestore, Auth et Storage imités sur les fonctions que l'appli utilise, avec une base gardée dans le `localStorage` du visiteur ;
-- `demo/seed.js` génère un jeu de données cohérent (asso, staff, disponibilités, cooptants, entretiens, évaluations), daté à partir du jour de la visite ;
-- les chemins sont adaptés à GitHub Pages, qui sert le site sous `/cooptly/`.
+Two design decisions follow: **everything public works without an account** (access is carried by links and tokens), and **security relies entirely on Firestore security rules**, since the client can't be trusted.
 
-Le workflow `.github/workflows/demo.yml` lance les tests, puis construit et publie la démo à chaque envoi sur `main`.
+### Method: short iterations, driven by real usage
+Not Scrum by the book (a solo project, no team and no ceremonies), but the same principles:
+- **Short, shippable increments**: every change goes to production as soon as it's tested (131 releases in 15 weeks, from 15 June to 27 September 2026).
+- **A backlog fed by users**: board members report an issue (often with a screenshot), and it's prioritised by its impact on the ongoing campaign.
+- **“Audit then fix” cycles** as retrospectives: a security audit, an algorithm audit and a cascading-deletion audit, each followed by a batch of fixes and tests that lock the behaviour in.
+- **Definition of done**: the fix is tested (automated tests wherever the logic allows it), deployed, and documented (user help page and technical notes).
+
+### Iterations
+| Period | Goal | Delivered |
+|---|---|---|
+| **June** | MVP, then simplification | Public application form, booking, schedule. Then simplification: the “member” area is removed in favour of public, account-free links, and direct booking becomes the main flow instead of the placement algorithm. |
+| **July** | Quality and user experience | Security fixes (XSS, access rules), a one-day timezone shift fixed, a design system with dark mode, loading and empty states, mobile layout. |
+| **Late August** | Features for the new school year | Two booking modes, full-screen deliberations, group interviews, one account across several boards, strict isolation between associations. |
+| **Early September** | Hardening before the campaign | First 36 security-rule tests, an audit (12 bugs fixed), cascading deletions, an algorithm audit (5 bugs fixed), interviewer continuity. |
+| **Campaign week** (21–27 Sept.) | A daily feedback loop | **37 releases in 7 days**, each one triggered by feedback from the board during the live campaign (examples below). |
+
+### Feedback handled during the campaign
+| What the board reported | Root cause | Fix |
+|---|---|---|
+| “Why does this slot say *Full*?” | The calculation removed two interviewers for every nearby interview, even when those interviewers weren't available for that slot. | Only the people actually busy are removed. A test replays the exact case. |
+| “I can't delete a candidate” | A query didn't filter by association: denied by the security rules for board members but allowed for the admin, so the bug never showed up in manual testing. | Filter added everywhere, plus a test that replays the deletion with a board account. |
+| “Some people show up twice in the staff list” | A member invited by email who then signs in ends up with two records. | Records are grouped per person, and every action applies to all of them. |
+| “The form link doesn't work” | The link had been copied along with the rest of the message (`%0A%0AViens…`). | Anything after the identifier is ignored, on every page. |
+| “The CSV export makes no sense” | Unquoted headers (a comma shifted every column), and a separator Excel doesn't expect in French locales. | Export rewritten, empty columns removed. |
+| “Two interviews overlap on the schedule” | Each card took the full height of its cell. | Simultaneous interviews side by side, with a wider column for that day. |
+
+### Continuous quality
+- **171 automated tests** in the production version (164 in this showcase), run on every push by continuous integration: security rules on the Firestore emulator, plus pure logic (interviewer assignment, slot capacity, scoring, form questions).
+- **Every campaign bug becomes a test**: the real case is replayed so it can't come back.
+- **Safety nets in production**: a 30-day recycle bin on every deletion, and deletion protection on the database.
+
+### Next steps
+Backlog prioritised after the campaign:
+1. Automatic backups and point-in-time restore (requires Firebase's paid plan).
+2. Notifications (interview confirmation and reminder by email), currently blocked by the school's email filtering.
+3. End-to-end tests of the candidate flow in a real browser.
+4. Campaign statistics for the board (slot fill rate, interviewer workload).
+
+---
+
+## Technical highlights
+
+- **Security through Firestore rules** (`firestore.rules`): isolation per association (`ownsOrg`, `isSecge`); anonymous writes that are *bounded* rather than forbidden (a candidate can move their status forward, never back, and can't invent one); role creation that requires verifiable proof (an invite code, or the promotion of an existing membership).
+- **Interviewer assignment** (`public/js/jury.js`): excludes interviewers already booked on an overlapping slot (breaks included), favours continuity (those who just finished an interview), balances the workload, and forces a hand-over after a set number of back-to-back interviews.
+- **Slot capacity** (`public/js/capacite.js`): an interviewer only counts as free if they are free for the whole interview; a slot is only “full” once the people actually busy are removed, not a flat amount per interview.
+- **Automatic placement** (`public/js/algo.js`): chronological greedy first-fit, idempotent, and aware of interviews that already took place.
+- **Atomic operations**: moving to the recycle bin and deleting happen in a single Firestore batch (all or nothing); restoring is limited to the expected collections.
+- **Performance**: independent reads run in parallel, the SDK is preloaded, and the navigation bar is rendered before any network call.
+- **Accessibility**: keyboard navigation, `aria-*` attributes, WCAG AA contrast, light and dark themes.
+
+## How the demo works
+
+The demo site is built from `public/` by `scripts/build-demo.mjs`, **without modifying the application**:
+- an *import map* points the Firebase modules to simulated versions (`demo/firebase/`): Firestore, Auth and Storage are emulated for the functions the app actually uses, with a database kept in the visitor's `localStorage`;
+- `demo/seed.js` generates a consistent dataset (association, staff, availability, candidates, interviews, evaluations), dated relative to the day of the visit;
+- paths are rewritten for GitHub Pages, which serves the site under `/cooptly/`.
+
+The `.github/workflows/demo.yml` workflow runs the tests, then builds and publishes the demo on every push to `main`.
 
 ```bash
-node scripts/build-demo.mjs /cooptly    # résultat dans _site/
+node scripts/build-demo.mjs /cooptly    # output in _site/
 ```
 
 ## Stack
 
-- HTML5 + JavaScript (modules ES), sans framework ni étape de build pour l'application.
-- Firebase : Hosting, Firestore, Authentication (SDK v10 via CDN).
-- Design system maison (variables CSS, `public/css/main.css`).
+- HTML5 + JavaScript (ES modules), no framework and no build step for the application.
+- Firebase: Hosting, Firestore, Authentication (SDK v10 from a CDN).
+- In-house design system (CSS custom properties, `public/css/main.css`).
 
 ## Tests
 
-164 tests, lancés avec `node:test`, à chaque envoi par l'intégration continue :
-- **Règles de sécurité** sur l'émulateur Firestore (`@firebase/rules-unit-testing`) : cloisonnement inter-associations, parcours publics sans compte, cascades de suppression, corbeille.
-- **Logique pure** : attribution des jurés, capacité des créneaux, score et classement, ordre des questions, paramètres d'URL.
+164 tests using `node:test`, run on every push by continuous integration:
+- **Security rules** on the Firestore emulator (`@firebase/rules-unit-testing`): isolation between associations, account-free public flows, cascading deletions, recycle bin.
+- **Pure logic**: interviewer assignment, slot capacity, scoring and ranking, question order, URL parameters.
 
 ```bash
 cd tests
 npm install
-npm test          # démarre l'émulateur Firestore et lance les tests en série
+npm test          # starts the Firestore emulator and runs the tests serially
 ```
 
-Prérequis : Node 22+, Java (pour l'émulateur) et `firebase-tools`.
+Requirements: Node 22+, Java (for the emulator) and `firebase-tools`.
 
 ---
 
-## Lancer le projet
+## Running the project
 
-1. Créer un projet Firebase avec **Hosting**, **Firestore** et **Authentication** (email et mot de passe).
-2. Renseigner la configuration de l'appli web dans `public/js/firebase-config.js`.
-3. Déployer :
+1. Create a Firebase project with **Hosting**, **Firestore** and **Authentication** (email and password).
+2. Paste the web app configuration into `public/js/firebase-config.js`.
+3. Deploy:
 
 ```bash
-firebase use --add            # choisir le projet
-firebase deploy               # hosting + règles + index
+firebase use --add            # pick the project
+firebase deploy               # hosting + rules + indexes
 ```
 
-4. Créer un premier compte, puis l'ajouter dans la collection `platform_admins` pour accéder à l'administration.
+4. Create a first account, then add it to the `platform_admins` collection to access the admin area.
 
-## Structure
+## Project structure
 
 ```
 public/
-  index.html              connexion / inscription
-  postuler.html           formulaire de candidature et réservation   (public)
-  dispos-publique.html    disponibilités du staff                    (public)
-  evaluer-publique.html   évaluation par le jury                     (public)
-  planning-public.html    planning en lecture seule                  (public)
-  candidat.html           suivi de candidature                       (public)
-  planning.html           planning interne du bureau
-  parametres.html         paramètres de l'association
-  secge/                  tableau de bord, candidats, fiche d'évaluation
-  admin/                  administration de la plateforme
-  js/                     logique partagée (auth, jurys, capacité, algorithme…)
-firestore.rules           règles de sécurité
-tests/                    tests des règles et de la logique
-demo/                     Firebase simulé et données de la démo
-scripts/build-demo.mjs    construction de la démo pour GitHub Pages
+  index.html              sign in / sign up
+  postuler.html           application form and booking          (public)
+  dispos-publique.html    staff availability                    (public)
+  evaluer-publique.html   panel evaluation                      (public)
+  planning-public.html    read-only schedule                    (public)
+  candidat.html           application tracking                  (public)
+  planning.html           internal schedule for the board
+  parametres.html         association settings
+  secge/                  dashboard, candidates, evaluation form
+  admin/                  platform administration
+  js/                     shared logic (auth, panels, capacity, algorithm…)
+firestore.rules           security rules
+tests/                    rule and logic tests
+demo/                     simulated Firebase and demo data
+scripts/build-demo.mjs    builds the demo for GitHub Pages
 ```
 
-## Auteur
+## Author
 
 Tom Mombrun

@@ -1,6 +1,6 @@
 /**
  * Interface propre à la démo, injectée dans chaque page par build-demo.mjs :
- *  - une pastille « Démo · données fictives » avec « Réinitialiser » ;
+ *  - une pastille « Demo · sample data » avec « Reset demo » ;
  *  - sur la page de connexion, un encadré pour entrer en un clic (bureau ou
  *    admin) et des raccourcis vers les parcours publics.
  */
@@ -33,7 +33,7 @@ function pastille() {
   const el = document.createElement('div');
   el.className = 'demo-pastille';
   el.setAttribute('role', 'status');
-  el.innerHTML = `<span><b>Démo</b> · données fictives</span><button type="button">Réinitialiser</button>`;
+  el.innerHTML = `<span><b>Demo</b> · sample data</span><button type="button">Reset demo</button>`;
   el.querySelector('button').addEventListener('click', () => {
     reinitialiser();
     location.href = lien('/index.html');
@@ -58,16 +58,16 @@ function accueil() {
   const bloc = document.createElement('section');
   bloc.className = 'demo-accueil';
   bloc.innerHTML = `
-    <h2>Bienvenue sur la démo de Cooptly</h2>
-    <p>Le <strong>Bureau des Arts (BDA)</strong> recrute : exemple inspiré d'une vraie campagne, avec des personnes et des réponses inventées. Toutes les données sont inventées et restent dans ton navigateur.</p>
+    <h2>Welcome to the Cooptly demo</h2>
+    <p>The <strong>Bureau des Arts (BDA)</strong>, emlyon's arts society, is recruiting. Inspired by a real campaign, with made-up people and answers. Everything stays in your browser. <em>The app itself is in French.</em></p>
     <div class="demo-btns">
-      <button type="button" class="btn btn-primary btn-sm" data-compte="bureau">Entrer en tant que bureau</button>
-      <button type="button" class="btn btn-ghost btn-sm" data-compte="admin">Admin de la plateforme</button>
+      <button type="button" class="btn btn-primary btn-sm" data-compte="bureau">Enter as the board</button>
+      <button type="button" class="btn btn-ghost btn-sm" data-compte="admin">Platform admin</button>
     </div>
     <div class="demo-liens">
-      <a href="${lien('/postuler.html?org=bda')}">Postuler et réserver un entretien (cooptant) →</a>
-      <a href="${lien('/dispos-publique.html?org=bda')}">Déposer ses disponibilités (staff) →</a>
-      <a href="${lien('/planning-public.html?org=bda')}">Voir le planning public →</a>
+      <a href="${lien('/postuler.html?org=bda')}">Apply and book an interview (candidate) →</a>
+      <a href="${lien('/dispos-publique.html?org=bda')}">Share your availability (staff) →</a>
+      <a href="${lien('/planning-public.html?org=bda')}">See the public schedule →</a>
     </div>`;
   bloc.querySelectorAll('[data-compte]').forEach(b =>
     b.addEventListener('click', () => entrer(DEMO_COMPTES[b.dataset.compte])));
