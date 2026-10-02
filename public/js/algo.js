@@ -1,7 +1,7 @@
 import { getStaffAvailabilities, getRoomsByOrg, getMembersByOrg, db } from './db.js';
 import { getCampaignDays, localDateStr, campaignConfig } from './utils.js';
 import { choisirJury } from './jury.js';
-import { buildCapacityMap, capaciteToutLeMonde, consommerStaff, slotKey } from './capacite.js';
+import { buildCapacityMap, capaciteToutLeMonde, consommerStaff, slotKey, pleinEnParallele, parleAnglais, enSecours } from './capacite.js';
 import {
   collection, query, where, getDocs, writeBatch, doc, getDoc, serverTimestamp
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
@@ -116,6 +116,19 @@ export async function runPlacementAlgorithm(campaignId, onProgress = () => {}) {
   const assignments = [];
   const failReasons = [];
   let   failed      = 0;
+  // Limite d'entretiens en même temps (`maxEntretiensParallele`, 0 = aucune) :
+  // entretiens déjà placés par ce passage, rangés par jour.
+  const placesParJour = {};
+  const jourEtMinutes = iso => {
+    const d = new Date(iso);
+    const jour = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    return { jour, debut: d.getHours() * 60 + d.getMinutes() };
+  };
+
+  // Entretiens en anglais (si l'asso l'exige) : jurés anglophones seulement.
+  const exigerAnglais = !!cfg.jurysAnglaisRequis;
+  const anglophones = new Set(staffDispos.filter(parleAnglais).map(sa => sa.userId));
+  const pourCandidat = (c, ids) => (exigerAnglais && c.langue === 'en') ? ids.filter(id => anglophones.has(id)) : ids;
 
   for (const { candidate, slots } of ranked) {
     if (!slots.length) {
@@ -126,17 +139,20 @@ export async function runPlacementAlgorithm(campaignId, onProgress = () => {}) {
     let placed = false;
     for (const slotISO of slots) {
       const slot = capacityMap[slotISO];
-      if (slot && slot.restant >= nbJurys) {
-        assignments.push({ candidate, slotISO, slot });
-        // Un entretien mobilise `nbJurys` personnes sur TOUS les créneaux qu'il
-        // occupe, battement compris. Avant, le créneau débordé était mis à zéro
-        // en entier : avec six staffeurs et deux jurés requis, un entretien
-        // d'1 h 30 supprimait trois entretiens possibles à l'heure suivante au
-        // lieu d'un seul.
-        consommerStaff(capacityMap, slotISO, dureeMinutes + battement, nbJurys);
-        placed = true;
-        break;
-      }
+      if (!slot || slot.restant < nbJurys) continue;
+      if (pourCandidat(candidate, slot.staffIds).length < nbJurys) continue;   // pas assez d'anglophones
+      const { jour, debut } = jourEtMinutes(slotISO);
+      if (pleinEnParallele(placesParJour[jour] || [], debut, debut + dureeMinutes, cfg.maxEntretiensParallele)) continue;
+      (placesParJour[jour] ||= []).push({ startMin: debut, endMin: debut + dureeMinutes });
+      assignments.push({ candidate, slotISO, slot });
+      // Un entretien mobilise `nbJurys` personnes sur TOUS les créneaux qu'il
+      // occupe, battement compris. Avant, le créneau débordé était mis à zéro
+      // en entier : avec six staffeurs et deux jurés requis, un entretien
+      // d'1 h 30 supprimait trois entretiens possibles à l'heure suivante au
+      // lieu d'un seul.
+      consommerStaff(capacityMap, slotISO, dureeMinutes + battement, nbJurys);
+      placed = true;
+      break;
     }
     if (!placed) {
       failed++;
@@ -181,6 +197,8 @@ export async function runPlacementAlgorithm(campaignId, onProgress = () => {}) {
     onProgress(`${posesCetteFois.length} entretien(s) déjà réalisé(s) pris en compte.`);
   }
 
+  // 1er passage, chronologique : le jury minimum de chaque entretien.
+  const aCreer = [];
   for (const [slotISO, { slot, items }] of creneauxTries) {
     const slotDate = new Date(slotISO);
     const endDate  = new Date(slotDate.getTime() + dureeMinutes * 60 * 1000);
@@ -188,9 +206,14 @@ export async function runPlacementAlgorithm(campaignId, onProgress = () => {}) {
     // Une salle par entretien simultané sur ce créneau
     let roomIndex  = 0;
 
+    // Dispos « si vraiment pas le choix » sur ce créneau : en dernier recours.
+    const { jour: jourSlot, debut: debutSlot } = jourEtMinutes(slotISO);
+    const secours = staffDispos.filter(sa => enSecours(sa, jourSlot, debutSlot, dureeMinutes)).map(sa => sa.userId);
+
     for (const { candidate } of items) {
       const jurors = choisirJury({
-        disponibles:  slot.staffIds,
+        secours,
+        disponibles:  pourCandidat(candidate, slot.staffIds),
         interviews:   posesCetteFois,
         debut:        slotDate,
         fin:          endDate,
@@ -198,33 +221,62 @@ export async function runPlacementAlgorithm(campaignId, onProgress = () => {}) {
         maxAffiles:   cfg.maxEntretiensAffiles,
         battementMin: battement,
       });
-      posesCetteFois.push({
+      const pose = {
         datetimeStart: slotDate, datetimeEnd: endDate,
         jury1Id: jurors[0] || null, jury2Id: jurors[1] || null, jury3Id: jurors[2] || null,
-      });
-
-      const room = rooms[roomIndex++] || null;
-
-      batch.set(doc(collection(db, 'interviews')), {
-        campaignId,
-        organizationId: orgId,
-        candidateId:    candidate.id,
-        datetimeStart:  slotDate,
-        datetimeEnd:    endDate,
-        statut:         'planifie',
-        selfBooked:     false,        // placé par le bureau, pas réservé par le cooptant
-        jury1Id:        jurors[0] || null,
-        jury2Id:        jurors[1] || null,
-        jury3Id:        jurors[2] || null,
-        roomId:         room?.id   || null,
-        salleNom:       room?.code || null,
-        createdAt:      serverTimestamp(),
-      });
-      batch.update(doc(db, 'candidates', candidate.id), { statut: 'place' });
-      batchOps += 2;
-
-      if (batchOps >= 490) await flushBatch();
+      };
+      posesCetteFois.push(pose);
+      aCreer.push({ candidate, slotDate, endDate, pose, staffIds: slot.staffIds, room: rooms[roomIndex++] || null });
     }
+  }
+
+  // 2e passage : jurés en plus (`nbJurysMax`), une fois TOUS les entretiens
+  // pourvus de leur minimum. Les ajouter au fil du 1er passage aurait pu
+  // prendre à un cooptant suivant la personne qui lui manquait. Ici, on ne
+  // prend que quelqu'un de libre sur tout le créneau, battement compris.
+  const nbMax = Math.max(nbJurys, Math.min(3, parseInt(cfg.nbJurysMax, 10) || nbJurys));
+  if (nbMax > nbJurys) {
+    const marge = battement * 60 * 1000;
+    let ajoutes = 0;
+    for (const e of aCreer) {
+      const deja = [e.pose.jury1Id, e.pose.jury2Id, e.pose.jury3Id].filter(Boolean);
+      if (deja.length < nbJurys || deja.length >= nbMax) continue;   // jury incomplet : rien à ajouter
+      const autres = posesCetteFois.filter(p => p !== e.pose
+        && p.datetimeStart.getTime() < e.endDate.getTime() + marge
+        && p.datetimeEnd.getTime() + marge > e.slotDate.getTime());
+      const pris = new Set(autres.flatMap(p => [p.jury1Id, p.jury2Id, p.jury3Id]).filter(Boolean));
+      const candidats = pourCandidat(e.candidate, e.staffIds).filter(id => id && !deja.includes(id) && !pris.has(id));
+      const extra = choisirJury({
+        disponibles: candidats, interviews: posesCetteFois, debut: e.slotDate, fin: e.endDate,
+        nbJurys: nbMax - deja.length, maxAffiles: cfg.maxEntretiensAffiles, battementMin: battement,
+      });
+      const jury = [...deja, ...extra].slice(0, nbMax);
+      e.pose.jury1Id = jury[0] || null; e.pose.jury2Id = jury[1] || null; e.pose.jury3Id = jury[2] || null;
+      ajoutes += jury.length - deja.length;
+    }
+    if (ajoutes) onProgress(`${ajoutes} juré(s) en plus placé(s) là où quelqu'un était libre.`);
+  }
+
+  for (const { candidate, slotDate, endDate, pose, room } of aCreer) {
+    batch.set(doc(collection(db, 'interviews')), {
+      campaignId,
+      organizationId: orgId,
+      candidateId:    candidate.id,
+      datetimeStart:  slotDate,
+      datetimeEnd:    endDate,
+      statut:         'planifie',
+      selfBooked:     false,        // placé par le bureau, pas réservé par le cooptant
+      jury1Id:        pose.jury1Id,
+      jury2Id:        pose.jury2Id,
+      jury3Id:        pose.jury3Id,
+      roomId:         room?.id   || null,
+      salleNom:       room?.code || null,
+      createdAt:      serverTimestamp(),
+    });
+    batch.update(doc(db, 'candidates', candidate.id), { statut: 'place' });
+    batchOps += 2;
+
+    if (batchOps >= 490) await flushBatch();
   }
 
   await flushBatch();

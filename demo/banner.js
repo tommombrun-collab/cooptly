@@ -65,7 +65,7 @@ function accueil() {
       <button type="button" class="btn btn-ghost btn-sm" data-compte="admin">Platform admin</button>
     </div>
     <div class="demo-liens">
-      <a href="${lien('/postuler.html?org=bda')}">Apply and book an interview (candidate) →</a>
+      <a href="${lien('/postuler.html?org=bda&lang=en')}">Apply and book an interview (candidate) →</a>
       <a href="${lien('/dispos-publique.html?org=bda')}">Share your availability (staff) →</a>
       <a href="${lien('/planning-public.html?org=bda')}">See the public schedule →</a>
     </div>`;

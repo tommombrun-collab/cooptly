@@ -95,6 +95,13 @@
     /* ── Détail d'un créneau de la heatmap ───────────────────────── */
     /* La heatmap ne donnait qu'un compte (« 3/16 ») : savoir QUI est dispo
        imposait de survoler chaque case une par une pour lire l'infobulle. */
+    /* Dispos d'une personne (sélecteur de l'onglet Dispos membres) */
+    .dispos-perso-barre { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:10px; }
+    .dp-cell { text-align:center; font-size:12px; font-weight:600; min-width:76px; padding:6px 4px; color:var(--text-muted); }
+    .dp-cell.dp-dispo   { background:var(--green-light); color:var(--green); }
+    .dp-cell.dp-secours { background:var(--orange-light); color:var(--orange); }
+    #dispos-table.dp-edition .dp-cell { cursor:pointer; user-select:none; }
+    #dispos-table.dp-edition .dp-cell:hover { outline:2px solid var(--indigo); outline-offset:-2px; }
     .dispo-cell-clickable { cursor: pointer; transition: outline-color .12s; outline: 2px solid transparent; outline-offset: -2px; }
     .dispo-cell-clickable:hover { outline-color: var(--indigo); }
     .dispo-person {
@@ -215,8 +222,8 @@
       <p id="campaign-dates-hint" style="color:var(--text-muted);font-size:14px;"></p>
     </div>
     <div class="flex-gap">
-      <select class="form-select" id="campaign-select" style="width:220px;font-size:14px;">
-        <option value="">Sélectionner une campagne</option>
+      <select class="form-select" id="campaign-select" style="display:none;width:220px;font-size:14px;">
+        <option value=""></option>
       </select>
     </div>
   </div>
@@ -240,6 +247,7 @@
         </div>
       </div>
       <div class="flex-gap">
+        <input type="search" class="form-input" id="planning-recherche" placeholder="🔍 Rechercher un cooptant, un juré, une salle" aria-label="Rechercher dans le planning" style="width:280px;font-size:13px;">
         <select class="form-select" id="planning-filter" style="max-width:210px;font-size:13px;">
           <option value="">👤 Tout le monde</option>
         </select>
@@ -272,6 +280,18 @@
     <div class="grid-wrap" id="grid-wrap" style="display:none;">
       <table class="planning-grid" id="planning-table"></table>
     </div>
+  
+    <!-- Nombre d'entretiens par staffeur : pour répartir la charge. -->
+    <div class="card mt-24" id="charge-staff">
+      <div class="flex-between mb-16" style="gap:10px;flex-wrap:wrap;">
+        <h2 style="margin:0;">📊 Entretiens par staffeur</h2>
+        <span class="text-sm text-muted">Un entretien à deux compte pour un.</span>
+      </div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Staffeur</th><th style="text-align:right;">Passés</th><th style="text-align:right;">À venir</th><th style="text-align:right;">Total</th></tr></thead>
+        <tbody id="charge-staff-corps"></tbody>
+      </table></div>
+    </div>
   </div>
 
   <!-- ── Tab: Allocation manuelle ─────────────────────────────── -->
@@ -279,7 +299,7 @@
 
     <div id="alloc-no-campaign" class="empty-state">
       <div class="empty-state-icon">📋</div>
-      <p>Sélectionne une campagne pour gérer les allocations.</p>
+      <p>Chargement…</p>
     </div>
 
     <div id="alloc-content" style="display:none;">
@@ -398,7 +418,7 @@
   <div class="tab-panel" id="tab-dispos">
     <div id="dispos-no-campaign" class="empty-state">
       <div class="empty-state-icon">📅</div>
-      <p>Sélectionne une campagne pour voir les disponibilités.</p>
+      <p>Chargement…</p>
     </div>
     <div id="dispos-content" style="display:none;">
       <!-- Légende + meilleurs créneaux -->
@@ -423,7 +443,16 @@
             Entretien planifié
           </div>
         </div>
-        <div style="margin-top:10px;">
+        <div class="dispos-perso-barre">
+          <select class="form-select" id="dispos-personne" aria-label="Voir les dispos d'une personne" style="max-width:260px;font-size:13px;">
+            <option value="">👥 Tout le monde</option>
+          </select>
+          <button type="button" class="btn btn-secondary btn-sm" id="dispos-modifier" style="display:none;">✏️ Modifier ses dispos</button>
+          <button type="button" class="btn btn-primary btn-sm" id="dispos-enregistrer" style="display:none;">Enregistrer</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="dispos-annuler" style="display:none;">Annuler</button>
+          <span id="dispos-perso-info" class="text-sm text-muted"></span>
+        </div>
+        <div style="margin-top:10px;" id="dispos-best-zone">
           <span style="font-size:12px;font-weight:600;color:var(--text-muted);">Meilleurs créneaux : </span>
           <span id="dispos-best" style="display:inline-flex;gap:6px;flex-wrap:wrap;"></span>
         </div>
@@ -475,6 +504,11 @@
           <datalist id="iv-room-list"></datalist>
         </div>
       </div>
+      <!-- Langue de l'entretien : posée par le formulaire (FR / EN), corrigeable ici. -->
+      <label class="checkbox-wrap" id="iv-anglais-wrap" style="cursor:pointer;">
+        <input type="checkbox" id="iv-anglais" />
+        <span>🇬🇧 Entretien en anglais</span>
+      </label>
       <!-- Réponses au formulaire de cooptation -->
       <div id="iv-reponses-wrap" style="display:none;">
         <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Réponses au formulaire</div>
@@ -510,13 +544,17 @@ import { getCampaignsByOrg, getOrCreateOrgCampaign, getInterviewsByCampaign, get
 import { getFirestore, collection, query, where, getDocs, doc, addDoc,
   updateDoc, deleteDoc, serverTimestamp, Timestamp }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-import { showToast, getCampaignDays, getTimeSlots, esc, localDateStr, campaignConfig, confirmDialog, telephoneCooptant, nomCourt,
-  prenomInitiale, reponsesOrdonnees } from '/js/utils.js';
-import { heureFinValide, pasCreneauxValide, pasPlanning, ligneDuPlanning } from '/js/capacite.js';
+import { showToast, getCampaignDays, getPlanningDays, getTimeSlots, esc, localDateStr, campaignConfig, confirmDialog, telephoneCooptant, nomCourt,
+  prenomInitiale, reponsesOrdonnees, paramLien, pourRecherche } from '/js/utils.js';
+import { heureFinValide, heuresGrille, pasCreneauxValide, pasPlanning, ligneDuPlanning, parleAnglais, enSecours } from '/js/capacite.js';
+import { mettreEnCorbeille } from '/js/corbeille.js';
+import { entretiensParStaffeur } from '/js/agenda.js';
+import { chargerNotes, migrerNotes, texteNote, enregistrerNote, idNoteEntretien, idNoteCooptant } from '/js/notes.js';
 
 const db = getFirestore(app);
 let user, currentOrg, currentCampaignObj;
 let interviews = [], candidates = [], rooms = [], members = [], staffAvailabilities = [];
+let notesMap = new Map();   // notes internes, privées au bureau (js/notes.js)
 
 /** Clé de comparaison d'un nom : minuscules, espaces normalisés. */
 const normNom = s => (s || '').trim().toLowerCase().replace(/\s+/g, ' ');
@@ -636,6 +674,19 @@ async function init() {
   // l'identité de référence de chaque personne.
   if (campagne) await loadCampaignData(campagne.id, campagne);
 
+  // Arrivée par le ✏️ du tableau de bord (?allouer=<id du cooptant>) : on
+  // ouvre directement l'allocation de ce cooptant, pour changer son créneau.
+  const aAllouer = paramLien('allouer');
+  if (aAllouer) {
+    const cand = candidates.find(c => c.id === aAllouer);
+    if (cand) {
+      document.querySelector('.tab-btn[data-tab="allocation"]').click();
+      openAllocPanel(cand);
+    } else {
+      showToast('Cooptant introuvable dans ce planning.', 'error');
+    }
+  }
+
   // Allocation search/filter
   document.getElementById('alloc-search').addEventListener('input', renderAllocCandList);
   document.getElementById('alloc-filter').addEventListener('change', renderAllocCandList);
@@ -656,13 +707,22 @@ async function loadCampaignData(campaignId, dejaCharge = null) {
   // Campagne, dispos, entretiens et cooptants EN MÊME TEMPS : ils ne dépendent
   // que de l'identifiant. Avant, la campagne puis les dispos puis le reste
   // s'attendaient les uns les autres.
-  const [camp, saSnap, ivsBruts, cands] = await Promise.all([
+  const [camp, saSnap, ivsBruts, cands, notes] = await Promise.all([
     dejaCharge ? Promise.resolve(dejaCharge) : getCampaign(campaignId),
     getDocs(query(collection(db, 'staff_availabilities'), where('campaignId', '==', campaignId))),
     getInterviewsByCampaign(campaignId),
     getCandidatesByCampaign(campaignId),
+    chargerNotes(db, currentOrg.id, campaignId).catch(e => { console.warn(e); return new Map(); }),
   ]);
   currentCampaignObj = camp;
+  notesMap = notes;
+  // Anciennes notes posées sur l'entretien (lisible sans compte, planning
+  // public compris) : déplacées une fois pour toutes dans les notes privées.
+  try {
+    await migrerNotes(db, notesMap, { organizationId: currentOrg.id, campaignId, entretiens: ivsBruts, cooptants: cands });
+  } catch (e) { console.warn('Déplacement des notes internes impossible :', e); }
+  ivsBruts.forEach(iv => { delete iv.notes; });
+  cands.forEach(c => { delete c.notesInternes; });
 
   if (currentCampaignObj) {
     document.getElementById('campaign-dates-hint').textContent =
@@ -696,7 +756,28 @@ async function loadCampaignData(campaignId, dejaCharge = null) {
 // ═══════════════════════════════════════════════════════════════
 //  GRILLE DE PLANNING (tab 1)
 // ═══════════════════════════════════════════════════════════════
+/** Tableau « Entretiens par staffeur » : passés, à venir, total (les plus chargés d'abord). */
+function renderChargeStaff() {
+  const corps = document.getElementById('charge-staff-corps');
+  if (!corps) return;
+  const dt = v => v?.toDate ? v.toDate() : (v ? new Date(v) : null);
+  const compte = entretiensParStaffeur(interviews.map(iv => {
+    const debut = dt(iv.datetimeStart);
+    return { ...iv, debut, fin: dt(iv.datetimeEnd) || new Date(debut.getTime() + cfg().dureeMinutes * 60000) };
+  }).filter(iv => iv.debut && !isNaN(iv.debut)));
+  // Tout le staff, même ceux qui n'ont encore aucun entretien.
+  const ids = new Set([...juresListables().map(m => m.userId), ...compte.keys()]);
+  const nom = id => members.find(m => m.userId === id)?.displayName || 'Staffeur inconnu';
+  const lignes = [...ids].map(id => ({ id, nom: nom(id), ...(compte.get(id) || { passes: 0, aVenir: 0, total: 0 }) }))
+    .sort((a, b) => b.total - a.total || a.nom.localeCompare(b.nom, 'fr'));
+  const num = n => `<td style="text-align:right;font-variant-numeric:tabular-nums;">${n}</td>`;
+  corps.innerHTML = lignes.length
+    ? lignes.map(l => `<tr><td>${esc(l.nom)}</td>${num(l.passes)}${num(l.aVenir)}${num(`<strong>${l.total}</strong>`)}</tr>`).join('')
+    : '<tr><td colspan="4" class="text-muted">Aucun staffeur pour le moment.</td></tr>';
+}
+
 function renderPlanningGrid() {
+  renderChargeStaff();
   document.getElementById('loading-state').style.display = 'none';
   if (!interviews.length) {
     document.getElementById('empty-state').style.display = '';
@@ -708,7 +789,10 @@ function renderPlanningGrid() {
   const campaign = currentCampaignObj;
   if (!campaign) return;
 
-  const days  = getCampaignDays(currentCampaignObj);  // période de l'asso
+  // Toute la période, jours passés compris : la grille ne se décale plus
+  // chaque matin. Elle se place sur aujourd'hui à la première ouverture.
+  const days  = getPlanningDays(currentCampaignObj,
+    interviews.map(iv => iv.datetimeStart?.toDate ? iv.datetimeStart.toDate() : new Date(iv.datetimeStart)));
   // Plage et pas réglés par l'asso ; lignes de 15 min si les créneaux sont au quart d'heure.
   const pasLignes = pasPlanning(cfg().pasCreneauxMinutes);
   const slots = getTimeSlots(8, heureFinValide(cfg().heureFin), pasLignes);
@@ -813,7 +897,8 @@ function renderPlanningGrid() {
         const tousLesNoms = members.map(m => m.displayName);
         const nomAffiche = orphelin
           ? '<em>Cooptant supprimé</em>'
-          : esc(`${cand.prenom || ''} ${cand.nom || ''}`.trim() || cand.email || 'Cooptant');
+          : esc(`${cand.prenom || ''} ${cand.nom || ''}`.trim() || cand.email || 'Cooptant')
+            + (cand.langue === 'en' ? ' <span title="Entretien en anglais">🇬🇧</span>' : '');
         const ligneJury = orphelin ? '<span class="pc-manque">À supprimer</span>'
           : !jures.length ? '<span class="pc-manque">Jury à définir</span>'
           : esc(jures.map(m => nomCourt(m.displayName, tousLesNoms)).join(', '))
@@ -824,17 +909,37 @@ function renderPlanningGrid() {
           <div class="pc-nom">${nomAffiche}</div>
           <div class="pc-jury">${ligneJury}</div>
           <div class="pc-meta">${ligneHeure}</div>`;
-        cell.title = orphelin ? 'Cooptant supprimé' : `${cand.prenom || ''} ${cand.nom || ''}`.trim();
+        cell.title = orphelin ? 'Cooptant supprimé'
+          : `${cand.prenom || ''} ${cand.nom || ''}`.trim() + (cand.langue === 'en' ? ' · entretien en anglais' : '');
         cell.dataset.ivId = iv.id;
         cell.dataset.jury = [iv.jury1Id, iv.jury2Id, iv.jury3Id].filter(Boolean).join(',');
+        // Texte de recherche : nom complet du cooptant, email, jurés en entier, salle.
+        cell.dataset.recherche = pourRecherche([
+          cand?.prenom, cand?.nom, cand?.email, roomLabel,
+          ...jures.map(m => m.displayName),
+        ].filter(Boolean).join(' '));
         cell.addEventListener('click', () => openIvPopup(iv.id, candidateMap, roomMap, memberMap));
         (cote || td).appendChild(cell);
       });
     });
   });
 
-  document.getElementById('grid-wrap').style.display = '';
+  const wrap = document.getElementById('grid-wrap');
+  wrap.style.display = '';
   applyPlanningFilter();
+  // Première ouverture : on amène aujourd'hui (ou le prochain jour de la
+  // période) en premier à gauche ; les jours passés restent à gauche, en
+  // faisant défiler. Les rendus suivants gardent la position de l'utilisateur.
+  if (!wrap.dataset.place) {
+    wrap.dataset.place = '1';
+    const auj = new Date(); auj.setHours(0, 0, 0, 0);
+    const idx = days.findIndex(d => d >= auj);
+    const th = idx > 0 ? hr.cells[idx + 1] : null;
+    if (th) {
+      const x = th.getBoundingClientRect().left - wrap.getBoundingClientRect().left + wrap.scrollLeft;
+      wrap.scrollLeft = Math.max(0, x - hr.cells[0].offsetWidth);
+    }
+  }
 }
 
 // ─── Copier la liste des entretiens d'un jour ─────────────────────
@@ -860,10 +965,10 @@ function texteDuJour(day) {
     const jury = [iv.jury1Id, iv.jury2Id, iv.jury3Id].filter(Boolean)
       .map(id => { const m = members.find(x => x.userId === id); return m?.displayName ? prenomInitiale(m.displayName) : 'juré ?'; });
     return [
-      `• ${nom}`,
+      `• ${nom}${cand?.langue === 'en' ? ' 🇬🇧 (en anglais)' : ''}`,
       `  ${hm(s)} - ${hm(e)}`,
       `  Salle : ${salle}`,
-      `  Jury : ${jury.length ? jury.join(', ') : 'à définir'}`,
+      `  Staffeurs : ${jury.length ? jury.join(', ') : 'à définir'}`,
     ].join('\n');
   });
   const titre = day.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -881,13 +986,33 @@ async function copierJour(day) {
   }
 }
 
-// Filtre « afficher une personne » : estompe les entretiens où elle n'est pas jurée
-function applyPlanningFilter() {
+// Filtre « afficher une personne » (entretiens où elle est jurée) et barre de
+// recherche (cooptant, juré, salle, sans tenir compte des accents) : ce qui ne
+// correspond pas est estompé. `defiler` amène le premier résultat à l'écran.
+function applyPlanningFilter(defiler = false) {
   const id = document.getElementById('planning-filter')?.value || '';
+  const mots = pourRecherche(document.getElementById('planning-recherche')?.value).split(' ').filter(Boolean);
+  let premier = null, n = 0;
   document.querySelectorAll('#planning-table .planning-cell').forEach(c => {
     const jury = (c.dataset.jury || '').split(',');
-    c.classList.toggle('dimmed', !!id && !jury.includes(id));
+    const texte = c.dataset.recherche || pourRecherche(c.textContent);
+    const ok = (!id || jury.includes(id)) && mots.every(m => texte.includes(m));
+    c.classList.toggle('dimmed', !ok);
+    if (ok && mots.length) { n++; premier = premier || c; }
   });
+  const champ = document.getElementById('planning-recherche');
+  if (champ) champ.title = mots.length ? `${n} entretien${n > 1 ? 's' : ''} trouvé${n > 1 ? 's' : ''}` : '';
+  if (defiler && premier) premier.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+}
+
+{
+  const champ = document.getElementById('planning-recherche');
+  let minuteur = null;
+  champ?.addEventListener('input', () => {
+    clearTimeout(minuteur);
+    minuteur = setTimeout(() => applyPlanningFilter(true), 200);
+  });
+  champ?.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); applyPlanningFilter(true); } });
 }
 
 function populatePlanningFilter() {
@@ -901,7 +1026,7 @@ function populatePlanningFilter() {
     sel.appendChild(o);
   });
   sel.value = cur;
-  sel.onchange = applyPlanningFilter;
+  sel.onchange = () => applyPlanningFilter();
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -909,6 +1034,7 @@ function populatePlanningFilter() {
 // ═══════════════════════════════════════════════════════════════
 
 let popupIvId = null; // interview id currently shown
+let popupCand = null; // cooptant de l'entretien affiché (null si supprimé)
 let popupJuryIds = new Set();
 
 function openIvPopup(ivId, candidateMap, roomMap, memberMap) {
@@ -922,6 +1048,9 @@ function openIvPopup(ivId, candidateMap, roomMap, memberMap) {
     || { prenom: 'Cooptant', nom: 'supprimé', email: null, telephone: null, _orphelin: true };
 
   popupIvId = ivId;
+  popupCand = cand._orphelin ? null : cand;
+  document.getElementById('iv-anglais').checked = cand.langue === 'en';
+  document.getElementById('iv-anglais-wrap').style.display = cand._orphelin ? 'none' : '';
 
   const dt  = iv.datetimeStart?.toDate ? iv.datetimeStart.toDate() : new Date(iv.datetimeStart);
   const end = iv.datetimeEnd?.toDate   ? iv.datetimeEnd.toDate()   : new Date(iv.datetimeEnd);
@@ -930,7 +1059,8 @@ function openIvPopup(ivId, candidateMap, roomMap, memberMap) {
   const initS = `${(cand.prenom||'?')[0]}${(cand.nom||'?')[0]}`.toUpperCase();
 
   document.getElementById('iv-avatar').textContent = initS;
-  document.getElementById('iv-name').textContent   = `${cand.prenom||''} ${cand.nom||''}`.trim();
+  document.getElementById('iv-name').textContent   = `${cand.prenom||''} ${cand.nom||''}`.trim()
+    + (cand.source === 'stand' ? ' 📍 (stand)' : '');
   document.getElementById('iv-time').textContent   =
     dt.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'}) + ' · ' +
     dt.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) + '-' +
@@ -960,7 +1090,8 @@ function openIvPopup(ivId, candidateMap, roomMap, memberMap) {
   // Jury picker
   popupJuryIds = new Set([iv.jury1Id, iv.jury2Id, iv.jury3Id].filter(Boolean));
   const nbJurys = Math.min(3, cfg().nbJurys);
-  document.getElementById('iv-jury-hint').textContent = `· ${nbJurys} recommandé(s)`;
+  const nbMaxJ = Math.max(nbJurys, Math.min(3, parseInt(cfg().nbJurysMax, 10) || nbJurys));
+  document.getElementById('iv-jury-hint').textContent = nbMaxJ > nbJurys ? `· ${nbJurys} à ${nbMaxJ} recommandés` : `· ${nbJurys} recommandé(s)`;
   renderPopupJuryList(dateStr, slotTime);
 
   // Room input + datalist
@@ -977,10 +1108,13 @@ function openIvPopup(ivId, candidateMap, roomMap, memberMap) {
   roomInput.value = knownRoom ? (knownRoom.code || knownRoom.id) : (iv.salleNom || '');
 
   // Notes
-  document.getElementById('iv-notes').value = iv.notes || '';
+  document.getElementById('iv-notes').value = texteNote(notesMap, idNoteEntretien(iv.id));
 
   document.getElementById('iv-popup-overlay').classList.add('open');
 }
+
+/** Le staffeur a-t-il coché l'anglais sur la page des dispos ? */
+const estAnglophone = userId => staffAvailabilities.some(sa => sa.userId === userId && parleAnglais(sa));
 
 function renderPopupJuryList(dateStr, slotTime) {
   const container = document.getElementById('iv-jury-list');
@@ -1008,14 +1142,17 @@ function renderPopupJuryList(dateStr, slotTime) {
     const item = document.createElement('label');
     item.style.cssText = `display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;border:1.5px solid ${checked ? 'var(--indigo)' : 'var(--border)'};background:${checked ? 'var(--indigo-light)' : 'transparent'};cursor:pointer;transition:all .12s;${avail===false&&!checked?'opacity:.5;':''}`;
     let badge = '';
-    if (avail === true)  badge = '<span class="badge badge-green"  style="font-size:10px;margin-left:auto;">Dispo</span>';
+    const secours = avail === true && staffAvailabilities.some(sa => sa.userId === userId && enSecours(sa, dateStr, startMin, durée));
+    if (avail === true)  badge = secours
+      ? '<span class="badge badge-orange" style="font-size:10px;margin-left:auto;" title="A coché ce créneau « si vraiment pas le choix »">Si pas le choix</span>'
+      : '<span class="badge badge-green"  style="font-size:10px;margin-left:auto;">Dispo</span>';
     if (avail === false) badge = '<span class="badge badge-gray"   style="font-size:10px;margin-left:auto;">Non dispo</span>';
     if (busy)            badge = '<span class="badge badge-red"    style="font-size:10px;margin-left:auto;">Occupé</span>';
     item.innerHTML = `
       <div style="width:28px;height:28px;border-radius:7px;background:var(--indigo);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;flex-shrink:0;">
         ${name.split(' ').map(p=>p[0]||'').join('').slice(0,2).toUpperCase()}
       </div>
-      <span style="font-size:13px;font-weight:600;">${name}</span>
+      <span style="font-size:13px;font-weight:600;">${esc(name)}${estAnglophone(userId) ? ' <span title="Parle anglais (page des dispos)">🇬🇧</span>' : ''}</span>
       ${badge}`;
     item.addEventListener('click', e => {
       e.preventDefault();
@@ -1044,11 +1181,36 @@ async function saveIvPopup() {
     const jury1Id = juryArr[0] || null;
     const jury2Id = juryArr[1] || null;
     const jury3Id = juryArr[2] || null;
-    await updateDoc(doc(db, 'interviews', popupIvId), { roomId, salleNom, notes, jury1Id, jury2Id, jury3Id });
+    await updateDoc(doc(db, 'interviews', popupIvId), { roomId, salleNom, jury1Id, jury2Id, jury3Id });
+    // Note : rangée à part, jamais sur l'entretien (lisible sans compte).
+    const ivNote = interviews.find(i => i.id === popupIvId);
+    if (notes !== texteNote(notesMap, idNoteEntretien(popupIvId))) {
+      await enregistrerNote(db, notesMap, idNoteEntretien(popupIvId), {
+        organizationId: ivNote?.organizationId || currentOrg.id, campaignId: currentCampaignId,
+        candidateId: ivNote?.candidateId || null, interviewId: popupIvId,
+      }, notes);
+    }
+    // Langue : portée par le cooptant (la page Cooptants l'affiche aussi).
+    const anglais = document.getElementById('iv-anglais').checked;
+    if (popupCand && anglais !== (popupCand.langue === 'en')) {
+      const langue = anglais ? 'en' : 'fr';
+      await updateDoc(doc(db, 'candidates', popupCand.id), { langue });
+      popupCand.langue = langue;
+      const c = candidates.find(x => x.id === popupCand.id);
+      if (c) c.langue = langue;
+    }
     // Update local state
     const iv = interviews.find(i => i.id === popupIvId);
-    if (iv) { iv.roomId = roomId; iv.salleNom = salleNom; iv.notes = notes; iv.jury1Id = jury1Id; iv.jury2Id = jury2Id; iv.jury3Id = jury3Id; }
-    showToast('Sauvegardé !', 'success');
+    if (iv) { iv.roomId = roomId; iv.salleNom = salleNom; iv.jury1Id = jury1Id; iv.jury2Id = jury2Id; iv.jury3Id = jury3Id; }
+    // Entretien en anglais avec un staffeur qui n'a pas coché l'anglais : on prévient.
+    const enAnglais = document.getElementById('iv-anglais').checked;
+    const nonAnglophones = enAnglais ? juryArr.filter(id => !estAnglophone(id)) : [];
+    if (nonAnglophones.length) {
+      const noms = nonAnglophones.map(id => members.find(m => m.userId === id)?.displayName || 'un staffeur').join(', ');
+      showToast(`Sauvegardé. Attention : entretien en anglais, mais ${noms} n'a pas coché l'anglais sur la page des dispos.`, 'info');
+    } else {
+      showToast('Sauvegardé !', 'success');
+    }
     renderPlanningGrid(); // refresh grid
     closeIvPopup();
   } catch(err) {
@@ -1082,7 +1244,21 @@ async function deleteIvFromPopup() {
   const btn = document.getElementById('iv-delete-btn');
   btn.disabled = true;
   try {
-    await deleteDoc(doc(db, 'interviews', popupIvId));
+    // Par la corbeille, comme toute suppression du bureau : l'entretien reste
+    // récupérable 30 jours et on sait qui l'a supprimé. Avant, il disparaissait
+    // sans trace, et le cooptant repassait « reçu » sans qu'on sache pourquoi.
+    const { id: _id, ...donnees } = iv;
+    await mettreEnCorbeille(db, {
+      organizationId: iv.organizationId || currentOrg?.id,
+      type: 'entretien',
+      libelle: `Entretien de ${nom || 'cooptant supprimé'}`,
+      docs: [
+        { col: 'interviews', id: popupIvId, data: donnees },
+        // Sa note interne part avec lui.
+        ...[notesMap.get(idNoteEntretien(popupIvId))].filter(Boolean).map(n => ({ col: 'notes_internes', id: n.id, data: n.data })),
+      ],
+      par: user?.email || null,
+    });
     if (cand) await updateDoc(doc(db, 'candidates', cand.id), { statut: 'recu' });
     closeIvPopup();
     showToast('Entretien supprimé.', 'success');
@@ -1705,6 +1881,11 @@ function renderDisposGrid() {
   const repondants   = repondantsDispos();
   const totalMembers = repondants.length;
 
+  remplirSelecteurPersonne(repondants);
+  const personne = document.getElementById('dispos-personne').value;
+  document.getElementById('dispos-best-zone').style.display = personne ? 'none' : '';
+  if (personne) { renderDisposPersonne(personne); }
+
   const compteurEl = document.getElementById('dispos-repondants');
   if (compteurEl) {
     compteurEl.textContent = totalMembers
@@ -1741,10 +1922,47 @@ function renderDisposGrid() {
     ivOverlay[k].push(cand ? `${cand.prenom||''} ${(cand.nom||'')[0]||''}.` : '?');
   });
 
+  // ── Occupation réelle : "YYYY-MM-DDTHH:MM" → { cands, jures } ──
+  // Un entretien occupe TOUTES les lignes qu'il couvre, pause comprise, pas
+  // seulement celle où il commence. Sans ça, avec des entretiens d'une heure,
+  // les jurés d'un entretien 08:30-09:30 apparaissaient « disponibles » à
+  // 09:00 alors qu'ils étaient en plein entretien.
+  const occupes = {};
+  const nomJure = id => members.find(m => m.userId === id)?.displayName || null;
+  const battementMin = getBattement();
+  dedupGroupes(interviews).forEach(iv => {
+    const debut = iv.datetimeStart?.toDate ? iv.datetimeStart.toDate() : new Date(iv.datetimeStart);
+    if (isNaN(debut)) return;
+    const finIv = iv.datetimeEnd?.toDate ? iv.datetimeEnd.toDate()
+      : new Date(debut.getTime() + getDurée() * 60000);
+    const finOccupe = finIv.getTime() + battementMin * 60000;
+    const cand = candidates.find(c => c.id === iv.candidateId);
+    const nomCand = cand ? `${cand.prenom||''} ${(cand.nom||'')[0]||''}.` : '?';
+    const jures = [iv.jury1Id, iv.jury2Id, iv.jury3Id].filter(Boolean).map(nomJure).filter(Boolean);
+    // Première ligne de 30 min touchée, puis chaque ligne jusqu'à la fin.
+    const t = new Date(debut); t.setMinutes(Math.floor(t.getMinutes() / 30) * 30, 0, 0);
+    for (; t.getTime() < finOccupe; t.setMinutes(t.getMinutes() + 30)) {
+      const k = `${localDateStr(t)}T${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`;
+      const o = (occupes[k] ||= { cands: [], jures: new Set() });
+      // La pause après l'entretien bloque les jurés, pas le cooptant.
+      if (t.getTime() < finIv.getTime() && !o.cands.includes(nomCand)) o.cands.push(nomCand);
+      jures.forEach(j => o.jures.add(j));
+    }
+  });
+  /** Déclarés disponibles sur la case, moins ceux déjà en entretien. */
+  const libresSur = (key, declares) => {
+    const o = occupes[key];
+    return o ? declares.filter(n => !o.jures.has(n)) : declares;
+  };
+
+  if (personne) return;   // la grille de la personne est déjà dessinée
+
   // ── Best slots chips ──────────────────────────────────────────
   const bestEl = document.getElementById('dispos-best');
   bestEl.innerHTML = '';
   const bestSlots = Object.entries(availMap)
+    .map(([key, declares]) => [key, libresSur(key, declares)])
+    .filter(([, libres]) => libres.length)
     .sort((a, b) => b[1].length - a[1].length)
     .slice(0, 6);
   if (bestSlots.length) {
@@ -1759,7 +1977,7 @@ function renderDisposGrid() {
       chip.textContent = `${d.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})} ${timeStr} · ${names.length}/${totalMembers}`;
       // Même détail que sur la grille : ces pastilles n'étaient survolables
       // qu'à la souris, et la liste des noms ne tenait pas dans l'infobulle.
-      chip.addEventListener('click', () => openSlotPopup(d, timeStr, names, ivOverlay[key] || []));
+      chip.addEventListener('click', () => openSlotPopup(d, timeStr, names, occupes[key]?.cands || [], [...(occupes[key]?.jures || [])]));
       bestEl.appendChild(chip);
     });
   } else {
@@ -1794,7 +2012,9 @@ function renderDisposGrid() {
       // Dispos stockées à l'heure pleine : lire le créneau H:00 pour les lignes H:30
       const [sh] = slot.label.split(':').map(Number);
       const floorKey = `${localDateStr(day)}T${String(sh).padStart(2,'0')}:00`;
-      const names   = availMap[floorKey] || [];
+      const declares = availMap[floorKey] || [];
+      const names    = libresSur(key, declares);            // vraiment libres
+      const enEntretien = declares.filter(n => !names.includes(n));
       const ivCands = ivOverlay[key]     || [];
       const count   = names.length;
       const ratio   = totalMembers > 0 ? count / totalMembers : 0;
@@ -1805,12 +2025,13 @@ function renderDisposGrid() {
       // qui est déjà planifié là. L'infobulle ne servait qu'au survol, donc
       // inutilisable au doigt et illisible dès qu'il y a plus de deux noms.
       td.classList.add('dispo-cell-clickable');
-      td.addEventListener('click', () => openSlotPopup(day, slot.label, names, ivCands));
+      td.addEventListener('click', () => openSlotPopup(day, slot.label, names, occupes[key]?.cands || [], enEntretien));
 
       if (count > 0) {
         const alpha = (0.15 + ratio * 0.72).toFixed(2);
         td.style.background = `rgba(34,197,94,${alpha})`;
-        td.title = `${count}/${totalMembers} dispo${count>1?'s':''} : ${names.join(', ')}`;
+        td.title = `${count}/${totalMembers} dispo${count>1?'s':''} : ${names.join(', ')}`
+          + (enEntretien.length ? ` · en entretien : ${enEntretien.join(', ')}` : '');
         td.innerHTML = `<div class="dispo-count" style="color:${ratio > 0.55 ? '#15803D' : '#374151'};">${count}<span style="font-size:10px;font-weight:400;opacity:.75;">/${totalMembers}</span></div>`;
       }
 
@@ -1826,6 +2047,193 @@ function renderDisposGrid() {
   });
 }
 
+// ─── Dispos d'une personne : voir, et corriger à sa place ─────────
+// Le bureau corrige souvent pour quelqu'un (« je ne peux plus mardi ») : plutôt
+// que de lui renvoyer le lien, on modifie ici. Mêmes trois états que la page
+// des dispos : dispo, « si vraiment pas le choix » (secours), rien.
+
+let dpBrouillon = null;   // Map 'jour|HH:00' → 'dispo' | 'secours' pendant la modification
+
+/** Fiches de dispos de la personne (une seule d'habitude, deux si doublon roster/compte). */
+const fichesDe = id => staffAvailabilities.filter(sa => sa.userId === id);
+
+/** État enregistré de la personne : Map 'jour|HH:00' → 'dispo' | 'secours'. */
+function etatEnregistre(id) {
+  const etat = new Map();
+  fichesDe(id).forEach(sa => {
+    (sa.creneaux || []).forEach(j => (j.creneaux || []).forEach(h => {
+      if (!etat.has(`${j.jour}|${h}`)) etat.set(`${j.jour}|${h}`, 'dispo');
+    }));
+  });
+  fichesDe(id).forEach(sa => {
+    (sa.secours || []).forEach(j => (j.creneaux || []).forEach(h => {
+      if (etat.has(`${j.jour}|${h}`)) etat.set(`${j.jour}|${h}`, 'secours');
+    }));
+  });
+  return etat;
+}
+
+function remplirSelecteurPersonne(repondants) {
+  const sel = document.getElementById('dispos-personne');
+  const cur = sel.value;
+  const ontRepondu = new Set(repondants.map(r => r.userId));
+  // Tout le staff : on peut aussi saisir les dispos de quelqu'un qui n'a rien rempli.
+  const autres = [];
+  const vus = new Set(repondants.map(r => normNom(r.nom)));
+  members.forEach(m => {
+    const n = normNom(m.displayName);
+    if (!m.displayName || ontRepondu.has(m.userId) || vus.has(n)) return;
+    vus.add(n);
+    autres.push({ userId: m.userId, nom: m.displayName });
+  });
+  autres.sort((a, b) => a.nom.localeCompare(b.nom));
+  sel.innerHTML = '<option value="">👥 Tout le monde</option>'
+    + (repondants.length ? `<optgroup label="Ont rempli leurs dispos">${repondants.map(r =>
+        `<option value="${esc(r.userId)}">${esc(r.nom)}</option>`).join('')}</optgroup>` : '')
+    + (autres.length ? `<optgroup label="Pas encore rempli">${autres.map(r =>
+        `<option value="${esc(r.userId)}">${esc(r.nom)}</option>`).join('')}</optgroup>` : '');
+  sel.value = [...sel.options].some(o => o.value === cur) ? cur : '';
+}
+
+function nomPersonne(id) {
+  return members.find(m => m.userId === id)?.displayName
+    || fichesDe(id)[0]?.displayName || 'Cette personne';
+}
+
+function renderDisposPersonne(id) {
+  const days   = getCampaignDays(currentCampaignObj);
+  const heures = heuresGrille(cfg().heureFin);
+  const etat   = dpBrouillon || etatEnregistre(id);
+  const edition = !!dpBrouillon;
+
+  // Ses entretiens comme juré, rangés dans l'heure où ils commencent.
+  const sesEntretiens = {};
+  dedupGroupes(interviews).forEach(iv => {
+    if (![iv.jury1Id, iv.jury2Id, iv.jury3Id].includes(id)) return;
+    const d = iv.datetimeStart?.toDate ? iv.datetimeStart.toDate() : new Date(iv.datetimeStart);
+    if (isNaN(d)) return;
+    const k = `${localDateStr(d)}|${String(d.getHours()).padStart(2, '0')}:00`;
+    const cand = candidates.find(c => c.id === iv.candidateId);
+    (sesEntretiens[k] ||= []).push(`${d.toTimeString().slice(0, 5)} ${cand ? `${cand.prenom || ''} ${(cand.nom || '')[0] || ''}.` : '?'}`);
+  });
+
+  const table = document.getElementById('dispos-table');
+  table.classList.toggle('dp-edition', edition);
+  table.innerHTML = '';
+  const hr = table.createTHead().insertRow();
+  const th0 = document.createElement('th');
+  th0.textContent = 'Heure'; th0.style.minWidth = '60px'; hr.appendChild(th0);
+  days.forEach(day => {
+    const th = document.createElement('th');
+    th.textContent = day.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+    hr.appendChild(th);
+  });
+  const tbody = table.createTBody();
+  heures.forEach(h => {
+    const tr = tbody.insertRow();
+    const th = document.createElement('th');
+    th.textContent = h;
+    th.style.cssText = 'text-align:right;padding-right:10px;font-size:12px;color:var(--text-muted);white-space:nowrap;';
+    tr.appendChild(th);
+    days.forEach(day => {
+      const k = `${localDateStr(day)}|${h}`;
+      const e = etat.get(k);
+      const td = tr.insertCell();
+      td.className = `dp-cell${e === 'dispo' ? ' dp-dispo' : e === 'secours' ? ' dp-secours' : ''}`;
+      td.innerHTML = (e === 'dispo' ? 'Dispo' : e === 'secours' ? 'Si pas le choix' : '')
+        + (sesEntretiens[k] || []).map(t => `<span class="dispo-iv-badge" title="Entretien comme juré">📅 ${esc(t)}</span>`).join('');
+      if (edition) {
+        td.addEventListener('click', () => {
+          const suivant = !e ? 'dispo' : e === 'dispo' ? 'secours' : null;
+          if (suivant) dpBrouillon.set(k, suivant); else dpBrouillon.delete(k);
+          renderDisposPersonne(id);
+        });
+      }
+    });
+  });
+
+  const nb = [...etat.values()];
+  const nDispo = nb.length, nSecours = nb.filter(x => x === 'secours').length;
+  document.getElementById('dispos-perso-info').textContent = edition
+    ? 'Clique sur une case : dispo, puis « si pas le choix », puis vide.'
+    : (nDispo ? `${nDispo} heure${nDispo > 1 ? 's' : ''} dispo${nSecours ? `, dont ${nSecours} si pas le choix` : ''}` : `${nomPersonne(id)} n'a aucune dispo sur la période.`);
+  document.getElementById('dispos-modifier').style.display = edition ? 'none' : '';
+  document.getElementById('dispos-enregistrer').style.display = edition ? '' : 'none';
+  document.getElementById('dispos-annuler').style.display = edition ? '' : 'none';
+}
+
+async function enregistrerDisposPersonne() {
+  const id = document.getElementById('dispos-personne').value;
+  if (!id || !dpBrouillon) return;
+  const btn = document.getElementById('dispos-enregistrer');
+  // Les jours hors de la période affichée sont gardés tels quels.
+  const affiches = new Set(getCampaignDays(currentCampaignObj).map(localDateStr));
+  const parJour = (etat, garder) => {
+    const m = {};
+    etat.forEach((v, k) => {
+      const [jour, h] = k.split('|');
+      if (garder(v)) (m[jour] ||= []).push(h);
+    });
+    return m;
+  };
+  const avant = etatEnregistre(id);
+  const fusion = new Map([...avant].filter(([k]) => !affiches.has(k.split('|')[0])));
+  dpBrouillon.forEach((v, k) => fusion.set(k, v));
+  const versListe = m => Object.entries(m).sort().map(([jour, cr]) => ({ jour, creneaux: [...new Set(cr)].sort() }));
+  const creneaux = versListe(parJour(fusion, () => true));
+  const secours  = versListe(parJour(fusion, v => v === 'secours'));
+
+  btn.disabled = true; btn.textContent = 'Enregistrement…';
+  try {
+    const fiches = fichesDe(id);
+    if (fiches.length) {
+      // Toutes les fiches de la personne : un doublon resté à l'ancienne version
+      // ferait revenir les créneaux retirés.
+      await Promise.all(fiches.map(sa => updateDoc(doc(db, 'staff_availabilities', sa.id),
+        { creneaux, secours, updatedAt: serverTimestamp() })));
+      fiches.forEach(sa => { sa.creneaux = creneaux; sa.secours = secours; });
+    } else {
+      const displayName = nomPersonne(id);
+      const ref = await addDoc(collection(db, 'staff_availabilities'), {
+        userId: id, displayName, campaignId: currentCampaignId, organizationId: currentOrg.id,
+        creneaux, secours, createdAt: serverTimestamp(),
+      });
+      staffAvailabilities.push({ id: ref.id, userId: id, displayName, campaignId: currentCampaignId,
+        organizationId: currentOrg.id, creneaux, secours });
+    }
+    dpBrouillon = null;
+    showToast(`Dispos de ${nomPersonne(id)} enregistrées.`, 'success');
+    renderDisposGrid();
+    renderPlanningGrid();
+  } catch (err) {
+    console.error(err);
+    showToast('Enregistrement impossible : ' + err.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Enregistrer';
+  }
+}
+
+document.getElementById('dispos-personne').addEventListener('change', async e => {
+  if (dpBrouillon && !(await confirmDialog('Les modifications en cours ne sont pas enregistrées.', { title: 'Abandonner les modifications ?', confirmLabel: 'Abandonner', danger: true }))) {
+    e.target.value = e.target.dataset.avant || '';
+    return;
+  }
+  dpBrouillon = null;
+  e.target.dataset.avant = e.target.value;
+  renderDisposGrid();
+});
+document.getElementById('dispos-modifier').addEventListener('click', () => {
+  const id = document.getElementById('dispos-personne').value;
+  if (!id) return;
+  dpBrouillon = new Map(etatEnregistre(id));
+  renderDisposPersonne(id);
+});
+document.getElementById('dispos-annuler').addEventListener('click', () => {
+  dpBrouillon = null;
+  renderDisposGrid();
+});
+document.getElementById('dispos-enregistrer').addEventListener('click', enregistrerDisposPersonne);
+
 // ─── Détail d'un créneau de la heatmap ───────────────────────────
 
 /** Initiales d'un nom complet, pour l'avatar du popup. */
@@ -1839,9 +2247,10 @@ function initialesNom(nom) {
  * @param {Date}     day        jour de la case
  * @param {string}   heure      'HH:MM' de la ligne
  * @param {string[]} dispos     noms des membres disponibles sur ce créneau
- * @param {string[]} entretiens cooptants déjà planifiés à cette heure exacte
+ * @param {string[]} entretiens cooptants en entretien sur ce créneau (y compris commencé avant)
+ * @param {string[]} [enEntretien] membres disponibles d'après leur grille mais déjà jurés à ce moment
  */
-function openSlotPopup(day, heure, dispos, entretiens) {
+function openSlotPopup(day, heure, dispos, entretiens, enEntretien = []) {
   const titre = document.getElementById('slot-pop-title');
   const sousTitre = document.getElementById('slot-pop-sub');
   const badge = document.getElementById('slot-pop-badge');
@@ -1872,15 +2281,16 @@ function openSlotPopup(day, heure, dispos, entretiens) {
       <span style="font-size:13.5px;font-weight:${absent ? '500' : '600'};">${esc(nom)}</span>
     </div>`;
 
+  const occupesIci = new Set(enEntretien);
   const absents = repondants
     .map(r => r.nom)
-    .filter(n => !presents.has(n))
+    .filter(n => !presents.has(n) && !occupesIci.has(n))
     .sort((a, b) => a.localeCompare(b));
 
   let html = '';
 
   if (entretiens.length) {
-    html += `<div><div class="dispo-group-title">Déjà planifié ici</div>
+    html += `<div><div class="dispo-group-title">Entretien sur ce créneau</div>
       <div style="display:flex;flex-direction:column;gap:6px;">
         ${entretiens.map(n => `<div class="dispo-person"><div class="dispo-avatar" style="background:var(--orange);">📅</div>
           <span style="font-size:13.5px;font-weight:600;">${esc(n)}</span></div>`).join('')}
@@ -1892,6 +2302,12 @@ function openSlotPopup(day, heure, dispos, entretiens) {
     ? `<div style="display:flex;flex-direction:column;gap:6px;">${[...dispos].sort((a, b) => a.localeCompare(b)).map(n => ligne(n, false)).join('')}</div>`
     : '<div class="text-muted text-sm">Aucun membre sur ce créneau.</div>';
   html += '</div>';
+
+  // Disponibles d'après leur grille, mais déjà pris par un entretien en cours.
+  if (enEntretien.length) {
+    html += `<div><div class="dispo-group-title">En entretien sur ce créneau (${enEntretien.length})</div>
+      <div style="display:flex;flex-direction:column;gap:6px;">${[...enEntretien].sort((a, b) => a.localeCompare(b)).map(n => ligne(n, true)).join('')}</div></div>`;
+  }
 
   if (absents.length) {
     html += `<div><div class="dispo-group-title">Pas dispo sur ce créneau (${absents.length})</div>

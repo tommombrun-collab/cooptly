@@ -374,6 +374,9 @@
         <span>Une pause dans la journée <strong>casse la chaîne</strong> : deux entretiens séparés d'une heure de creux ne comptent pas comme enchaînés, la personne a eu le temps de partir. Et rien n'est figé, vous pouvez changer n'importe quel jury depuis le <a href="#planning">planning</a>.</span>
       </div>
 
+      <h4 style="margin-top:16px;">Limiter les entretiens en même temps</h4>
+      <p>Si vous n'avez que deux salles, réglez <em>Paramètres → Entretiens en même temps (maximum)</em> sur 2 : un créneau passe <strong>Complet</strong> dès que deux entretiens ont lieu à ce moment-là, même s'il reste des jurés libres. La limite vaut pour le formulaire, le mode stand et le placement automatique. Un entretien à deux compte pour un. <strong>0 = pas de limite</strong> (par défaut). Depuis le planning, vous pouvez toujours placer un entretien à la main au-delà de la limite.</p>
+
       <h3 id="flow">Flux complet d'une cooptation</h3>
       <p>Le recrutement se règle par asso : soit sur une <strong>période d'entretiens</strong> que vous fixez, soit en continu sur les prochaines semaines si vous ne mettez aucune date. En pratique :</p>
       <div class="steps">
@@ -397,16 +400,40 @@
         </div>
       </div>
 
+      <h3 id="messenger">Suivre l'ajout au groupe Messenger</h3>
+      <p>Dans le tableau du <strong>tableau de bord</strong>, la colonne <strong>Messenger</strong> a une case par cooptant : cochez-la quand vous l'avez ajouté au groupe. C'est enregistré tout de suite, pour tout le bureau. Le compteur « Messenger : 12/40 ajoutés » donne l'avancement, et le filtre <strong>Pas encore dans Messenger</strong> liste ceux qui restent à ajouter. Le lien <strong>✓ tout cocher</strong>, sous le titre de la colonne, coche d'un coup tous les cooptants affichés : pratique pour rattraper, il ne reste qu'à décocher les absents.</p>
+
       <h3 id="lien">Diffuser le formulaire</h3>
-      <p>En haut à droite du <strong>tableau de bord sec-gé</strong>, deux actions :</p>
+      <p>En haut à droite du <strong>tableau de bord</strong>, trois boutons :</p>
       <ul>
-        <li><strong>🔗 Copier le lien</strong> : URL à partager par email ou messagerie.</li>
-        <li><strong>📱 QR Code</strong> : image téléchargeable à afficher en affiche ou en story.</li>
+        <li><strong>Copier le lien du formulaire</strong> : l'URL à partager par email ou messagerie.</li>
+        <li><strong>🔗 Partager</strong> : tous les autres liens, chacun avec une phrase qui dit à quoi il sert. Pour les cooptants : le formulaire, le <strong>formulaire en anglais</strong> et son <strong>QR code</strong>. Pour le staff : les <strong>dispos</strong>, l'<strong>évaluation</strong>, le <strong>planning public</strong> et le <strong>mode stand</strong>. Chaque lien se copie ou s'ouvre en un clic.</li>
+        <li><strong>📍 Mode stand</strong> : ouvre le formulaire court pour inscrire quelqu'un sur place.</li>
       </ul>
+      <h4 style="margin-top:16px;">📍 Inscrire quelqu'un sur un stand</h4>
+      <p>Le bouton <strong>📍 Mode stand</strong> du tableau de bord ouvre une version courte du formulaire, sur votre téléphone ou une tablette. Pour ceux qui tiennent les stands sans compte, copiez le lien <strong>📍 Mode stand</strong> du panneau <strong>🔗 Partager</strong> et envoyez-le-leur : il marche sans connexion. On remplit avec la personne son prénom, son nom et son créneau, plus ce que vous avez choisi dans <strong>Paramètres → Formulaire → Mode stand</strong> (par exemple son nom Facebook, avec ou sans son email). Sur le stand, <strong>pas de délai minimum</strong> : on peut réserver pour demain, ou pour aujourd'hui si le créneau n'est pas passé.</p>
+      <p>L'inscription s'arrête là : <strong>la personne n'a rien à remplir ensuite</strong>, les autres questions du formulaire ne lui sont pas demandées. À la fin, un <strong>QR code</strong> s'affiche : elle le scanne pour retrouver son entretien et l'ajouter à son agenda (facultatif). Puis <strong>Cooptant suivant</strong> vide le formulaire pour la personne d'après.</p>
+      <p><strong>👥 Entretien à deux</strong> : deux personnes qui veulent passer ensemble ? Le bouton « + Ajouter une 2ᵉ personne » ouvre un second bloc (mêmes champs). Les deux sont inscrites sur le même créneau, avec les mêmes jurés, et le créneau ne compte qu'une fois. L'écran de fin affiche un QR code pour chacune.</p>
+      <p>Dans la liste des cooptants, les inscrits du stand portent un badge <strong>📍 Stand</strong>. Le tableau de bord compte les inscrits sur place. Sans email, le formulaire prévient si quelqu'un du même nom est déjà inscrit.</p>
+      <div class="callout callout-gray">
+        <span class="callout-icon">💡</span>
+        <span>Le mode stand a besoin d'internet. Si le réseau du hall est mauvais, gardez une liste papier en secours.</span>
+      </div>
+      <h4 style="margin-top:16px;">Formulaire en anglais</h4>
+      <p>Le cooptant choisit sa langue avec le bouton <strong>FR / EN</strong> du formulaire : <strong>choisir l'anglais, c'est choisir un entretien en anglais</strong>, et le formulaire le lui dit (« Your interview will be in English »). Par défaut, le formulaire s'ouvre en français ; il s'ouvre en anglais avec le lien anglais du tableau de bord. La confirmation et la page de suivi suivent le même choix. Au stand, une case Français / English par personne.</p>
+      <p><strong>Vos questions</strong> se traduisent dans Paramètres → Formulaire → <strong>Formulaire en anglais</strong> : toutes les questions côte à côte, avec ce qui reste à traduire et un aperçu. Sans traduction, une question s'affiche en français.</p>
+      <p><strong>Staffeurs anglophones</strong> : sur la page des dispos, chaque staffeur coche les langues dans lesquelles il peut faire passer un entretien. Quand assez de monde a répondu, activez dans Paramètres → Recrutement <strong>« Entretiens en anglais : seulement des staffeurs anglophones »</strong> : un cooptant en anglais ne voit alors que les créneaux où assez de staffeurs anglophones sont libres, et ses jurés sont choisis parmi eux. Le réglage affiche combien de staffeurs ont coché l'anglais. Dans le planning, les staffeurs anglophones portent un 🇬🇧, et un avertissement s'affiche si vous mettez quelqu'un qui n'a pas coché l'anglais sur un entretien en anglais.</p>
+      <p>Les cooptants en anglais portent un 🇬🇧 partout : tableau de bord, Cooptants, plannings, liste copiée, lien d'évaluation.</p>
       <p>Le formulaire est entièrement public (pas de compte requis). Il affiche le nom et les couleurs de l'association, ainsi que les questions personnalisées configurées dans Paramètres. Le lien est <strong>permanent</strong> (<code>?org=…</code>) : pas besoin de le régénérer.</p>
+
+      <h4 style="margin-top:16px;">Les entretiens dans votre agenda</h4>
+      <p>Sur le <strong>planning public</strong>, chaque jour a un bouton <strong>📅</strong> : il propose un fichier <strong>.ics</strong> avec les entretiens du jour (s'ouvre dans Apple Calendar et Outlook, s'importe dans Google Agenda) et un bouton <strong>Google Agenda</strong> qui ajoute la journée en <strong>un seul événement</strong> (du premier au dernier entretien, chacun détaillé dans la description) : Google n'accepte qu'un événement par lien. Pour des événements séparés dans Google, importez le fichier .ics depuis un ordinateur, ou ajoutez-les un par un (liste repliée). Choisissez d'abord votre nom dans la liste « Tout le monde » : seuls <strong>vos</strong> entretiens sont ajoutés. Le bouton <strong>📅 Toute la période</strong> fait de même pour tous les entretiens à venir. Votre nom choisi, la page affiche aussi votre compteur : « 12 entretiens, dont 5 passés ».</p>
+      <p>Dans le <strong>planning interne</strong>, le tableau <strong>📊 Entretiens par staffeur</strong>, sous la grille, donne pour chacun les entretiens passés, à venir et le total, les plus chargés en premier : pratique pour équilibrer.</p>
 
       <h3 id="self-booking">Réservation directe de créneau</h3>
       <p>Lorsque des membres ont renseigné leurs disponibilités, le formulaire affiche automatiquement une <strong>liste de créneaux disponibles</strong> que le cooptant peut choisir directement.</p>
+      <p><strong>⭐ Créneaux conseillés</strong> : en vert, les créneaux qui collent à un entretien déjà réservé (juste avant ou juste après, pause comprise), et le premier créneau d'un jour encore vide. Les staffeurs enchaînent ainsi leurs entretiens au lieu d'avoir des heures de trou. Les autres créneaux restent réservables.</p>
+      <p><strong>Dispos « si vraiment pas le choix »</strong> : sur la page des dispos, un 2ᵉ clic sur une case la passe en orange. Ces créneaux restent utilisables, mais un créneau qui n'existe que grâce à eux n'est jamais conseillé, et les jurés en orange ne sont choisis qu'en dernier recours. Dans le planning, ils portent un badge « Si pas le choix ».</p>
       <div class="callout callout-indigo">
         <span class="callout-icon">💡</span>
         <span>Un créneau n'est proposé que si <strong>au moins N membres sont disponibles en même temps</strong> (N = nombre de jurys configuré dans Paramètres → Règles des entretiens). Les créneaux déjà pris par d'autres cooptants sont automatiquement grisés.</span>
@@ -553,8 +580,17 @@
         <span><strong>Pas de score tant que la grille n'est pas remplie en entier.</strong> Un 5/5 sur un seul critère ne vaut pas 100 % : il repose sur bien moins de matière qu'une moyenne sur cinq critères, et les deux ne se comparent pas. Tant qu'il manque une case, l'anneau reste vide et un badge orange <strong>« 2/5 critères »</strong> dit ce qui manque, dans la liste, dans le classement et dans le dossier. Une colonne <em>Critères notés</em> figure aussi dans l'export CSV.</span>
       </div>
 
+      <h3>Rechercher, filtrer, trier</h3>
+      <p>La recherche ignore les accents et les majuscules : « celeste » trouve « Céleste ». Le menu de filtre propose les statuts, et aussi <strong>Sans entretien</strong>, <strong>📍 Inscrits sur un stand</strong>, <strong>🇬🇧 Entretien en anglais</strong> et <strong>Pas encore évalués</strong>. Le menu de tri classe la liste par date d'inscription (plus récents ou plus anciens d'abord), par date d'entretien, par nom ou par meilleur score ; votre choix est gardé pour la prochaine fois.</p>
+
+      <h3>Modifier le profil d'un cooptant</h3>
+      <p>Dans la fiche dépliée, <strong>Modifier le profil</strong> permet de corriger le prénom, le nom, l'email et toutes les réponses au formulaire, y compris celles restées vides (par exemple le nom Facebook d'une personne inscrite sur un stand). Si vous changez l'email, c'est avec la nouvelle adresse que le cooptant retrouvera sa candidature s'il revient sur le formulaire.</p>
+
+      <h3>Statistiques de connexion</h3>
+      <p>Quand vous êtes connecté avec un compte du bureau, la plateforme note la <strong>date de votre dernière activité</strong> et le <strong>nombre de sessions par jour</strong> (une session = un onglet ouvert ce jour-là). Seul l'administrateur de la plateforme peut les consulter ; rien n'est enregistré pour le staff qui utilise les liens sans compte, ni pour les cooptants.</p>
+
       <h3>Notes internes</h3>
-      <p>Chaque fiche dispose d'un champ <strong>Notes internes</strong>, visible uniquement par le bureau. Utile pour consigner des impressions ou des décisions en cours de délibération.</p>
+      <p>Chaque fiche dispose d'un champ <strong>Notes internes</strong>, et chaque entretien du planning aussi. Elles sont rangées à part et <strong>ne sont lisibles que par le bureau de l'asso</strong> : ni le planning public, ni les liens du staff, ni le formulaire n'y ont accès. Utile pour consigner des impressions ou des décisions en cours de délibération.</p>
 
       <h3 id="export">Export CSV</h3>
       <p>Le bouton <strong>⬇ Exporter CSV</strong> génère un fichier contenant tous les dossiers : identité, statut, date de soumission, créneau d'entretien et réponses aux questions personnalisées.</p>
@@ -666,7 +702,7 @@
       <div class="steps">
         <div class="step"><div class="step-num">1</div><div class="step-body"><strong>Choisit son nom</strong> dans la liste (ou l'ajoute). Aucun mot de passe.</div></div>
         <div class="step"><div class="step-num">2</div><div class="step-body">Lit les <strong>consignes</strong> de l'asso, affichées avant même le choix du cooptant.</div></div>
-        <div class="step"><div class="step-num">3</div><div class="step-body">Sélectionne le <strong>cooptant</strong> à évaluer.</div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-body">Sélectionne le <strong>cooptant</strong> à évaluer : ses <strong>réponses au formulaire</strong> s'affichent (motivation, pôle…), pour préparer l'entretien. Le numéro de téléphone n'y figure pas. La liste ne propose que les entretiens <strong>de 2 h avant à 2 h après maintenant</strong> (ou ceux du jour, au choix dans Paramètres → Entretien → Lien d'évaluation du jury) : le lien circule dans tout le staff, il ne doit pas donner accès à tous les cooptants. Pour noter plus tard, le bureau passe par la fiche d'entretien de la page Cooptants.</div></div>
         <div class="step"><div class="step-num">4</div><div class="step-body">Renseigne les <strong><a href="#param-criteres">critères</a></strong> configurés par le bureau + une note globale, un avis et un commentaire.</div></div>
         <div class="step"><div class="step-num">5</div><div class="step-body">Envoie. Il peut enchaîner sur un autre cooptant.</div></div>
       </div>
@@ -692,16 +728,18 @@
       </div>
 
       <h3 id="param-campagne">🟢 Recrutement & règles d'entretien</h3>
-      <p>Chaque association règle <strong>son</strong> recrutement comme elle s'organise. Dans l'onglet <em>Campagne</em> :</p>
+      <p>Chaque association règle <strong>son</strong> recrutement comme elle s'organise. Dans l'onglet <em>Recrutement</em> :</p>
       <ul>
         <li><strong>Recrutement ouvert / fermé</strong> : ouvert, le formulaire accepte les candidatures ; fermé, il affiche un message d'attente.</li>
         <li><strong>Organiser des entretiens</strong> : décochez si votre asso recrute <strong>uniquement sur dossier</strong>. Le formulaire ne demande alors ni créneau ni disponibilité, et tous les réglages ci-dessous disparaissent.</li>
         <li><strong>Mode de prise de rendez-vous</strong> : qui choisit le créneau, voir <a href="#modes">les deux façons de caler les entretiens</a>.</li>
         <li><strong>Début et fin des entretiens</strong> : la période sur laquelle tout se joue (dispos du staff, créneaux proposés, planning). Laissez vide pour travailler en continu sur les 4 prochaines semaines. Les deux dates vont ensemble : une seule ne suffit pas.</li>
         <li><strong>Clôture des candidatures</strong> : date limite optionnelle. Vide = pas de date limite.</li>
+        <li><strong>Jours d'entretien</strong> : décochez les jours sans entretien (samedi, dimanche…) et retirez des dates précises (jour férié, partiels). Ils disparaissent du formulaire, de la page des dispos et du placement automatique. Un entretien déjà posé ce jour-là reste visible dans le planning.</li>
         <li><strong>Durée d'entretien</strong> : en minutes.</li>
         <li><strong>Battement entre entretiens</strong> : pause imposée entre deux entretiens, pour ne pas les enchaîner sans respirer. 0 = à la suite.</li>
-        <li><strong>Jurys par entretien</strong> : nombre de membres présents simultanément (1 à 3). Détermine aussi combien de membres doivent être disponibles pour qu'un créneau apparaisse dans le formulaire.</li>
+        <li><strong>Jurés par entretien (minimum)</strong> : nombre de membres présents simultanément (1 à 3). Détermine aussi combien de membres doivent être disponibles pour qu'un créneau apparaisse dans le formulaire.</li>
+        <li><strong>Juré en plus quand quelqu'un est libre</strong> : par exemple « 2 minimum, jusqu'à 3 ». Un 3e staffeur est ajouté à l'entretien s'il est libre, mais seulement s'il ne manque à aucun autre cooptant : avec 3 personnes libres, les 3 font l'entretien ; avec 4, on garde un binôme pour un autre cooptant. Vaut pour les réservations et le placement automatique.</li>
         <li><strong>Entretiens à plusieurs</strong> : permet à un cooptant d'inviter un ami sur son créneau, voir <a href="#collectif">passer l'entretien à plusieurs</a>.</li>
         <li><strong>Places disponibles</strong> : seuil utilisé pour la ligne de coupure du classement et des <a href="#delib">délibérations</a>.</li>
       </ul>
@@ -718,7 +756,7 @@
         <div class="mini-card"><div class="mini-card-title">📋 Liste de choix</div><div class="mini-card-body">Menu déroulant. Pour : campus, pôle, année d'études…</div></div>
         <div class="mini-card"><div class="mini-card-title">✔️ Case à cocher</div><div class="mini-card-body">Pour un engagement ou une charte à accepter.</div></div>
       </div>
-      <p>Chaque question peut être rendue obligatoire.</p>
+      <p>Chaque question peut être rendue obligatoire, et recevoir une <strong>version anglaise</strong> facultative, affichée aux cooptants qui remplissent le formulaire en anglais. Pour une liste de choix, les options anglaises s'écrivent dans le même ordre que les françaises : la réponse enregistrée reste l'option française, pour comparer tout le monde.</p>
 
       <h4 style="margin-top:16px;">Changer l'ordre des questions</h4>
       <p>Attrapez une question par sa <strong>poignée ⋮⋮</strong>, à gauche, et glissez-la à sa nouvelle place : un trait indique où elle va se poser. Les <strong>flèches ↑ ↓</strong> font la même chose d'un cran, et ce sont elles qu'on utilise sur téléphone, où le glisser ne fonctionne pas. Le nouvel ordre est enregistré aussitôt et s'applique au formulaire des cooptants.</p>
@@ -897,7 +935,7 @@
           <span class="faq-chevron">▼</span>
         </button>
         <div class="faq-a">
-          Dans <strong>Paramètres → Campagne</strong>, décochez <em>Recrutement ouvert</em>. Le formulaire de cooptation affichera alors un message d'attente et n'acceptera plus de candidatures. Recochez pour rouvrir.
+          Dans <strong>Paramètres → Recrutement</strong>, décochez <em>Recrutement ouvert</em>. Le formulaire de cooptation affichera alors un message d'attente et n'acceptera plus de candidatures. Recochez pour rouvrir.
         </div>
       </div>
 

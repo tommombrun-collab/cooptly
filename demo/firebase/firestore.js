@@ -27,6 +27,24 @@ export class Timestamp {
 
 const SERVER_TS = { __serverTimestamp: true };
 export const serverTimestamp = () => SERVER_TS;
+const SUPPRIMER = { __deleteField: true };
+export const deleteField = () => SUPPRIMER;
+export const increment = n => ({ __increment: n });
+// setDoc(…, { merge: true }) fusionne en profondeur, comme Firestore ;
+// updateDoc remplace le champ (seuls increment() et deleteField() s'y résolvent).
+function fusionner(avant, v) {
+  if (v && typeof v === 'object' && '__increment' in v) return (typeof avant === 'number' ? avant : 0) + v.__increment;
+  if (v && typeof v === 'object' && !Array.isArray(v) && !v.__serverTimestamp && !v.__ts && avant && typeof avant === 'object' && !Array.isArray(avant)) {
+    const o = { ...avant }; for (const [k, x] of Object.entries(v)) o[k] = fusionner(avant[k], x); return o;
+  }
+  if (v && typeof v === 'object' && !Array.isArray(v) && !v.__serverTimestamp && !v.__ts) {
+    const o = {}; for (const [k, x] of Object.entries(v)) o[k] = fusionner(undefined, x); return o;
+  }
+  return v;
+}
+function resoudre(avant, v) {
+  return (v && typeof v === 'object' && '__increment' in v) ? (typeof avant === 'number' ? avant : 0) + v.__increment : v;
+}
 
 // ─── Références ───────────────────────────────────────────────────
 const db = { type: 'firestore' };
@@ -154,8 +172,10 @@ function ecrire(base, ref, data, { merge = false, maj = false } = {}) {
       const parts = k.split('.'); let o = cible;
       parts.slice(0, -1).forEach(p => { o = (o[p] && typeof o[p] === 'object') ? o[p] : (o[p] = {}); });
       o[parts.at(-1)] = figer(v);
+    } else if (v === SUPPRIMER) {
+      delete cible[k];
     } else {
-      cible[k] = figer(v);
+      cible[k] = figer(merge ? fusionner(cible[k], v) : resoudre(cible[k], v));
     }
   }
   table[ref.id] = cible;

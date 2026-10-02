@@ -59,6 +59,16 @@ service cloud.firestore {
       allow write: if request.auth != null && request.auth.uid == userId;
     }
 
+    // ── Statistiques de connexion (js/activite.js) ────────────────
+    // Chacun écrit SA fiche (dernière activité, sessions par jour) ; seul
+    // l'admin plateforme les lit (admin/connexions.html). Pas de lecture par
+    // le bureau : ce sont des données sur les personnes elles-mêmes.
+    match /activite/{uid} {
+      allow read, delete: if isPlatformAdmin();
+      allow create, update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.uid == uid;
+    }
+
     // ── Platform admins ──────────────────────────────────────────
     match /platform_admins/{userId} {
       allow read: if request.auth != null && (request.auth.uid == userId || isPlatformAdmin());
@@ -209,7 +219,10 @@ service cloud.firestore {
       // statut.
       allow update: if ownsOrg(resource.data.organizationId) ||
         (request.auth != null && resource.data.userId == request.auth.uid) ||
-        (resource.data.email == request.resource.data.email &&
+        // Email inchangé, sauf s'il était vide : un cooptant inscrit sur un stand
+        // sans email l'ajoute ensuite depuis le lien de son QR code.
+        ((resource.data.email == request.resource.data.email ||
+          resource.data.get('email', '') == '') &&
          keepsScope(['resultToken', 'userId', 'organizationId', 'campaignId', 'notesInternes']) &&
          (keepsScope(['statut']) || avanceStatut()));
       allow delete: if ownsOrg(resource.data.organizationId);
@@ -295,9 +308,28 @@ service cloud.firestore {
         // le jury, la salle, ET l'asso/campagne/personne concernees.
         (request.resource.data.selfBooked == true &&
          request.resource.data.candidateId == resource.data.candidateId &&
-         keepsScope(['jury1Id', 'jury2Id', 'jury3Id', 'roomId', 'salleNom',
-                     'organizationId', 'campaignId', 'candidateId']));
+         keepsScope(['organizationId', 'campaignId', 'candidateId']) &&
+         (keepsScope(['jury1Id', 'jury2Id', 'jury3Id', 'roomId', 'salleNom']) ||
+          // Vrai changement d'horaire : postuler.html réattribue le jury pour le
+          // nouveau créneau et libère la salle (qui ne valait que pour l'ancien).
+          // Sans ça, tout report de créneau sans compte était refusé. Une salle
+          // ne peut être que vidée, jamais choisie par un anonyme.
+          (request.resource.data.datetimeStart != resource.data.datetimeStart &&
+           request.resource.data.get('roomId', null) == null &&
+           request.resource.data.get('salleNom', null) == null)));
       allow delete: if ownsOrg(resource.data.organizationId);
+    }
+
+    // ── Notes internes du bureau (js/notes.js) ────────────────────
+    // Sur un cooptant (`c_<id>`) ou un entretien (`iv_<id>`). Avant, elles
+    // étaient des champs de `candidates` et `interviews`, lisibles sans compte.
+    // Ici : le bureau de l'asso seulement, jamais d'anonyme, et une note ne
+    // peut pas changer d'asso.
+    match /notes_internes/{id} {
+      allow read, delete: if ownsOrg(resource.data.organizationId);
+      allow create: if ownsOrg(request.resource.data.organizationId);
+      allow update: if ownsOrg(resource.data.organizationId)
+        && request.resource.data.organizationId == resource.data.organizationId;
     }
 
     // ── Corbeille ─────────────────────────────────────────────────

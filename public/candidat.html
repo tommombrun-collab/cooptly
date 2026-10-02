@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <script>(function(){var t=localStorage.getItem("_theme");if(t)document.documentElement.setAttribute("data-theme",t);})();</script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Mon entretien · Cooptly</title>
+  <title data-en="My interview · Cooptly">Mon entretien · Cooptly</title>
   <!-- Connexions ouvertes d'avance : sans elles, chaque serveur (polices,
        SDK, base de données) coûtait sa propre poignée de main réseau au
        moment où la page en avait besoin. -->
@@ -69,6 +69,7 @@
 
 <div class="result-wrap">
   <div class="result-card">
+    <div id="lang-coin" style="display:flex;justify-content:flex-end;margin:-8px -8px 4px 0;"></div>
 
     <!-- Org branding : populated by JS -->
     <div id="org-logo-wrap" style="min-height:52px;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;"></div>
@@ -76,43 +77,43 @@
 
     <!-- Progress timeline : populated by JS -->
     <div id="candidat-timeline" class="candidat-timeline" style="display:none;">
-      <div class="ct-step" id="ct-1"><div class="ct-dot"></div><div class="ct-label">Candidature</div></div>
+      <div class="ct-step" id="ct-1"><div class="ct-dot"></div><div class="ct-label" data-en="Application">Candidature</div></div>
       <div class="ct-line" id="ct-line-1"></div>
-      <div class="ct-step" id="ct-2"><div class="ct-dot"></div><div class="ct-label">Entretien</div></div>
+      <div class="ct-step" id="ct-2"><div class="ct-dot"></div><div class="ct-label" data-en="Interview">Entretien</div></div>
       <div class="ct-line" id="ct-line-2"></div>
-      <div class="ct-step" id="ct-3"><div class="ct-dot"></div><div class="ct-label">Terminé</div></div>
+      <div class="ct-step" id="ct-3"><div class="ct-dot"></div><div class="ct-label" data-en="Done">Terminé</div></div>
       <div class="ct-line" id="ct-line-3"></div>
-      <div class="ct-step" id="ct-4"><div class="ct-dot"></div><div class="ct-label">Décision</div></div>
+      <div class="ct-step" id="ct-4"><div class="ct-dot"></div><div class="ct-label" data-en="Decision">Décision</div></div>
     </div>
 
     <!-- Loading state -->
     <div id="loading-state">
       <div class="spinner" style="margin:24px auto 12px;"></div>
-      <p style="color:var(--text-muted);font-size:14px;">Chargement de ton dossier…</p>
+      <p style="color:var(--text-muted);font-size:14px;" data-en="Loading your application…">Chargement de ton dossier…</p>
     </div>
 
     <!-- Error state -->
     <div id="error-state" style="display:none;">
       <div class="result-icon">😕</div>
-      <h2 style="color:var(--text);">Lien invalide</h2>
-      <p class="mt-8" id="error-msg">Ce lien ne correspond à aucun dossier de cooptation. Vérifie l'URL reçue.</p>
+      <h2 style="color:var(--text);" data-en="Invalid link">Lien invalide</h2>
+      <p class="mt-8" id="error-msg" data-en="This link doesn't match any application. Check the URL you received.">Ce lien ne correspond à aucun dossier de cooptation. Vérifie l'URL reçue.</p>
     </div>
 
     <!-- Status: reçu -->
     <div id="status-recu" style="display:none;">
       <div class="result-icon">✅</div>
-      <h2 class="result-status-pending">Candidature reçue !</h2>
+      <h2 class="result-status-pending" data-en="Application received!">Candidature reçue !</h2>
       <p class="mt-8" style="font-size:15px;">
-        Bonjour <strong id="candidat-prenom-recu"></strong>,<br/>
-        ton dossier a bien été enregistré.
+        <span data-en="Hi">Bonjour</span> <strong id="candidat-prenom-recu"></strong>,<br/>
+        <span data-en="your application has been saved.">ton dossier a bien été enregistré.</span>
       </p>
       <div class="interview-detail mt-24" style="text-align:center;">
-        <p style="font-size:14px;color:var(--text-muted);">
+        <p style="font-size:14px;color:var(--text-muted);" data-en="The association will contact you &lt;strong&gt;soon&lt;/strong&gt;&lt;br/&gt;to confirm your interview slot.">
           L'association te contactera <strong>prochainement</strong><br/>
           pour confirmer ton créneau d'entretien.
         </p>
       </div>
-      <div class="candidat-tip">
+      <div class="candidat-tip" data-en="💡 Bookmark this page: your interview details will show up here as soon as they are confirmed.">
         💡 Mets cette page en favori : les détails de ton entretien y apparaîtront dès qu'ils seront confirmés.
       </div>
     </div>
@@ -120,10 +121,10 @@
     <!-- Status: placé -->
     <div id="status-place" style="display:none;">
       <div class="result-icon">🎉</div>
-      <h2 class="result-status-placed">Ton entretien est confirmé !</h2>
+      <h2 class="result-status-placed" data-en="Your interview is confirmed!">Ton entretien est confirmé !</h2>
       <p class="mt-8" style="font-size:15px;">
-        Bonjour <strong id="candidat-prenom-place"></strong>,<br/>
-        voici les détails de ton entretien.
+        <span data-en="Hi">Bonjour</span> <strong id="candidat-prenom-place"></strong>,<br/>
+        <span data-en="here are your interview details.">voici les détails de ton entretien.</span>
       </p>
 
       <div class="interview-detail mt-16">
@@ -133,43 +134,43 @@
         </div>
         <div class="iv-detail-row">
           <div class="iv-detail-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
-          <div class="iv-detail-body"><div class="iv-detail-label">Horaire</div><div class="iv-detail-value" id="interview-heure">·</div></div>
+          <div class="iv-detail-body"><div class="iv-detail-label" data-en="Time">Horaire</div><div class="iv-detail-value" id="interview-heure">·</div></div>
         </div>
         <div class="iv-detail-row">
           <div class="iv-detail-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
-          <div class="iv-detail-body"><div class="iv-detail-label">Salle</div><div class="iv-detail-value" id="interview-salle">·</div></div>
+          <div class="iv-detail-body"><div class="iv-detail-label" data-en="Room">Salle</div><div class="iv-detail-value" id="interview-salle">·</div></div>
         </div>
         <div class="iv-detail-row">
           <div class="iv-detail-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
-          <div class="iv-detail-body"><div class="iv-detail-label">Jury</div><div class="iv-detail-value" id="interview-jury">·</div></div>
+          <div class="iv-detail-body"><div class="iv-detail-label" data-en="Interviewers">Jury</div><div class="iv-detail-value" id="interview-jury">·</div></div>
         </div>
       </div>
 
       <div class="cal-btns" id="cal-btns" style="display:none;">
         <a id="cal-google" class="btn btn-ghost btn-sm" target="_blank" rel="noopener">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-          Google Agenda
+          <span data-en="Google Calendar">Google Agenda</span>
         </a>
         <button id="cal-ics" class="btn btn-ghost btn-sm" type="button">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Télécharger (.ics)
+          <span data-en="Download (.ics)">Télécharger (.ics)</span>
         </button>
       </div>
 
       <div class="candidat-tip">
-        ✉️ Ce créneau ne convient pas ? <a id="link-modify" href="/postuler.html" style="color:var(--indigo);font-weight:600;">Modifie ton entretien</a> depuis le formulaire de candidature.
+        <span data-en="✉️ This slot doesn't work for you?">✉️ Ce créneau ne convient pas ?</span> <a id="link-modify" href="/postuler.html" style="color:var(--indigo);font-weight:600;" data-en="Change your interview">Modifie ton entretien</a> <span data-en="from the application form.">depuis le formulaire de candidature.</span>
       </div>
     </div>
 
     <!-- Status: entretien fait -->
     <div id="status-fait" style="display:none;">
       <div class="result-icon">📋</div>
-      <h2 style="color:var(--text);">Entretien réalisé</h2>
+      <h2 style="color:var(--text);" data-en="Interview done">Entretien réalisé</h2>
       <p class="mt-8" style="font-size:15px;">
-        Bonjour <strong id="candidat-prenom-fait"></strong>,<br/>
-        ton entretien a bien eu lieu. Le bureau délibère et te contactera prochainement pour t'annoncer la décision.
+        <span data-en="Hi">Bonjour</span> <strong id="candidat-prenom-fait"></strong>,<br/>
+        <span data-en="your interview took place. The board is deliberating and will contact you soon with its decision.">ton entretien a bien eu lieu. Le bureau délibère et te contactera prochainement pour t'annoncer la décision.</span>
       </p>
-      <div class="candidat-tip">
+      <div class="candidat-tip" data-en="⏳ Thanks for your patience: the decision is coming soon!">
         ⏳ Merci pour ta patience : la décision arrive bientôt !
       </div>
     </div>
@@ -177,12 +178,12 @@
     <!-- Status: accepté -->
     <div id="status-accepte" style="display:none;">
       <div class="result-icon">🥳</div>
-      <h2 style="color:var(--green);">Félicitations !</h2>
+      <h2 style="color:var(--green);" data-en="Congratulations!">Félicitations !</h2>
       <p class="mt-8" style="font-size:15px;">
-        Bonjour <strong id="candidat-prenom-accepte"></strong>,<br/>
-        tu as été accepté(e) dans l'association. Bienvenue dans l'équipe !
+        <span data-en="Hi">Bonjour</span> <strong id="candidat-prenom-accepte"></strong>,<br/>
+        <span data-en="you've been accepted into the association. Welcome to the team!">tu as été accepté(e) dans l'association. Bienvenue dans l'équipe !</span>
       </p>
-      <div class="candidat-tip" style="background:var(--green-light);border-color:var(--green-mid);color:var(--green);">
+      <div class="candidat-tip" style="background:var(--green-light);border-color:var(--green-mid);color:var(--green);" data-en="🎉 The board will contact you soon about the next steps.">
         🎉 Le bureau va te contacter prochainement pour les prochaines étapes de ton intégration.
       </div>
     </div>
@@ -190,10 +191,10 @@
     <!-- Status: refusé -->
     <div id="status-refuse" style="display:none;">
       <div class="result-icon">💌</div>
-      <h2 style="color:var(--text);">Merci pour ta candidature</h2>
+      <h2 style="color:var(--text);" data-en="Thank you for applying">Merci pour ta candidature</h2>
       <p class="mt-8" style="font-size:15px;">
-        Bonjour <strong id="candidat-prenom-refuse"></strong>,<br/>
-        nous ne pouvons malheureusement pas te proposer un poste cette année. N'hésite pas à repostuler l'an prochain !
+        <span data-en="Hi">Bonjour</span> <strong id="candidat-prenom-refuse"></strong>,<br/>
+        <span data-en="unfortunately we can't offer you a place this year. Feel free to apply again next year!">nous ne pouvons malheureusement pas te proposer un poste cette année. N'hésite pas à repostuler l'an prochain !</span>
       </p>
     </div>
 
@@ -210,6 +211,10 @@ import { getFirestore, collection, query, where, getDocs, getDoc, doc }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { firebaseConfig } from '/js/firebase-config.js';
 import { paramLien } from '/js/utils.js';
+import { EN, LOCALE, tr, traduirePage, selecteurLangue } from '/js/langue.js';
+
+traduirePage();
+selecteurLangue(document.getElementById('lang-coin'));
 
 const app = initializeApp(firebaseConfig);
 const db  = getFirestore(app);
@@ -237,10 +242,10 @@ function showTimeline(activeStep) {
 }
 
 function fmtDate(d) {
-  return d.toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+  return d.toLocaleDateString(LOCALE, { weekday:'long', day:'numeric', month:'long', year:'numeric' });
 }
 function fmtTime(d) {
-  return d.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' });
+  return d.toLocaleTimeString(LOCALE, { hour:'2-digit', minute:'2-digit' });
 }
 function icsDate(d) {
   return d.toISOString().replace(/[-:]/g,'').slice(0, 15) + 'Z';
@@ -309,12 +314,18 @@ async function loadCandidate() {
 
       case 'place': {
         document.getElementById('candidat-prenom-place').textContent = prenom;
+        if (candidate.langue === 'en') {
+          const note = document.createElement('p');
+          note.style.cssText = 'font-size:14px;font-weight:600;margin-top:8px;';
+          note.textContent = tr('🇬🇧 Ton entretien se passera en anglais.', '🇬🇧 Your interview will be in English.');
+          document.getElementById('candidat-prenom-place').closest('p').after(note);
+        }
 
         // Modify-slot link
         if (org) {
           // Avec le jeton : le formulaire se rouvre prérempli, réponses comprises.
           document.getElementById('link-modify').href =
-            `/postuler.html?org=${org.slug || org.id}&modif=${encodeURIComponent(token)}`;
+            `/postuler.html?org=${org.slug || org.id}&modif=${encodeURIComponent(token)}${EN ? '&lang=en' : ''}`;
         }
 
         // Load interview
@@ -328,10 +339,11 @@ async function loadCandidate() {
           document.getElementById('interview-heure').textContent = `${fmtTime(start)} - ${fmtTime(end)}`;
 
           // Room
-          let roomLabel = 'À confirmer';
+          const A_CONFIRMER = tr('À confirmer', 'To be confirmed');
+          let roomLabel = A_CONFIRMER;
           if (iv.roomId) {
             const roomDoc = await getDoc(doc(db, 'rooms', iv.roomId));
-            if (roomDoc.exists()) roomLabel = roomDoc.data().code || roomDoc.data().nom || 'Salle à confirmer';
+            if (roomDoc.exists()) roomLabel = roomDoc.data().code || roomDoc.data().nom || tr('Salle à confirmer', 'Room to be confirmed');
           } else if (iv.salleNom) {
             roomLabel = iv.salleNom;
           }
@@ -352,21 +364,21 @@ async function loadCandidate() {
               if (r.exists() && r.data().displayName) { juryNames.push(r.data().displayName); continue; }
               const sa = await getDocs(query(collection(db, 'staff_availabilities'), where('userId', '==', juryId)));
               const nom = sa.docs.map(d => d.data().displayName).find(Boolean);
-              juryNames.push(nom || 'Membre du jury');
-            } catch { juryNames.push('Membre du jury'); }
+              juryNames.push(nom || tr('Membre du jury', 'Interviewer'));
+            } catch { juryNames.push(tr('Membre du jury', 'Interviewer')); }
           }
-          document.getElementById('interview-jury').textContent = juryNames.length ? juryNames.join(' · ') : 'À confirmer';
+          document.getElementById('interview-jury').textContent = juryNames.length ? juryNames.join(' · ') : A_CONFIRMER;
 
           // Calendar
           const orgName = org?.name || "Cooptly";
-          const title   = `Entretien de cooptation - ${orgName}`;
-          const loc     = roomLabel !== 'À confirmer' ? roomLabel : '';
+          const title   = `${tr('Entretien de cooptation', 'Interview')} - ${orgName}`;
+          const loc     = roomLabel !== A_CONFIRMER ? roomLabel : '';
           document.getElementById('cal-google').href = makeGCalUrl(start, end, title, loc);
           document.getElementById('cal-ics').addEventListener('click', () => downloadICS(start, end, title, loc));
           document.getElementById('cal-btns').style.display = 'flex';
         } else {
           ['interview-date','interview-heure','interview-salle','interview-jury']
-            .forEach(id => { document.getElementById(id).textContent = 'À confirmer'; });
+            .forEach(id => { document.getElementById(id).textContent = tr('À confirmer', 'To be confirmed'); });
         }
 
         showTimeline(2);
@@ -400,7 +412,7 @@ async function loadCandidate() {
 
   } catch (err) {
     console.error(err);
-    document.getElementById('error-msg').textContent = 'Erreur de chargement : ' + err.message;
+    document.getElementById('error-msg').textContent = tr('Erreur de chargement : ', 'Loading error: ') + err.message;
     showSection('error-state');
   }
 }

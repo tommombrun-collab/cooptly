@@ -169,39 +169,43 @@
     }
     #eval-panel iframe { flex:1;border:none;width:100%; }
 
-    /* ── Panneau dossier ─────────────────────────────────────────────
-       Consultable pendant les délibérations : en réunion on veut relire une
-       motivation sans quitter le classement ni perdre l'ordre en cours. */
+    /* ── Fenêtre dossier ─────────────────────────────────────────────
+       Fenêtre centrée, comme celle du tableau de bord. Consultable pendant les
+       délibérations : on relit une motivation sans perdre l'ordre en cours. */
     #dossier-panel {
-      position:fixed;top:0;right:0;bottom:0;width:min(620px,100vw);
-      background:var(--surface);box-shadow:-4px 0 24px rgba(0,0,0,.15);
-      z-index:901;display:flex;flex-direction:column;
-      transform:translateX(100%);transition:transform .25s cubic-bezier(.4,0,.2,1);
+      position:fixed;top:50%;left:50%;z-index:9991;
+      width:min(640px,calc(100vw - 32px));max-height:calc(100dvh - 32px);
+      background:var(--surface);border:1px solid var(--border);border-radius:18px;
+      box-shadow:0 24px 64px rgba(0,0,0,.22), 0 4px 16px rgba(0,0,0,.08);
+      display:flex;flex-direction:column;
+      opacity:0;pointer-events:none;transform:translate(-50%,-48%) scale(.98);
+      transition:opacity .18s ease, transform .18s ease;
     }
-    #dossier-panel.open { transform:translateX(0); }
+    #dossier-panel.open { opacity:1;pointer-events:auto;transform:translate(-50%,-50%); }
+    @media (prefers-reduced-motion: reduce) { #dossier-panel { transition:none; } }
     /* Projeté en réunion : plus large et plus lisible de loin. */
-    body.delib-on #dossier-panel { width:min(760px,100vw);font-size:15px; }
+    body.delib-on #dossier-panel { width:min(780px,calc(100vw - 32px));font-size:15px; }
     body.delib-on .dossier-value { font-size:15.5px;line-height:1.65; }
     #dossier-header {
-      display:flex;align-items:center;gap:12px;
-      padding:14px 18px;border-bottom:1px solid var(--border);flex-shrink:0;
+      display:flex;align-items:flex-start;gap:12px;
+      padding:20px 22px 16px;border-bottom:1px solid var(--border);flex-shrink:0;
     }
-    #dossier-body { flex:1;overflow-y:auto;padding:18px; }
-    /* Sur grand écran le panneau pousse la page au lieu de la recouvrir : en
-       délibération on continue de réordonner le classement tout en lisant. */
-    @media (min-width: 1400px) {
-      body.dossier-on .page { margin-right:min(760px,100vw);transition:margin-right .25s cubic-bezier(.4,0,.2,1); }
-      body.dossier-on #delib-bar { padding-right:calc(min(760px,100vw) + 22px); }
-    }
-    /* En dessous il recouvre, et un voile permet de le fermer d'un clic. */
+    #dossier-body { flex:1;overflow-y:auto;padding:18px 22px; }
     #dossier-overlay {
-      position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:900;
-      opacity:0;pointer-events:none;transition:opacity .2s;
+      position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(3px);z-index:9990;
+      opacity:0;pointer-events:none;transition:opacity .18s;
     }
-    @media (max-width: 1399px) {
-      body.dossier-on #dossier-overlay { opacity:1;pointer-events:all; }
-    }
+    body.dossier-on #dossier-overlay { opacity:1;pointer-events:all; }
+    .cp-grid { display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;margin-bottom:8px; }
+    .cp-tile { background:var(--bg);border-radius:10px;padding:9px 12px; }
+    .cp-k { font-size:11px;font-weight:600;color:var(--text-muted); }
+    .cp-v { font-size:13.5px;font-weight:600;margin-top:2px;overflow-wrap:anywhere; }
+    .cp-v a { color:inherit; }
+    .cp-crayon { text-decoration:none;margin-left:6px;padding:2px 6px;border-radius:6px;border:1px solid var(--border);font-size:13px; }
+    .cp-crayon:hover { border-color:var(--indigo);background:var(--indigo-light); }
+    .cp-crayon:focus-visible { outline:2px solid var(--indigo);outline-offset:2px; }
     #dossier-nav { display:flex;align-items:center;gap:6px;margin-left:auto;flex-shrink:0; }
+    #dossier-meta { display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:3px; }
     .dossier-section-title {
       font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;
       /* --text-light tombe a 2.86:1, sous le seuil AA de 4.5:1 exige pour du
@@ -308,6 +312,9 @@
       font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.06em;
       color:var(--text-muted); margin-bottom:8px;
     }
+    .cand-edit { background:var(--bg); border-radius:10px; padding:14px; display:flex; flex-direction:column; gap:12px; }
+    .cand-edit .form-group { margin:0; }
+    .cand-edit-actions { display:flex; gap:8px; flex-wrap:wrap; }
     .cand-notes-etat { text-transform:none; letter-spacing:0; font-weight:500; color:var(--green); }
     @media (max-width:640px) {
       .cand-head { flex-wrap:wrap; gap:8px 12px; }
@@ -362,7 +369,7 @@
   <div class="flex-between mb-24" id="candidats-head">
     <div><h1>Cooptants</h1><p>Réponses aux formulaires et gestion des statuts</p></div>
     <div class="flex-gap">
-      <select class="form-select" id="campaign-select" style="width:220px;font-size:14px;"><option value="">Campagne</option></select>
+      <select class="form-select" id="campaign-select" style="display:none;width:220px;font-size:14px;"><option value="">Recrutement</option></select>
       <button class="btn btn-secondary" id="btn-export">⬇️ CSV</button>
     </div>
   </div>
@@ -376,11 +383,27 @@
         <button class="view-toggle-btn" id="btn-view-evals" onclick="setView('evals')">📊 Évaluations</button>
       </div>
       <input class="form-input" id="search" placeholder="Rechercher…" style="width:180px;font-size:14px;" />
-      <select class="form-select" id="filter-statut" style="width:155px;font-size:14px;">
-        <option value="">Tous les statuts</option>
-        <option value="recu">Reçus</option>
-        <option value="place">Placés</option>
-        <option value="entretien_fait">Entretien fait</option>
+      <select class="form-select" id="filter-statut" style="width:175px;font-size:14px;" aria-label="Filtrer">
+        <option value="">Tous les cooptants</option>
+        <optgroup label="Statut">
+          <option value="recu">Reçus</option>
+          <option value="place">Placés</option>
+          <option value="entretien_fait">Entretien fait</option>
+        </optgroup>
+        <optgroup label="Autres">
+          <option value="sans-entretien">Sans entretien</option>
+          <option value="stand">📍 Inscrits sur un stand</option>
+          <option value="en">🇬🇧 Entretien en anglais</option>
+          <option value="non-evalue">Pas encore évalués</option>
+        </optgroup>
+      </select>
+      <select class="form-select" id="tri-liste" style="width:190px;font-size:14px;" aria-label="Trier">
+        <option value="recent">Plus récents d'abord</option>
+        <option value="ancien">Plus anciens d'abord</option>
+        <option value="entretien">Date d'entretien</option>
+        <option value="nom">Nom (A → Z)</option>
+        <option value="nom-desc">Nom (Z → A)</option>
+        <option value="score">Meilleur score</option>
       </select>
       <span id="score-status" class="text-sm text-muted"></span>
     </div>
@@ -444,8 +467,9 @@ import { initBurgerMenu } from '/js/nav.js';
 import { getFirestore, collection, query, where, getDocs, getDoc, doc, updateDoc, deleteDoc }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { showToast, formatDatetime, confirmDialog, normaliserNote, telephoneCooptant,
-  cleReponse, reponseA, texteReponse, reponsesOrdonnees as reponsesSelonQuestions, paramLien } from '/js/utils.js';
+  cleReponse, reponseA, texteReponse, reponsesOrdonnees as reponsesSelonQuestions, paramLien, pourRecherche } from '/js/utils.js';
 import { cooptantEnCorbeille, DUREE_CORBEILLE_JOURS } from '/js/corbeille.js';
+import { chargerNotes, migrerNotes, texteNote, enregistrerNote, idNoteCooptant, idNoteEntretien } from '/js/notes.js';
 
 const db = getFirestore(app);
 
@@ -466,6 +490,8 @@ function esc(str) {
 let user, currentOrg, currentCampaign = null;
 let allCandidates = [], customQuestions = [], allEvaluations = [], criteriaConfig = [];
 let entretienParCooptant = {};   // candidateId → Date du premier entretien
+let ivParCooptant = {};          // candidateId → premier entretien (document), pour la fenêtre dossier
+let notesMap = new Map();        // notes internes (privées au bureau), voir js/notes.js
 let currentView    = 'liste';   // 'liste' | 'classement'
 let currentSortMode = 'manuel';   // 'auto' | 'manuel'
 // Manuel par defaut : c'est le mode dans lequel on delibere. Sans ordre
@@ -530,6 +556,13 @@ async function init() {
 
   document.getElementById('search').addEventListener('input', applyFilters);
   document.getElementById('filter-statut').addEventListener('change', applyFilters);
+  // Tri de la liste, mémorisé pour la prochaine visite.
+  const triSel = document.getElementById('tri-liste');
+  try { const t = localStorage.getItem('_triCooptants'); if (t && triSel.querySelector(`option[value="${t}"]`)) triSel.value = t; } catch { /* navigation privée */ }
+  triSel.addEventListener('change', () => {
+    try { localStorage.setItem('_triCooptants', triSel.value); } catch { /* navigation privée */ }
+    applyFilters();
+  });
   document.getElementById('btn-export').addEventListener('click', exportCSV);
 
   document.getElementById('nb-places-input').addEventListener('change', async e => {
@@ -578,27 +611,41 @@ async function loadCampaign(campaign) {
   // `organizationId`. Filtrée par campagne seulement, la requête était
   // refusée à tout membre du bureau qui n'est pas admin : la page Cooptants
   // ne s'ouvrait plus du tout pour eux. L'admin passait, d'où l'angle mort.
-  const [candSnap, evalSnap, ivSnap] = await Promise.all([
+  const [candSnap, evalSnap, ivSnap, notes] = await Promise.all([
     getDocs(query(collection(db, 'candidates'), where('campaignId', '==', campaign.id))),
     getDocs(query(collection(db, 'interview_evaluations'),
       where('organizationId', '==', campaign.organizationId),
       where('campaignId', '==', campaign.id))),
     // Pour afficher la date d'entretien directement dans la liste.
     getDocs(query(collection(db, 'interviews'), where('campaignId', '==', campaign.id))),
+    chargerNotes(db, campaign.organizationId, campaign.id).catch(e => { console.warn('Notes internes illisibles :', e); return new Map(); }),
   ]);
+  notesMap = notes;
 
   entretienParCooptant = {};
+  ivParCooptant = {};
   ivSnap.docs.forEach(d => {
     const iv = d.data();
     const t = iv.datetimeStart?.toDate?.();
     if (!iv.candidateId || !t) return;
     const deja = entretienParCooptant[iv.candidateId];
-    if (!deja || t < deja) entretienParCooptant[iv.candidateId] = t;
+    if (!deja || t < deja) { entretienParCooptant[iv.candidateId] = t; ivParCooptant[iv.candidateId] = iv; }
   });
 
   allCandidates  = candSnap.docs.map(d => ({ id: d.id, ...d.data() }))
     .sort((a, b) => (a.createdAt?.toMillis?.() ?? 0) - (b.createdAt?.toMillis?.() ?? 0));
   allEvaluations = evalSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+  // Anciennes notes posées sur le cooptant (lisibles sans compte) : déplacées
+  // une fois pour toutes dans les notes privées du bureau.
+  try {
+    await migrerNotes(db, notesMap, {
+      organizationId: campaign.organizationId, campaignId: campaign.id,
+      cooptants: allCandidates,
+      entretiens: ivSnap.docs.map(d => ({ id: d.id, ...d.data() })),
+    });
+  } catch (e) { console.warn('Déplacement des notes internes impossible :', e); }
+  allCandidates.forEach(c => { delete c.notesInternes; c._note = texteNote(notesMap, idNoteCooptant(c.id)); });
 
   computeAllScores();
 
@@ -760,7 +807,7 @@ function computeAllScores() {
 // ─── Vue Évaluations ─────────────────────────────────────────────
 function renderEvalsView() {
   const el = document.getElementById('evals-list');
-  if (!currentCampaign) { el.innerHTML = '<p class="text-muted text-sm">Sélectionne une campagne.</p>'; return; }
+  if (!currentCampaign) { el.innerHTML = '<p class="text-muted text-sm">Chargement…</p>'; return; }
   if (!allCandidates.length) { el.innerHTML = '<p class="text-muted text-sm">Aucun cooptant.</p>'; return; }
 
   // Sort: 0 évals first, then by count desc
@@ -857,9 +904,13 @@ async function supprimerCandidat(c, card) {
         where('candidateId', '==', c.id))),
     ]);
     // Copie en corbeille et suppressions partent dans le même lot.
+    // Ses notes internes (sur lui et sur ses entretiens) partent avec lui.
+    const sesNotes = [idNoteCooptant(c.id), ...ivSnap.docs.map(d => idNoteEntretien(d.id))]
+      .map(id => notesMap.get(id)).filter(Boolean);
     await cooptantEnCorbeille(db,
       { id: c.id, ...(candDoc.exists() ? candDoc.data() : c) },
-      ivSnap.docs, evalSnap.docs, orgId, user?.email || null);
+      ivSnap.docs, evalSnap.docs, orgId, user?.email || null, sesNotes);
+    sesNotes.forEach(n => notesMap.delete(n.id));
 
     allCandidates = allCandidates.filter(x => x.id !== c.id);
     card.remove();
@@ -906,6 +957,7 @@ function renderList(cands) {
     const [bc, label] = BADGES[c.statut] || ['badge-gray', c.statut];
     const card = document.createElement('div');
     card.className = 'card cand-card';
+    card.dataset.id = c.id;
 
     // ── En-tête (toujours visible) ────────────────────────────────
     // Rien n'est affiché « à vide » : pas de rond gris tant que personne n'a
@@ -937,7 +989,7 @@ function renderList(cands) {
 
     header.innerHTML = `
       <div class="cand-id">
-        <div class="cand-name">${esc(c.prenom)} ${esc(c.nom)}</div>
+        <div class="cand-name">${esc(c.prenom)} ${esc(c.nom)}${c.langue === 'en' ? ' <span class="badge" title="A rempli le formulaire en anglais : entretien en anglais">🇬🇧 EN</span>' : ''}${c.source === 'stand' ? ' <span class="badge" title="Inscrit·e sur un stand par le bureau : seuls les champs du mode stand ont été demandés">📍 Stand</span>' : ''}</div>
         ${meta.length ? `<div class="cand-meta">${meta.join('')}</div>` : ''}
       </div>
       <div class="cand-side">
@@ -1084,7 +1136,10 @@ function renderList(cands) {
     delBtn.classList.add('cand-del');
     delBtn.addEventListener('click', () => supprimerCandidat(c, card));
 
-    actions.append(statSel, dossierBtn2, evalBtn, delBtn);
+    const editBtn = bouton('button', 'Modifier le profil', 'Corriger le nom, l\'email ou les réponses au formulaire');
+    editBtn.addEventListener('click', () => ouvrirEdition(c, body, editBtn));
+
+    actions.append(statSel, dossierBtn2, editBtn, evalBtn, delBtn);
     body.prepend(actions);   // les actions d'abord, avant les évaluations
 
     // ── Infos : seulement celles qui existent ─────────────────────
@@ -1115,6 +1170,7 @@ function renderList(cands) {
         p.innerHTML = `<div class="cand-info-k">${esc(label)}</div><div class="cand-reponse-v">${esc(value)}</div>`;
         qDiv.appendChild(p);
       });
+      qDiv.classList.add('cand-reponses');
       if (remplies.length) body.appendChild(qDiv);
     }
 
@@ -1142,17 +1198,18 @@ function renderList(cands) {
     const notesDiv = document.createElement('div');
     notesDiv.className = 'cand-notes';
     notesDiv.innerHTML = `<label class="cand-section-t" for="notes-${c.id}">Notes internes <span class="cand-notes-etat" aria-live="polite"></span></label>
-      <textarea class="form-textarea" id="notes-${c.id}" rows="2" placeholder="Visible uniquement par le bureau">${esc(c.notesInternes || '')}</textarea>`;
+      <textarea class="form-textarea" id="notes-${c.id}" rows="2" placeholder="Visible uniquement par le bureau">${esc(c._note || '')}</textarea>`;
     body.appendChild(notesDiv);
     const notesArea = notesDiv.querySelector('textarea');
     const notesEtat = notesDiv.querySelector('.cand-notes-etat');
     notesArea.addEventListener('blur', async () => {
       const v = notesArea.value;
-      if (v === (c.notesInternes || '')) return;
+      if (v === (c._note || '')) return;
       notesEtat.textContent = 'Enregistrement…';
       try {
-        await updateDoc(doc(db, 'candidates', c.id), { notesInternes: v });
-        c.notesInternes = v;
+        await enregistrerNote(db, notesMap, idNoteCooptant(c.id),
+          { organizationId: c.organizationId || currentOrg?.id, campaignId: currentCampaign?.id, candidateId: c.id }, v);
+        c._note = v;
         notesEtat.textContent = 'Enregistré';
       } catch (err) {
         notesEtat.textContent = '';
@@ -1417,22 +1474,76 @@ function openDossier(candId) {
     ? ` · <span style="color:var(--orange);font-weight:700;">${c._nbCriteresNotes}/${c._nbCriteresTotal} critères notés</span>`
     : '';
   document.getElementById('dossier-meta').innerHTML =
-    `<span class="badge ${bc}" style="font-size:10px;">${blabel}</span> `
-    + `<span style="margin-left:6px;">${esc(c.email || '')}</span>`
-    + `<span style="margin-left:6px;">· ${esc(score)}</span>${couverture}`;
+    `<span class="badge ${bc}" style="font-size:10px;">${blabel}</span>`
+    + `<span>${esc(score)}</span>${couverture}`;
 
   document.getElementById('dossier-pos').textContent =
     idx >= 0 ? `${idx + 1}/${sorted.length}` : '';
   document.getElementById('dossier-prev').disabled = idx <= 0;
   document.getElementById('dossier-next').disabled = idx < 0 || idx >= sorted.length - 1;
 
+  enregistrerNoteDossier();   // note du cooptant précédent (flèches ↑/↓)
   document.getElementById('dossier-body').innerHTML = dossierHtml(c);
+  const zoneNote = document.getElementById('dossier-note');
+  zoneNote.dataset.cand = c.id;
+  zoneNote.addEventListener('blur', enregistrerNoteDossier);
 
   document.body.classList.add('dossier-on');
   document.getElementById('dossier-panel').classList.add('open');
+  remplirSalleEtJury(c.id);
+}
+
+const tuile = (k, v) => `<div class="cp-tile"><div class="cp-k">${k}</div><div class="cp-v">${v}</div></div>`;
+
+/** Tuiles du haut : contact et entretien (salle et jury complétés ensuite). */
+function tuilesDossier(c, tel) {
+  const iv = ivParCooptant[c.id];
+  // ✏️ : ouvre l'allocation de ce cooptant dans le planning, pour (re)caler son créneau.
+  const crayon = libelle => `<a class="cp-crayon" href="/planning.html?org=${encodeURIComponent(currentOrg?.id || '')}&allouer=${encodeURIComponent(c.id)}" title="${libelle}" aria-label="${libelle}">✏️</a>`;
+  const t = [];
+  if (c.email) t.push(tuile('Email', `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>`));
+  if (tel)     t.push(tuile('Téléphone', `<a href="tel:${esc(tel.replace(/\s+/g, ''))}">${esc(tel)}</a>`));
+  if (!iv) {
+    t.push(tuile('Entretien', `Pas encore planifié ${crayon('Placer ce cooptant dans le planning')}`));
+    return `<div class="cp-grid">${t.join('')}</div>`;
+  }
+  const s = iv.datetimeStart.toDate();
+  const e = iv.datetimeEnd?.toDate?.();
+  const hm = d => d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const date = s.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+  t.push(tuile('Entretien', `${esc(date)}, ${hm(s)}${e ? ' - ' + hm(e) : ''} ${crayon('Changer le créneau')}`));
+  t.push(tuile('Salle', '<span id="dossier-salle" class="text-muted">…</span>'));
+  t.push(tuile('Jury', '<span id="dossier-jury" class="text-muted">…</span>'));
+  return `<div class="cp-grid">${t.join('')}</div>`;
+}
+
+/** Noms de la salle et des jurés, lus là où ils sont lisibles (comme au tableau de bord). */
+async function remplirSalleEtJury(candId) {
+  const iv = ivParCooptant[candId];
+  if (!iv) return;
+  const juryIds = [iv.jury1Id, iv.jury2Id, iv.jury3Id].filter(Boolean);
+  const [salle, jures] = await Promise.all([
+    iv.roomId
+      ? getDoc(doc(db, 'rooms', iv.roomId)).then(r => r.exists() ? (r.data().code || r.data().nom || r.data().name) : iv.salleNom).catch(() => iv.salleNom)
+      : Promise.resolve(iv.salleNom || ''),
+    Promise.all(juryIds.map(async id => {
+      try {
+        const r = await getDoc(doc(db, 'roster_members', id));
+        if (r.exists() && r.data().displayName) return r.data().displayName;
+        const sa = await getDocs(query(collection(db, 'staff_availabilities'), where('userId', '==', id)));
+        return sa.docs.map(d => d.data().displayName).find(Boolean) || null;
+      } catch { return null; }
+    })),
+  ]);
+  if (dossierCandId !== candId) return;
+  const zS = document.getElementById('dossier-salle');
+  const zJ = document.getElementById('dossier-jury');
+  if (zS) { zS.className = ''; zS.innerHTML = salle ? esc(salle) : '<span style="color:var(--orange);">À définir</span>'; }
+  if (zJ) { zJ.className = ''; zJ.innerHTML = juryIds.length ? esc(jures.map(n => n || 'Membre du jury').join(', ')) : '<span style="color:var(--red);">À définir</span>'; }
 }
 
 function closeDossier() {
+  enregistrerNoteDossier();
   dossierCandId = null;
   document.body.classList.remove('dossier-on');
   document.getElementById('dossier-panel').classList.remove('open');
@@ -1449,11 +1560,15 @@ function dossierStep(delta) {
 
 /** Contenu du dossier : réponses au formulaire, puis retours du jury. */
 function dossierHtml(c) {
-  let html = '';
+  const tel = telephoneCooptant(c, customQuestions);
+  let html = tuilesDossier(c, tel);
 
-  // Réponses au formulaire de cooptation
-  const reponses = reponsesOrdonnees(c);
-  html += '<div class="dossier-section-title">Réponses au formulaire</div>';
+  // Réponses au formulaire de cooptation (vides et téléphone, déjà en tuile, masqués)
+  const reponses = reponsesOrdonnees(c).filter(({ value }) => {
+    const v = String(value ?? '').trim();
+    return v !== '' && v !== tel;
+  });
+  html += '<div class="dossier-section-title" style="margin-top:16px;">Réponses au formulaire</div>';
   if (!reponses.length) {
     html += '<div class="dossier-empty">Ce cooptant n\'a répondu à aucune question personnalisée.</div>';
   } else {
@@ -1488,7 +1603,33 @@ function dossierHtml(c) {
               : 'Aucune évaluation reçue pour le moment.'}</div>`;
   }
 
+  // Note interne, la même que dans la carte du cooptant
+  html += `<label class="dossier-section-title" for="dossier-note" style="display:block;">Note interne <span id="dossier-note-etat" style="text-transform:none;letter-spacing:0;font-weight:500;" aria-live="polite"></span></label>
+    <textarea class="form-textarea" id="dossier-note" rows="3" placeholder="Visible uniquement par le bureau">${esc(c._note || '')}</textarea>`;
+
   return html;
+}
+
+/** Enregistre la note du dossier ouvert si elle a changé. */
+async function enregistrerNoteDossier() {
+  const zone = document.getElementById('dossier-note');
+  const c = allCandidates.find(x => x.id === zone?.dataset.cand);
+  if (!zone || !c || zone.value === (c._note || '')) return;
+  const v = zone.value;
+  const etat = document.getElementById('dossier-note-etat');
+  if (etat) etat.textContent = '· Enregistrement…';
+  try {
+    await enregistrerNote(db, notesMap, idNoteCooptant(c.id),
+      { organizationId: c.organizationId || currentOrg?.id, campaignId: currentCampaign?.id, candidateId: c.id }, v);
+    c._note = v;
+    if (etat?.isConnected) etat.textContent = '· Enregistré';
+    const carte = document.getElementById(`notes-${c.id}`);
+    if (carte && document.activeElement !== carte) carte.value = v;
+  } catch (err) {
+    console.error(err);
+    if (etat?.isConnected) etat.textContent = '';
+    showToast('Note non enregistrée : réessaie.', 'error');
+  }
 }
 
 document.getElementById('dossier-close').addEventListener('click', closeDossier);
@@ -1714,14 +1855,128 @@ async function persistRankOrder(ids) {
 
 
 // ─── Filters (list mode only) ─────────────────────────────────────
+// ─── Modifier le profil d'un cooptant ─────────────────────────────
+/**
+ * Formulaire d'édition dans la fiche dépliée : prénom, nom, email et toutes
+ * les questions du formulaire (même celles restées sans réponse, par exemple
+ * pour quelqu'un inscrit sur un stand). Les réponses sont rangées sous la même
+ * clé que celles du cooptant (`cleReponse`), jamais par position.
+ */
+function ouvrirEdition(c, body, editBtn) {
+  if (body.querySelector('.cand-edit')) return;
+  const reponses = body.querySelector('.cand-reponses');
+  const champ = (q, qi) => {
+    const id = `edit-${c.id}-${qi}`;
+    const v = String(texteReponse(reponseA(c, q, qi)) ?? '');
+    let input;
+    if (q.type === 'longtext') input = `<textarea class="form-textarea" id="${id}" rows="3">${esc(v)}</textarea>`;
+    else if (q.type === 'select' && q.options?.length) {
+      const opts = [...q.options];
+      if (v && !opts.includes(v)) opts.unshift(v);   // ancienne option : on ne la perd pas
+      input = `<select class="form-select" id="${id}"><option value="">·</option>${opts.map(o =>
+        `<option value="${esc(o)}"${o === v ? ' selected' : ''}>${esc(o)}</option>`).join('')}</select>`;
+    } else if (q.type === 'checkbox') {
+      return `<label class="checkbox-wrap" style="cursor:pointer;"><input type="checkbox" id="${id}"${v === 'Oui' ? ' checked' : ''} /><span>${esc(q.label)}</span></label>`;
+    } else input = `<input class="form-input" id="${id}" value="${esc(v)}" />`;
+    return `<div class="form-group"><label class="form-label" for="${id}">${esc(q.label)}</label>${input}</div>`;
+  };
+  const form = document.createElement('div');
+  form.className = 'cand-edit';
+  form.innerHTML = `
+    <div class="cand-section-t" style="margin:0;">Modifier le profil</div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label" for="edit-${c.id}-prenom">Prénom</label>
+        <input class="form-input" id="edit-${c.id}-prenom" value="${esc(c.prenom || '')}" /></div>
+      <div class="form-group"><label class="form-label" for="edit-${c.id}-nom">Nom</label>
+        <input class="form-input" id="edit-${c.id}-nom" value="${esc(c.nom || '')}" /></div>
+    </div>
+    <div class="form-group"><label class="form-label" for="edit-${c.id}-email">Email</label>
+      <input class="form-input" type="email" id="edit-${c.id}-email" value="${esc(c.email || '')}" />
+      <span class="form-hint">S'il revient sur le formulaire, c'est avec cette adresse qu'il retrouvera sa candidature.</span></div>
+    ${customQuestions.map(champ).join('')}
+    <div class="cand-edit-actions">
+      <button type="button" class="btn btn-primary btn-sm" data-act="save">Enregistrer</button>
+      <button type="button" class="btn btn-ghost btn-sm" data-act="cancel">Annuler</button>
+    </div>`;
+
+  const fermer = () => { form.remove(); if (reponses) reponses.hidden = false; editBtn.disabled = false; };
+  if (reponses) reponses.hidden = true;
+  editBtn.disabled = true;
+  (body.querySelector('.cand-infos') || body.querySelector('.cand-actions')).after(form);
+  form.querySelector('input')?.focus();
+
+  form.querySelector('[data-act="cancel"]').addEventListener('click', fermer);
+  form.querySelector('[data-act="save"]').addEventListener('click', async e => {
+    const val = id => form.querySelector(`#edit-${c.id}-${id}`);
+    const prenom = val('prenom').value.trim();
+    const nom    = val('nom').value.trim();
+    const email  = val('email').value.trim().toLowerCase();
+    if (!prenom || !nom) return showToast('Le prénom et le nom sont requis.', 'error');
+    if (email && !email.includes('@')) return showToast('Adresse email invalide.', 'error');
+
+    const customAnswers = { ...(c.customAnswers || {}) };
+    customQuestions.forEach((q, qi) => {
+      const el = val(qi);
+      if (!el) return;
+      const v = el.type === 'checkbox' ? (el.checked ? 'Oui' : '') : el.value.trim();
+      const cle = cleReponse(c, q, qi);
+      if (!v && customAnswers[cle] === undefined) return;   // rien avant, rien maintenant
+      customAnswers[cle] = { label: q.label, value: v };
+    });
+
+    const btn = e.currentTarget;
+    btn.disabled = true; btn.textContent = 'Enregistrement…';
+    try {
+      await updateDoc(doc(db, 'candidates', c.id), { prenom, nom, email, customAnswers });
+      Object.assign(c, { prenom, nom, email, customAnswers });
+      showToast('Profil mis à jour.', 'success');
+      applyFilters();
+      // La liste est redessinée : on rouvre la fiche qu'on vient de modifier.
+      document.querySelector(`.cand-card[data-id="${CSS.escape(c.id)}"] [aria-expanded]`)?.click();
+    } catch (err) {
+      showToast('Erreur : ' + err.message, 'error');
+      btn.disabled = false; btn.textContent = 'Enregistrer';
+    }
+  });
+}
+
+/** Filtre de la liste : un statut, ou un des filtres « Autres ». */
+function passeFiltre(c, f) {
+  if (!f) return true;
+  if (f === 'sans-entretien') return !entretienParCooptant[c.id];
+  if (f === 'stand') return c.source === 'stand';
+  if (f === 'en') return c.langue === 'en';
+  if (f === 'non-evalue') return !c._nbEvals;
+  return c.statut === f;
+}
+
+/** Tri de la liste (menu « Trier »). Toujours un départage stable par nom. */
+function trierListe(cands, tri) {
+  const date = c => c.createdAt?.toMillis?.() ?? 0;
+  const nom = c => pourRecherche(`${c.prenom || ''} ${c.nom || ''}`);
+  const parNom = (a, b) => nom(a).localeCompare(nom(b), 'fr');
+  const score = c => c._score ?? (c._noteGlobaleAvg !== null && c._noteGlobaleAvg !== undefined ? Math.round(c._noteGlobaleAvg * 5) : null);
+  const cmp = {
+    recent:     (a, b) => date(b) - date(a),
+    ancien:     (a, b) => date(a) - date(b),
+    nom:        parNom,
+    'nom-desc': (a, b) => parNom(b, a),
+    // Sans entretien : à la fin.
+    entretien:  (a, b) => (entretienParCooptant[a.id]?.getTime() ?? Infinity) - (entretienParCooptant[b.id]?.getTime() ?? Infinity),
+    // Pas encore noté : à la fin.
+    score:      (a, b) => (score(b) ?? -1) - (score(a) ?? -1),
+  }[tri] || ((a, b) => date(b) - date(a));
+  return [...cands].sort((a, b) => cmp(a, b) || parNom(a, b));
+}
+
 function applyFilters() {
   if (currentView === 'classement') { renderRanking(); return; }
-  const s = document.getElementById('search').value.toLowerCase();
+  // Sans accents : « celeste » trouve « Céleste ».
+  const s = pourRecherche(document.getElementById('search').value);
   const f = document.getElementById('filter-statut').value;
-  renderList(allCandidates.filter(c =>
-    (!s || `${c.prenom} ${c.nom} ${c.email}`.toLowerCase().includes(s)) &&
-    (!f || c.statut === f)
-  ));
+  renderList(trierListe(allCandidates.filter(c =>
+    (!s || pourRecherche(`${c.prenom} ${c.nom} ${c.email}`).includes(s)) && passeFiltre(c, f)
+  ), document.getElementById('tri-liste').value));
 }
 
 // ─── Réponses au formulaire ───────────────────────────────────────
@@ -1795,7 +2050,7 @@ function exportCSV() {
     colonnes.push(['Commentaires jury', c => (c._comments || []).map(cm => cm.text).join(' | ')]);
   }
   colonnes.push(
-    ['Notes internes', c => c.notesInternes || ''],
+    ['Notes internes', c => c._note || ''],
     ['Candidature reçue le', c => c.createdAt ? formatDatetime(c.createdAt) : ''],
   );
 
@@ -1844,11 +2099,11 @@ document.getElementById('eval-panel-overlay').addEventListener('click', closeEva
 </script>
 
 <div id="dossier-overlay"></div>
-<div id="dossier-panel">
+<div id="dossier-panel" role="dialog" aria-modal="true" aria-labelledby="dossier-name">
   <div id="dossier-header">
     <div style="min-width:0;">
       <div id="dossier-name" style="font-weight:700;font-size:16px;"></div>
-      <div id="dossier-meta" class="text-sm text-muted" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
+      <div id="dossier-meta" class="text-sm text-muted"></div>
     </div>
     <div id="dossier-nav">
       <button class="btn btn-ghost btn-sm" id="dossier-prev" title="Cooptant précédent (←)" style="padding:4px 10px;">↑</button>

@@ -46,6 +46,9 @@
     .dispo-legend { display:flex; gap:16px; flex-wrap:wrap; font-size:12px; color:var(--text-muted); margin-top:10px; }
     .dispo-legend span { display:inline-flex; align-items:center; gap:6px; }
     .dispo-legend i { width:14px; height:14px; border-radius:4px; display:inline-block; border:1.5px solid var(--border); }
+    /* 2e clic : dispo « si vraiment pas le choix » (secours). */
+    .hg-toggle.selected.secours { background:var(--orange-light); border-color:var(--orange); border-style:dashed; }
+    .hg-toggle.selected.secours::after { content:'?'; color:var(--orange); }
   </style>
 </head>
 <body>
@@ -78,7 +81,7 @@
     <!-- Sélecteur de campagne (si plusieurs) -->
     <div class="card mb-16" id="campaign-card" style="display:none;">
       <div class="form-group" style="margin:0;">
-        <label class="form-label" for="campaign-select">Pour quelle campagne ?</label>
+        <label class="form-label" for="campaign-select">Pour quel recrutement ?</label>
         <select class="form-select" id="campaign-select"></select>
       </div>
     </div>
@@ -115,7 +118,7 @@
         <div class="flex-between mb-16">
           <div>
             <h2>Tes créneaux disponibles</h2>
-            <p class="text-sm text-muted mt-4">💡 <strong>Astuce :</strong> clique sur l'en-tête d'un <strong>jour</strong> pour cocher la journée entière, ou sur une <strong>heure</strong> pour la cocher sur tous les jours. Clique sur une case pour un seul créneau.</p>
+            <p class="text-sm text-muted mt-4">💡 <strong>Astuce :</strong> clique sur l'en-tête d'un <strong>jour</strong> pour cocher la journée entière, ou sur une <strong>heure</strong> pour la cocher sur tous les jours. Clique sur une case pour un seul créneau, et <strong>une 2ᵉ fois</strong> pour la passer en orange : dispo <strong>seulement si vraiment pas le choix</strong> (ces créneaux ne sont pas mis en avant aux cooptants, et tu n'es pris qu'en dernier recours).</p>
           </div>
           <div class="flex-gap">
             <button class="btn btn-ghost btn-sm" id="btn-select-all">Tout sélectionner</button>
@@ -126,8 +129,19 @@
         <p class="text-sm text-muted" style="margin-top:12px;" id="selection-count">0 créneau sélectionné</p>
         <div class="dispo-legend">
           <span><i style="background:var(--indigo);border-color:var(--indigo);"></i> Disponible</span>
+          <span><i style="background:var(--orange-light);border:1.5px dashed var(--orange);"></i> Si vraiment pas le choix (2ᵉ clic)</span>
           <span><i style="box-shadow:inset 0 0 0 2px var(--orange);"></i> Tu fais passer un entretien (à conserver)</span>
         </div>
+      </div>
+
+      <!-- Langues : pour ne proposer aux cooptants anglophones que des staffeurs à l'aise en anglais. -->
+      <div class="card mb-16">
+        <h2 style="font-size:17px;margin-bottom:6px;">Tu peux faire passer un entretien en…</h2>
+        <div style="display:flex;gap:18px;flex-wrap:wrap;">
+          <label class="checkbox-wrap" style="cursor:pointer;"><input type="checkbox" id="langue-fr" checked /><span>Français</span></label>
+          <label class="checkbox-wrap" style="cursor:pointer;"><input type="checkbox" id="langue-en" /><span>🇬🇧 Anglais</span></label>
+        </div>
+        <p class="text-sm text-muted" style="margin-top:6px;">Coche l'anglais seulement si tu es à l'aise pour mener tout un entretien en anglais.</p>
       </div>
 
       <div class="flex-gap mb-24">
@@ -288,7 +302,10 @@ async function rebuildGrid() {
   updateCount();
 }
 
-function setSel(btn, on) { btn.classList.toggle('selected', on); }
+// Une case a trois états : vide, dispo, « si vraiment pas le choix » (secours).
+// Les sélections groupées (jour, heure, tout) posent ou retirent un « dispo » simple.
+function setSel(btn, on) { btn.classList.toggle('selected', on); btn.classList.remove('secours'); }
+function setSecours(btn) { btn.classList.add('selected', 'secours'); }
 
 function markInterviews(days, interviews, myId) {
   interviews.forEach(iv => {
@@ -376,7 +393,15 @@ function renderGrid(days) {
       toggle.dataset.hour = hour;
       toggle.dataset.row  = ri;
       toggle.dataset.col  = ci;
-      toggle.addEventListener('click', async () => { if (!await guardToggle(toggle)) return; setSel(toggle, !toggle.classList.contains('selected')); updateCount(); });
+      // Vide → dispo → si pas le choix → vide.
+      toggle.addEventListener('click', async () => {
+        if (toggle.classList.contains('selected') && !toggle.classList.contains('secours')) {
+          if (toggle.dataset.locked) { await guardToggle(toggle); return; }
+          setSecours(toggle); updateCount(); return;
+        }
+        if (!await guardToggle(toggle)) return;
+        setSel(toggle, !toggle.classList.contains('selected')); updateCount();
+      });
       cell.appendChild(toggle); table.appendChild(cell);
     });
   });
@@ -386,7 +411,9 @@ function renderGrid(days) {
 
 function updateCount() {
   const n = document.querySelectorAll('.hg-toggle.selected').length;
-  $('selection-count').textContent = `${n} créneau${n > 1 ? 'x' : ''} sélectionné${n > 1 ? 's' : ''}`;
+  const ns = document.querySelectorAll('.hg-toggle.selected.secours').length;
+  $('selection-count').textContent = `${n} créneau${n > 1 ? 'x' : ''} sélectionné${n > 1 ? 's' : ''}`
+    + (ns ? `, dont ${ns} si vraiment pas le choix` : '');
 }
 
 // Pré-remplit si la personne a déjà soumis pour cette campagne
@@ -397,13 +424,25 @@ async function prefillExisting(memberId) {
     where('userId', '==', memberId),
     where('campaignId', '==', currentCampaign.id)
   ));
+  $('langue-fr').checked = true; $('langue-en').checked = false;
   if (snap.empty) { updateCount(); return; }
+  const langues = snap.docs[0].data().langues;
+  if (Array.isArray(langues) && langues.length) {
+    $('langue-fr').checked = langues.includes('fr');
+    $('langue-en').checked = langues.includes('en');
+  }
+  const secoursParJour = new Map((snap.docs[0].data().secours || []).map(x => [x.jour, new Set(x.creneaux || [])]));
   (snap.docs[0].data().creneaux || []).forEach(dayObj => {
     const slots = new Set(dayObj.creneaux || []);
+    const secoursDuJour = secoursParJour.get(dayObj.jour) || new Set();
     HOURS.forEach(h => {
       if (slots.has(h)) {
         const t = document.querySelector(`.hg-toggle[data-day="${dayObj.jour}"][data-hour="${h}"]`);
         if (t) setSel(t, true);
+      }
+      if (secoursDuJour.has(h)) {
+        const t = document.querySelector(`.hg-toggle[data-day="${dayObj.jour}"][data-hour="${h}"]`);
+        if (t) setSecours(t);
       }
     });
   });
@@ -438,7 +477,15 @@ async function save() {
     (byDay[t.dataset.day] ??= []).push(t.dataset.hour);
   });
   const creneaux = Object.entries(byDay).map(([jour, slots]) => ({ jour, creneaux: [...new Set(slots)].sort() }));
+  // Secours : sous-ensemble de `creneaux` (qui reste la liste complète, pour la capacité).
+  const parJourSecours = {};
+  document.querySelectorAll('.hg-toggle.selected.secours').forEach(t => {
+    (parJourSecours[t.dataset.day] ??= []).push(t.dataset.hour);
+  });
+  const secours = Object.entries(parJourSecours).map(([jour, slots]) => ({ jour, creneaux: [...new Set(slots)].sort() }));
   if (!creneaux.length) return showToast('Sélectionne au moins un créneau.', 'error');
+  const langues = [$('langue-fr').checked && 'fr', $('langue-en').checked && 'en'].filter(Boolean);
+  if (!langues.length) return showToast('Coche au moins une langue d\'entretien.', 'error');
 
   btn.disabled = true; btn.textContent = 'Envoi…';
   try {
@@ -458,11 +505,11 @@ async function save() {
       where('campaignId', '==', currentCampaign.id)
     ));
     if (!existing.empty) {
-      await updateDoc(existing.docs[0].ref, { creneaux, displayName, updatedAt: serverTimestamp() });
+      await updateDoc(existing.docs[0].ref, { creneaux, secours, langues, displayName, updatedAt: serverTimestamp() });
     } else {
       await addDoc(collection(db, 'staff_availabilities'), {
         userId: memberId, displayName, campaignId: currentCampaign.id,
-        organizationId: org.id, creneaux, createdAt: serverTimestamp()
+        organizationId: org.id, creneaux, secours, langues, createdAt: serverTimestamp()
       });
     }
 

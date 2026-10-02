@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <script>(function(){var t=localStorage.getItem("_theme");if(t)document.documentElement.setAttribute("data-theme",t);})();</script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Postuler · Cooptly</title>
+  <title data-en="Apply · Cooptly">Postuler · Cooptly</title>
   <!-- Connexions ouvertes d'avance : sans elles, chaque serveur (polices,
        SDK, base de données) coûtait sa propre poignée de main réseau au
        moment où la page en avait besoin. -->
@@ -52,6 +52,8 @@
     .rdv-cell:hover:not(:disabled) { border-color: var(--indigo); background: var(--indigo-light); color: var(--indigo-dark); }
     .rdv-cell:focus-visible { outline: 2px solid var(--indigo); outline-offset: 1px; }
     .rdv-cell.choisi { background: var(--indigo); border-color: var(--indigo); color: #fff; }
+    /* ⭐ Conseillé : colle à un entretien déjà pris, le staff enchaîne. */
+    .rdv-cell.conseille:not(.choisi):not(:disabled) { font-weight: 700; }
     .rdv-cell.actuel:not(.choisi) { border-color: var(--orange); background: var(--orange-light); color: var(--text); }
     .rdv-cell:disabled {
       cursor: not-allowed; color: var(--text-light); border-style: dashed; font-weight: 500;
@@ -67,6 +69,25 @@
       border: 1.5px solid var(--indigo-mid);
       border-radius: 10px; padding: 12px 16px; margin-bottom: 16px;
     }
+    /* ── Mode stand : inscription sur place par un membre du bureau ── */
+    .lang-rappel { font-size: 13px; color: var(--text-muted); margin: 0 0 16px; }
+    .lang-rappel a { color: var(--indigo-dark); font-weight: 600; }
+    .stand-langue { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 4px; }
+    .stand-bandeau {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      background: var(--orange-light); border: 1.5px solid var(--orange-mid);
+      border-radius: 10px; padding: 10px 14px; margin-bottom: 16px; font-size: 13.5px;
+    }
+    .stand-bandeau strong { font-size: 14px; }
+    body.mode-stand .rdv-cell { min-height: 44px; font-size: 13px; }
+    .stand-fin { text-align: center; padding: 28px 20px; }
+    .stand-qrs { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; }
+    .stand-qrs figure { margin: 0; }
+    .stand-qrs figcaption { font-weight: 600; font-size: 14px; }
+    .stand-fin h2 { margin-bottom: 6px; }
+    .stand-qr { display: inline-block; background: #fff; padding: 12px; border-radius: 12px; border: 1px solid var(--border); margin: 18px 0 10px; }
+    .stand-qr img, .stand-qr canvas { display: block; width: 220px; height: 220px; image-rendering: pixelated; }
+    .stand-lien { font-size: 11.5px; color: var(--text-light); word-break: break-all; margin: 0 auto 18px; max-width: 420px; }
     .slot-confirm-box {
       background: var(--green-light); border: 1.5px solid var(--green-mid);
       color: var(--green); border-radius: 8px;
@@ -80,9 +101,10 @@
 
 <!-- Header dégradé association -->
 <header class="postuler-header" id="page-header">
+  <div class="lang-coin" id="lang-coin"></div>
   <div id="org-logo-wrap" style="margin-bottom:12px;"></div>
-  <div style="font-size:13px;font-weight:600;opacity:.8;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px;" id="org-name">Chargement…</div>
-  <h1>Cooptation pour <span id="campaign-name">…</span></h1>
+  <div style="font-size:13px;font-weight:600;opacity:.8;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px;" id="org-name" data-en="Loading…">Chargement…</div>
+  <h1><span data-en="Apply to">Cooptation pour</span> <span id="campaign-name">…</span></h1>
   <p id="campaign-dates"></p>
 </header>
 
@@ -91,67 +113,115 @@
 
   <div id="loading-state" class="card" style="text-align:center;padding:48px;">
     <div class="spinner" style="margin:0 auto 16px;"></div>
-    <p>Chargement de la campagne…</p>
+    <p data-en="Loading the form…">Chargement du formulaire…</p>
   </div>
 
   <div id="error-state" class="card" style="display:none;text-align:center;padding:48px;color:var(--red);">
     <div style="font-size:40px;margin-bottom:12px;">⚠️</div>
-    <h2 id="error-msg">Campagne introuvable.</h2>
-    <p class="mt-8">Vérifie le lien reçu ou contacte ton association.</p>
+    <h2 id="error-msg" data-en="Form not found.">Formulaire introuvable.</h2>
+    <p class="mt-8" data-en="Check the link you received or contact the association.">Vérifie le lien reçu ou contacte ton association.</p>
   </div>
 
   <div id="closed-state" class="card" style="display:none;text-align:center;padding:48px;">
     <div style="font-size:40px;margin-bottom:12px;">🔒</div>
-    <h2>Cooptations fermées</h2>
-    <p class="mt-8">Cette campagne n'accepte plus de cooptations pour le moment.</p>
+    <h2 data-en="Applications closed">Cooptations fermées</h2>
+    <p class="mt-8" data-en="This association is not accepting applications at the moment.">Cette asso n'accepte plus de cooptations pour le moment.</p>
   </div>
 
+  <!-- Mode stand : écran de fin, à montrer à la personne inscrite. -->
+  <div id="stand-fin" class="card stand-fin" style="display:none;" aria-live="polite"></div>
+
   <form id="candidature-form" style="display:none;" novalidate>
+    <div id="stand-bandeau" class="stand-bandeau" style="display:none;"></div>
+    <!-- Langue = langue de l'entretien : on le dit clairement (voir js/langue.js). -->
+    <p class="lang-rappel" id="lang-rappel"></p>
 
     <!-- Section 1 : Identité -->
     <div class="card mb-24">
-      <div class="section-title">👤 Tes informations</div>
+      <div class="section-title" data-en="👤 About you">👤 Tes informations</div>
       <div class="stack">
         <div class="form-row">
           <div class="form-group">
-            <label class="form-label" for="prenom">Prénom <span class="required">*</span></label>
+            <label class="form-label" for="prenom"><span data-en="First name">Prénom</span> <span class="required">*</span></label>
             <input class="form-input" type="text" id="prenom" name="prenom"
-              placeholder="Ton prénom" autocomplete="given-name" required />
+              placeholder="Ton prénom" data-en-placeholder="Your first name" autocomplete="given-name" required />
             <span class="form-error" id="err-prenom"></span>
           </div>
           <div class="form-group">
-            <label class="form-label" for="nom">Nom <span class="required">*</span></label>
+            <label class="form-label" for="nom"><span data-en="Last name">Nom</span> <span class="required">*</span></label>
             <input class="form-input" type="text" id="nom" name="nom"
-              placeholder="Ton nom de famille" autocomplete="family-name" required />
+              placeholder="Ton nom de famille" data-en-placeholder="Your last name" autocomplete="family-name" required />
             <span class="form-error" id="err-nom"></span>
           </div>
         </div>
-        <div class="form-group">
-          <label class="form-label" for="email">Email emlyon <span class="required">*</span></label>
+        <div class="form-group" id="email-group">
+          <label class="form-label" for="email"><span data-en="emlyon email">Email emlyon</span> <span class="required">*</span></label>
           <input class="form-input" type="email" id="email" name="email"
-            placeholder="prenom.nom@edu.em-lyon.com" autocomplete="email"
+            placeholder="prenom.nom@edu.em-lyon.com" data-en-placeholder="firstname.lastname@edu.em-lyon.com" autocomplete="email"
             inputmode="email" required />
-          <span class="form-hint" id="email-hint">Ton adresse emlyon uniquement. Elle identifie ta candidature et sert à te recontacter.</span>
+          <span class="form-hint" id="email-hint" data-en="Your emlyon address only. It identifies your application and is used to get back to you.">Ton adresse emlyon uniquement. Elle identifie ta candidature et sert à te recontacter.</span>
           <span class="form-error" id="err-email"></span>
+        </div>
+        <!-- Stand : la personne dit sa langue, l'écran reste dans celle du staff. -->
+        <div class="form-group" id="stand-langue-group" style="display:none;">
+          <span class="form-label">Langue de l'entretien</span>
+          <div class="stand-langue">
+            <label class="checkbox-wrap" style="cursor:pointer;"><input type="radio" name="stand-langue" value="fr" checked /><span>Français</span></label>
+            <label class="checkbox-wrap" style="cursor:pointer;"><input type="radio" name="stand-langue" value="en" /><span>🇬🇧 English</span></label>
+          </div>
         </div>
       </div>
     </div>
 
     <!-- Section 2 : Questions personnalisées -->
     <div id="custom-questions-section" style="display:none;" class="card mb-24">
-      <div class="section-title" id="custom-section-title">💬 Questions de l'association</div>
+      <div class="section-title" id="custom-section-title" data-en="💬 Questions from the association">💬 Questions de l'association</div>
       <div class="stack" id="custom-questions-container"></div>
+    </div>
+
+    <!-- Mode stand : une 2e personne passe l'entretien sur le même créneau. -->
+    <div class="card mb-24" id="duo-section" style="display:none;">
+      <div class="section-title" data-en="👥 Interview for two">👥 Entretien à deux</div>
+      <p class="text-sm text-muted" id="duo-intro" data-en="Two people who want to take their interview together: same slot, same interviewers.">Deux personnes qui veulent passer leur entretien ensemble : même créneau, mêmes jurés.</p>
+      <button type="button" class="btn btn-ghost btn-sm" id="duo-toggle" aria-expanded="false" style="margin-top:12px;" data-en="+ Add a second person">+ Ajouter une 2ᵉ personne</button>
+      <div id="duo-champs" class="stack" style="display:none;margin-top:16px;">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="prenom2"><span data-en="First name">Prénom</span> <span class="required">*</span></label>
+            <input class="form-input" type="text" id="prenom2" autocomplete="off" />
+            <span class="form-error" id="err-prenom2"></span>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="nom2"><span data-en="Last name">Nom</span> <span class="required">*</span></label>
+            <input class="form-input" type="text" id="nom2" autocomplete="off" />
+            <span class="form-error" id="err-nom2"></span>
+          </div>
+        </div>
+        <div class="form-group" id="email2-group">
+          <label class="form-label" for="email2"><span data-en="emlyon email">Email emlyon</span> <span class="required">*</span></label>
+          <input class="form-input" type="email" id="email2" inputmode="email" autocomplete="off" placeholder="prenom.nom" />
+          <span class="form-error" id="err-email2"></span>
+        </div>
+        <div class="form-group">
+          <span class="form-label">Langue de l'entretien</span>
+          <div class="stand-langue">
+            <label class="checkbox-wrap" style="cursor:pointer;"><input type="radio" name="stand-langue2" value="fr" checked /><span>Français</span></label>
+            <label class="checkbox-wrap" style="cursor:pointer;"><input type="radio" name="stand-langue2" value="en" /><span>🇬🇧 English</span></label>
+          </div>
+        </div>
+        <div class="stack" id="duo-questions"></div>
+      </div>
     </div>
 
     <!-- Section 3c : Entretien à plusieurs, créneau imposé par l'invitation -->
     <div class="card mb-24" id="group-invite-section" style="display:none;">
-      <div class="section-title">🤝 Tu passes l'entretien à plusieurs</div>
+      <div class="section-title" data-en="🤝 You're taking the interview together">🤝 Tu passes l'entretien à plusieurs</div>
       <div id="group-invite-body"></div>
     </div>
 
     <!-- Section 3a : Choix du créneau (si dispos staff disponibles) -->
     <div class="card mb-24" id="slot-picker-section" style="display:none;">
-      <div class="section-title">📅 Réserve ton créneau d'entretien</div>
+      <div class="section-title" data-en="📅 Book your interview slot">📅 Réserve ton créneau d'entretien</div>
 
       <!-- Bannière si déjà inscrit -->
       <div id="booking-banner" class="booking-banner" style="display:none;"></div>
@@ -159,24 +229,25 @@
       <!-- Chargement -->
       <div id="slot-loading" class="text-muted text-sm" style="padding:12px 0;">
         <span class="spinner" style="width:16px;height:16px;border-width:2px;vertical-align:middle;margin-right:6px;"></span>
-        Chargement des créneaux disponibles…
+        <span data-en="Loading available slots…">Chargement des créneaux disponibles…</span>
       </div>
 
       <!-- Aucun créneau -->
       <div id="slot-none" style="display:none;padding:12px 0;">
-        <p class="text-muted text-sm">😔 Aucun créneau disponible pour le moment. L'association te contactera pour fixer un entretien.</p>
+        <p class="text-muted text-sm" data-en="😔 No slot available at the moment. The association will contact you to set up an interview.">😔 Aucun créneau disponible pour le moment. L'association te contactera pour fixer un entretien.</p>
       </div>
 
       <!-- Picker -->
       <div id="slot-picker-inner" style="display:none;">
         <p class="text-sm text-muted" style="margin-bottom:12px;">
-          Durée de l'entretien : <strong id="slot-duration-label">30 min</strong>
+          <span data-en="Interview length:">Durée de l'entretien :</span> <strong id="slot-duration-label">30 min</strong>
         </p>
         <div class="rdv-wrap" id="rdv-wrap"></div>
         <div class="rdv-legende" aria-hidden="true">
-          <span><i style="background:var(--surface);"></i>Libre</span>
-          <span><i style="background:var(--indigo);border-color:var(--indigo);"></i>Ton choix</span>
-          <span><i style="border-style:dashed;background:var(--bg);"></i>Complet</span>
+          <span><i style="background:var(--surface);"></i><span data-en="Available">Libre</span></span>
+          <span><span data-en="⭐ Recommended">⭐ Conseillé</span></span>
+          <span><i style="background:var(--indigo);border-color:var(--indigo);"></i><span data-en="Your choice">Ton choix</span></span>
+          <span><i style="border-style:dashed;background:var(--bg);"></i><span data-en="Full">Complet</span></span>
         </div>
         <div id="slot-confirm-box" class="slot-confirm-box" style="display:none;">
           <span style="font-size:20px;">✅</span>
@@ -188,20 +259,21 @@
 
     <!-- Section 3b : Grille de disponibilités (fallback si pas de dispos staff) -->
     <div class="card mb-24" id="dispos-section" style="display:none;">
-      <div class="section-title">📅 Tes disponibilités</div>
-      <p class="text-sm text-muted" style="margin-bottom:16px;">
+      <div class="section-title" data-en="📅 Your availability">📅 Tes disponibilités</div>
+      <p class="text-sm text-muted" style="margin-bottom:16px;" data-en="Select the times when you could take an interview.">
         Indique les créneaux où tu pourrais passer un entretien.
       </p>
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:12px;">
-        <button type="button" class="btn btn-ghost btn-sm" id="dispos-select-all">Tout sélectionner</button>
-        <button type="button" class="btn btn-ghost btn-sm" id="dispos-clear">Effacer</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="dispos-select-all" data-en="Select all">Tout sélectionner</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="dispos-clear" data-en="Clear">Effacer</button>
       </div>
       <div class="hg-wrap"><div id="dispos-grid-container"></div></div>
-      <p class="text-sm text-muted" style="margin-top:10px;" id="dispos-count">0 créneau sélectionné</p>
+      <p class="text-sm text-muted" style="margin-top:10px;" id="dispos-count" data-en="0 slots selected">0 créneau sélectionné</p>
+      <span class="form-error" id="err-dispos" style="display:block;"></span>
     </div>
 
     <button type="submit" class="btn btn-primary btn-full btn-lg" id="submit-btn" style="margin-bottom:48px;">
-      <span id="submit-text">Envoyer mon dossier ✉️</span>
+      <span id="submit-text" data-en="Submit my application ✉️">Envoyer mon dossier ✉️</span>
       <span id="submit-spinner" class="spinner" style="display:none;border-top-color:#fff;width:18px;height:18px;border-width:2px;"></span>
     </button>
 
@@ -211,14 +283,20 @@
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getFirestore, collection, query, where, getDocs, getDoc, doc,
-         addDoc, setDoc, updateDoc, serverTimestamp, Timestamp }
+         addDoc, setDoc, updateDoc, serverTimestamp, Timestamp, writeBatch }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { firebaseConfig } from '/js/firebase-config.js';
 import { generateToken, showToast, getDaysBetween, getCampaignDays,
-  campaignConfig, parseLocalDate, localDateStr, esc, paramLien, premierJourReservable } from '/js/utils.js';
+  campaignConfig, parseLocalDate, localDateStr, esc, paramLien, premierJourReservable, confirmDialog } from '/js/utils.js';
 import { resolveOrg } from '/js/org-lookup.js';
-import { choisirJury } from '/js/jury.js';
-import { heuresGrille, heureFinValide, juresEncoreLibres, pasCreneauxValide } from '/js/capacite.js';
+import { choisirJury, nbJuresPourEntretien } from '/js/jury.js';
+import { heuresGrille, heureFinValide, juresEncoreLibres, pasCreneauxValide, pleinEnParallele, picEnParallele, staffPourEntretien,
+         enSecours, creneauxConseilles } from '/js/capacite.js';
+import { EN, LANGUE, LOCALE, tr, traduirePage, selecteurLangue, libelleQuestion, optionsQuestion } from '/js/langue.js';
+
+// Avant tout : la page s'affiche directement dans la langue du cooptant.
+traduirePage();
+selecteurLangue(document.getElementById('lang-coin'));
 
 const app = initializeApp(firebaseConfig);
 const db  = getFirestore(app);
@@ -235,6 +313,10 @@ let availableSlots = []; // { dateStr, day (Date), startTime, endTime, staffCoun
 let selectedSlot   = null; // the slot object selected
 let selectedDay    = null; // dateStr of active day tab
 let creneauActuelCle = null; // créneau déjà réservé par un cooptant qui revient le changer
+// Son entretien actuel n'est plus proposable (trop proche, délai minimum) : il
+// est gardé tel quel s'il ne choisit pas d'autre créneau. Sinon, un cooptant
+// inscrit sur un stand pour le lendemain ne pouvait plus compléter son dossier.
+let garderCreneauActuel = false;
 let existingCandId = null; // if returning user
 let existingIvId   = null; // existing interview to update
 let existingIv     = null; // doc complet (pour conserver groupId/groupToken)
@@ -264,8 +346,8 @@ function attenteCreneaux(enCours) {
   btn.setAttribute('aria-busy', enCours ? 'true' : 'false');
   if (enCours) {
     texte.dataset.normal = texte.textContent;
-    texte.textContent = 'Chargement des créneaux…';
-  } else if (texte.dataset.normal && texte.textContent === 'Chargement des créneaux…') {
+    texte.textContent = tr('Chargement des créneaux…', 'Loading slots…');
+  } else if (texte.dataset.normal && texte.textContent === tr('Chargement des créneaux…', 'Loading slots…')) {
     texte.textContent = texte.dataset.normal;
   }
 }
@@ -275,15 +357,278 @@ let campaignNbJurys = 1;   // nb de jurés requis par créneau
 // { groupId, groupToken, start, end, hostName } : le créneau est alors imposé.
 let joinGroup = null;
 
+// ── Mode stand ───────────────────────────────────────────────
+// `?stand=1` : quelqu'un du staff (avec ou sans compte) inscrit une personne
+// sur place, en quelques secondes. Champs réduits (Paramètres → Formulaire → Mode stand),
+// pas de délai minimum avant l'entretien, et un écran de fin avec un QR code
+// qui mène la personne à sa page, pour compléter son dossier plus tard.
+const STAND_DEMANDE = paramLien('stand') === '1';
+let modeStand = false;
+let standQuestionIds = new Set();   // questions posées sur le stand
+let duoActif = false;               // une 2e personne sur le même créneau
+
+/** « prenom.nom » suffit sur le stand : la fin de l'adresse est ajoutée. */
+function completerEmailStand(champ) {
+  const brut = champ.value.trim();
+  if (brut && !brut.includes('@')) champ.value = brut + '@edu.em-lyon.com';
+}
+
+/**
+ * Entretien à deux (stand) : un 2e bloc prénom / nom / email / questions du
+ * stand. Les questions sont clonées depuis celles de la 1re personne, champs
+ * renommés `cq2_i` (même index que la question).
+ */
+function preparerDuo(cfg) {
+  document.getElementById('duo-section').style.display = '';
+  if (!cfg.standEmail) document.getElementById('email2-group').style.display = 'none';
+  const clone = document.getElementById('custom-questions-container').cloneNode(true);
+  clone.removeAttribute('id');
+  clone.querySelectorAll('[id]').forEach(el => { el.id = el.id.replace(/^(err_)?cq_/, '$1cq2_'); });
+  clone.querySelectorAll('[for]').forEach(el => el.setAttribute('for', el.getAttribute('for').replace(/^cq_/, 'cq2_')));
+  clone.querySelectorAll('input, select, textarea').forEach(el => { el.removeAttribute('name'); if (el.type === 'checkbox') el.checked = false; else el.value = ''; });
+  document.getElementById('duo-questions').replaceChildren(...clone.childNodes);
+
+  const bouton = document.getElementById('duo-toggle');
+  bouton.addEventListener('click', () => {
+    duoActif = !duoActif;
+    document.getElementById('duo-champs').style.display = duoActif ? '' : 'none';
+    bouton.setAttribute('aria-expanded', String(duoActif));
+    bouton.textContent = duoActif
+      ? tr('Retirer la 2ᵉ personne', 'Remove the second person')
+      : tr('+ Ajouter une 2ᵉ personne', '+ Add a second person');
+    if (duoActif) document.getElementById('prenom2').focus();
+    // La 2e personne peut changer la langue de l'entretien commun.
+    if (langueDe('stand-langue2') === 'en') surChangementLangueStand();
+  });
+  document.getElementById('email2').addEventListener('blur', e => completerEmailStand(e.target));
+}
+
+/** Identité et réponses de la 2e personne. */
+function lireDuo() {
+  const questions = campaign?.formConfig?.customQuestions || [];
+  const answers = {};
+  questions.forEach((q, i) => {
+    const el = document.getElementById(`cq2_${i}`);
+    if (el) answers[q.id || String(i)] = { label: q.label, value: valeurQuestion(el) };
+  });
+  return {
+    prenom: document.getElementById('prenom2').value.trim(),
+    nom:    document.getElementById('nom2').value.trim(),
+    email:  document.getElementById('email2').value.trim().toLowerCase(),
+    answers,
+  };
+}
+
+/**
+ * Prépare l'écriture de la 2e personne (lectures seules) : elle est écrite
+ * dans le même lot que la 1re. Si elle est déjà inscrite, ses autres réponses
+ * et son statut sont gardés.
+ * @returns {Promise<{id: string, resultToken: string, donnees: object, statutAvant: string|null, ivExistantId: string|null}>}
+ */
+async function preparerSecondCooptant(p) {
+  const id   = p.email ? await hashDocId(`${p.email}::${campaignId}`) : generateToken(20);
+  const [snap, ivSnap] = await Promise.all([
+    getDoc(doc(db, 'candidates', id)),
+    getDocs(query(collection(db, 'interviews'), where('candidateId', '==', id))),
+  ]);
+  const avant = snap.exists() ? snap.data() : null;
+  const resultToken = avant?.resultToken || generateToken(40);
+  return {
+    id, resultToken,
+    statutAvant: avant?.statut || null,
+    ivExistantId: ivSnap.docs[0]?.id || null,
+    donnees: {
+      ...(avant || {}),
+      campaignId, organizationId: campaign.organizationId,
+      prenom: p.prenom, nom: p.nom, email: p.email || avant?.email || '',
+      customAnswers: { ...(avant?.customAnswers || {}), ...p.answers },
+      disponibilites: [], langue: langueDe('stand-langue2'), updatedAt: serverTimestamp(),
+      resultToken,
+      createdAt: avant?.createdAt || serverTimestamp(),
+      source: avant?.source || 'stand',
+      ...(avant?.userId ? { userId: avant.userId } : {}),
+    },
+  };
+}
+
+/** Habille le formulaire pour le stand (champs réglés dans Paramètres). */
+function preparerModeStand(cfg) {
+  document.body.classList.add('mode-stand');
+  standQuestionIds = new Set(cfg.standQuestions || []);
+  const bandeau = document.getElementById('stand-bandeau');
+  bandeau.innerHTML = `<strong>📍 ${tr('Mode stand', 'Stand mode')}</strong>
+    <span>${tr('Inscription sur place : ces champs suffisent, rien à compléter ensuite.',
+               'On-the-spot sign-up: these fields are enough, nothing to fill in afterwards.')}</span>`;
+  bandeau.style.display = '';
+  if (!cfg.standEmail) {
+    document.getElementById('email-group').style.display = 'none';
+  } else {
+    document.getElementById('email-hint').textContent = tr(
+      'Tape juste prenom.nom : la fin de l\'adresse (@edu.em-lyon.com) s\'ajoute toute seule.',
+      'Just type firstname.lastname: the end of the address (@edu.em-lyon.com) is added for you.');
+  }
+  document.getElementById('submit-text').textContent = tr('Inscrire ✓', 'Sign up ✓');
+  document.getElementById('stand-langue-group').style.display = '';
+}
+
+/**
+ * Stand : la langue choisie change les créneaux possibles (staffeurs
+ * anglophones seulement, si l'asso l'exige). On recalcule, choix de créneau remis à zéro.
+ */
+function surChangementLangueStand() {
+  if (!modeStand || !campaignConfig(campaign).jurysAnglaisRequis || !useSlotPicker) return;
+  selectedSlot = null;
+  document.getElementById('slot-confirm-box').style.display = 'none';
+  attenteCreneaux(true);
+  creneauxPromesse = loadAvailableSlots().finally(() => attenteCreneaux(false));
+}
+document.querySelectorAll('input[name="stand-langue"], input[name="stand-langue2"]').forEach(r =>
+  r.addEventListener('change', surChangementLangueStand));
+
+/** Langue de l'entretien d'une personne : au stand, le bouton radio ; sinon la langue du formulaire. */
+function langueDe(nomRadio) {
+  if (!modeStand) return LANGUE;
+  return document.querySelector(`input[name="${nomRadio}"]:checked`)?.value === 'en' ? 'en' : 'fr';
+}
+
+/**
+ * L'entretien à réserver est-il en anglais ? Au stand : l'une des personnes
+ * (entretien à deux : un seul jury pour les deux) ; sinon la langue du formulaire.
+ */
+function besoinAnglais() {
+  if (!modeStand) return EN;
+  return langueDe('stand-langue') === 'en' || (duoActif && langueDe('stand-langue2') === 'en');
+}
+/** Staffeurs utilisables pour cet entretien, selon sa langue (config.jurysAnglaisRequis). */
+function staffUtilisable(liste) {
+  return staffPourEntretien(liste, { anglais: besoinAnglais(), exigerAnglais: !!campaignConfig(campaign).jurysAnglaisRequis });
+}
+
+/** Rappel sous l'en-tête : choisir l'anglais, c'est choisir un entretien en anglais. */
+function afficherRappelLangue() {
+  const el = document.getElementById('lang-rappel');
+  if (!el) return;
+  if (modeStand) { el.style.display = 'none'; return; }
+  const vers = code => { const u = new URL(location.href); u.searchParams.set('lang', code); return u.toString(); };
+  el.innerHTML = EN
+    ? `🇬🇧 Your interview will be in English. <a href="${esc(vers('fr'))}" lang="fr">Passer en français</a>`
+    : `🇬🇧 <a href="${esc(vers('en'))}" lang="en">Interview in English?</a>`;
+}
+
+/**
+ * Sans email, rien n'empêche d'inscrire deux fois la même personne (deux
+ * stands, ou elle avait déjà rempli le formulaire). On prévient si un
+ * cooptant porte déjà ce prénom et ce nom.
+ * @returns {Promise<boolean>} true pour continuer l'inscription
+ */
+async function homonymeAccepte(prenom, nom) {
+  try {
+    const n = s => (s || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const snap = await getDocs(query(collection(db, 'candidates'), where('campaignId', '==', campaignId)));
+    const meme = snap.docs.map(d => d.data()).find(c => n(c.prenom) === n(prenom) && n(c.nom) === n(nom));
+    if (!meme) return true;
+    return await confirmDialog(
+      tr(`${prenom} ${nom} est déjà inscrit·e${meme.email ? ` (${meme.email})` : ''}. L'inscrire quand même ?`,
+         `${prenom} ${nom} is already signed up${meme.email ? ` (${meme.email})` : ''}. Sign them up anyway?`),
+      { title: tr('Déjà inscrit·e ?', 'Already signed up?'), confirmLabel: tr('Inscrire quand même', 'Sign up anyway'), danger: false });
+  } catch (e) {
+    console.warn(e);
+    return true;
+  }
+}
+
+/** Minuit aujourd'hui : sur le stand, on peut réserver dès aujourd'hui. */
+function debutAujourdhui() { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }
+
+/** Chargée à la demande : QR code dessiné sur place, sans service extérieur
+ *  (le lien contient le jeton personnel du cooptant, il ne doit pas sortir). */
+function chargerQrcode() {
+  if (window.qrcode) return Promise.resolve(window.qrcode);
+  return new Promise((res, rej) => {
+    const sc = document.createElement('script');
+    sc.src = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js';
+    sc.onload = () => window.qrcode ? res(window.qrcode) : rej(new Error('qrcode'));
+    sc.onerror = rej;
+    document.head.appendChild(sc);
+  });
+}
+
+/**
+ * Écran de fin du stand : créneau réservé + QR code vers la page de suivi de
+ * la personne (son entretien, l'ajout à l'agenda). L'inscription du stand
+ * suffit : rien n'est à compléter ensuite, les champs du stand sont ceux que
+ * l'asso juge nécessaires (Paramètres → Formulaire → Mode stand).
+ */
+async function afficherFinStand({ personnes, start, end }) {
+  // Le lien suit la langue de CHAQUE personne (au stand, l'écran reste dans celle du staff).
+  const liens = personnes.map(p => ({ ...p,
+    url: `${location.origin}/candidat.html?token=${encodeURIComponent(p.token)}${(p.langue || LANGUE) === 'en' ? '&lang=en' : ''}` }));
+  const heure = d => d.toLocaleTimeString(LOCALE, { hour: '2-digit', minute: '2-digit' });
+  const noms  = liens.map(p => esc(p.prenom)).join(EN ? ' and ' : ' et ');
+  const deux  = liens.length > 1;
+
+  const fin = document.getElementById('stand-fin');
+  fin.innerHTML = `
+    <div style="font-size:44px;line-height:1;">✅</div>
+    <h2>${EN ? `All booked for ${noms}!` : `C'est réservé pour ${noms} !`}</h2>
+    <p class="text-muted">${start
+      ? `📅 ${fmtDate(start)} · ${heure(start)} - ${heure(end)}${deux ? tr(' · entretien ensemble', ' · interview together') : ''}`
+      : tr("Pas de créneau réservé : l'association recontactera la personne.", 'No slot booked: the association will get back to this person.')}</p>
+    <div class="stand-qrs">${liens.map((p, i) => `
+      <figure>
+        <div class="stand-qr" id="stand-qr-${i}"><div class="spinner" style="margin:90px;"></div></div>
+        ${deux ? `<figcaption>${esc(p.prenom)}</figcaption>` : ''}
+      </figure>`).join('')}
+    </div>
+    <p style="font-weight:600;max-width:420px;margin:10px auto 6px;">${deux
+      ? tr("C'est tout bon ! Chacun scanne son QR code pour retrouver l'entretien et l'ajouter à son agenda.",
+           "You're all set! Each of you scans your own QR code to find the interview and add it to your calendar.")
+      : tr("C'est tout bon ! Scanne ce QR code pour retrouver ton entretien et l'ajouter à ton agenda.",
+           "You're all set! Scan this QR code to find your interview and add it to your calendar.")}</p>
+    ${deux ? '' : `<p class="stand-lien">${esc(liens[0].url)}</p>`}
+    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:12px;">
+      <button type="button" class="btn btn-primary btn-lg" id="stand-suivant">${tr('Cooptant suivant →', 'Next person →')}</button>
+      ${deux ? '' : `<button type="button" class="btn btn-ghost" id="stand-copier">${tr('Copier le lien', 'Copy link')}</button>`}
+    </div>`;
+  document.getElementById('candidature-form').style.display = 'none';
+  fin.style.display = '';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  document.getElementById('stand-suivant').addEventListener('click', () => {
+    // Formulaire vierge, en français par défaut pour la personne suivante.
+    const u = new URL(location.href);
+    u.searchParams.delete('lang');
+    location.href = u.toString();
+  });
+  document.getElementById('stand-copier')?.addEventListener('click', () =>
+    navigator.clipboard.writeText(liens[0].url)
+      .then(() => showToast(tr('Lien copié.', 'Link copied.'), 'success'))
+      .catch(() => showToast(tr('Impossible de copier.', 'Could not copy.'), 'error')));
+
+  let qrcode = null;
+  try { qrcode = await chargerQrcode(); } catch { /* traité plus bas */ }
+  liens.forEach((p, i) => {
+    const zone = document.getElementById(`stand-qr-${i}`);
+    if (!qrcode) {
+      zone.innerHTML = `<p class="text-sm text-muted" style="max-width:220px;margin:0;">${tr('QR code indisponible. Lien :', 'QR code unavailable. Link:')}<br>${esc(p.url)}</p>`;
+      return;
+    }
+    const qr = qrcode(0, 'M');
+    qr.addData(p.url);
+    qr.make();
+    zone.innerHTML = qr.createImgTag(6, 0, `${tr("QR code de", "QR code for")} ${esc(p.prenom)}`);
+  });
+}
+
 // ── Helpers ──────────────────────────────────────────────────
 function toMins(t) { const [h, m] = t.split(':').map(Number); return h * 60 + m; }
 function fromMins(m) { return `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`; }
 
 function fmtDate(d) {
-  return d.toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+  return d.toLocaleDateString(LOCALE, { weekday:'long', day:'numeric', month:'long', year:'numeric' });
 }
 function fmtDateShort(d) {
-  return d.toLocaleDateString('fr-FR', { weekday:'short', day:'numeric', month:'short' });
+  return d.toLocaleDateString(LOCALE, { weekday:'short', day:'numeric', month:'short' });
 }
 
 // Deterministic doc ID so concurrent submissions merge cleanly
@@ -294,23 +639,23 @@ async function hashDocId(str) {
 
 // ── Init ─────────────────────────────────────────────────────
 async function init() {
-  if (!campaignId && !orgParam) return showError('Lien invalide. Vérifie le lien reçu.');
+  if (!campaignId && !orgParam) return showError(tr('Lien invalide. Vérifie le lien reçu.', 'Invalid link. Check the link you received.'));
   try {
     // Résolution : ?org=<slug|id> (nouveau) → l'espace de recrutement de l'asso ;
     // sinon ?campaign=<id> (ancien lien) → la campagne directe.
     if (orgParam) {
       // Accepte l'ID, le slug courant, ou un ancien slug si l'asso a ete renommee.
       org = await resolveOrg(db, orgParam);
-      if (!org) return showError('Association introuvable. Vérifie le lien reçu.');
+      if (!org) return showError(tr('Association introuvable. Vérifie le lien reçu.', 'Association not found. Check the link you received.'));
       const cSnap = await getDocs(query(collection(db, 'campaigns'), where('organizationId', '==', org.id)));
       const camps = cSnap.docs.map(d => ({ id: d.id, ...d.data() }))
         .sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0));
-      if (!camps.length) return showError("Le recrutement de cette association n'est pas encore configuré.");
+      if (!camps.length) return showError(tr("Le recrutement de cette association n'est pas encore configuré.", "This association hasn't set up its recruitment yet."));
       campaign = camps[0];
       campaignId = campaign.id;   // ← indispensable : tout le reste (dispos, entretiens, écriture du cooptant) filtre/écrit sur campaignId
     } else {
       const campDoc = await getDoc(doc(db, 'campaigns', campaignId));
-      if (!campDoc.exists()) return showError('Lien introuvable. Vérifie le lien reçu.');
+      if (!campDoc.exists()) return showError(tr('Lien introuvable. Vérifie le lien reçu.', 'Link not found. Check the link you received.'));
       campaign = { id: campDoc.id, ...campDoc.data() };
       if (campaign.organizationId) {
         const orgDoc = await getDoc(doc(db, 'organizations', campaign.organizationId));
@@ -330,6 +675,12 @@ async function init() {
       if (today > deadline) return showClosed();
     }
 
+    // Lien ouvert à tous (staff sans compte compris) : c'est l'asso qui le diffuse.
+    if (STAND_DEMANDE) {
+      modeStand = true;
+      preparerModeStand(campaignConfig(campaign));
+    }
+
     // Couleur de l'asso : fond sombre = texte blanc
     if (org?.primaryColor) {
       const hdr = document.getElementById('page-header');
@@ -342,7 +693,7 @@ async function init() {
     }
 
     document.getElementById('org-name').textContent     = org?.name || 'Cooptly';
-    document.getElementById('campaign-name').textContent = org?.name || campaign.name || 'cette association';
+    document.getElementById('campaign-name').textContent = org?.name || campaign.name || tr('cette association', 'this association');
     if (org?.logoBase64) {
       document.getElementById('org-logo-wrap').innerHTML =
         `<img src="${org.logoBase64}" style="width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.6);box-shadow:0 2px 8px rgba(0,0,0,.12);" alt="${org.name}" />`;
@@ -353,28 +704,30 @@ async function init() {
     const cfgHdr = campaignConfig(campaign);
     const debut  = parseLocalDate(cfgHdr.dateDebut);
     const fin    = parseLocalDate(cfgHdr.dateFin);
-    const jj     = d => d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
+    const jj     = d => d.toLocaleDateString(LOCALE, { day: 'numeric', month: 'long' });
     let sousTitre;
     if (!cfgHdr.avecEntretien) {
-      sousTitre = 'Dépose ton dossier, il n\'y a pas d\'entretien à réserver.';
+      sousTitre = tr('Dépose ton dossier, il n\'y a pas d\'entretien à réserver.', 'Send your application, there is no interview to book.');
     } else if (debut && fin) {
       sousTitre = cfgHdr.modeRdv === 'dispos'
-        ? `Indique tes disponibilités entre le ${jj(debut)} et le ${jj(fin)}.`
-        : `Choisis un créneau entre le ${jj(debut)} et le ${jj(fin)}.`;
+        ? tr(`Indique tes disponibilités entre le ${jj(debut)} et le ${jj(fin)}.`, `Tell us when you're free between ${jj(debut)} and ${jj(fin)}.`)
+        : tr(`Choisis un créneau entre le ${jj(debut)} et le ${jj(fin)}.`, `Pick a slot between ${jj(debut)} and ${jj(fin)}.`);
     } else {
       sousTitre = cfgHdr.modeRdv === 'dispos'
-        ? 'Indique tes disponibilités pour les prochaines semaines.'
-        : 'Choisis un créneau parmi les prochaines semaines.';
+        ? tr('Indique tes disponibilités pour les prochaines semaines.', "Tell us when you're free over the coming weeks.")
+        : tr('Choisis un créneau parmi les prochaines semaines.', 'Pick a slot over the coming weeks.');
     }
     if (cfgHdr.deadlineCandidature) {
       const dl = parseLocalDate(cfgHdr.deadlineCandidature);
-      if (dl) sousTitre += ` Candidatures ouvertes jusqu'au ${jj(dl)}.`;
+      if (dl) sousTitre += tr(` Candidatures ouvertes jusqu'au ${jj(dl)}.`, ` Applications open until ${jj(dl)}.`);
     }
     document.getElementById('campaign-dates').textContent = sousTitre;
 
     // Custom questions
+    afficherRappelLangue();
     const questions = campaign.formConfig?.customQuestions || [];
     if (questions.length) renderCustomQuestions(questions);
+    if (modeStand) preparerDuo(campaignConfig(campaign));
 
     // Le formulaire s'affiche TOUT DE SUITE, les créneaux arrivent ensuite
     // dans leur section, qui a son propre indicateur de chargement. Avant, la
@@ -387,6 +740,11 @@ async function init() {
     attenteCreneaux(true);
     creneauxPromesse = loadAvailableSlots().finally(() => attenteCreneaux(false));
     await creneauxPromesse;
+    // Entretien à deux : seulement quand on réserve un créneau.
+    if (modeStand && !useSlotPicker) {
+      duoActif = false;
+      document.getElementById('duo-section').style.display = 'none';
+    }
 
     // Lien personnel « changer de créneau » (?modif=<jeton>), donné sur la page
     // de confirmation et de suivi. Seul le cooptant l'a : on peut lui
@@ -404,7 +762,7 @@ async function init() {
 
   } catch (err) {
     console.error(err);
-    showError('Erreur lors du chargement : ' + err.message);
+    showError(tr('Erreur lors du chargement : ', 'Loading error: ') + err.message);
   }
 }
 
@@ -440,7 +798,7 @@ async function resolveGroupInvite(token, cfg) {
   const fail = msg => {
     section.style.display = '';
     body.innerHTML = `<p class="text-sm" style="color:var(--orange);font-weight:600;">${msg}</p>
-      <p class="text-sm text-muted" style="margin-top:6px;">Tu peux quand même postuler et choisir ton propre créneau ci-dessous.</p>`;
+      <p class="text-sm text-muted" style="margin-top:6px;">${tr('Tu peux quand même postuler et choisir ton propre créneau ci-dessous.', 'You can still apply and pick your own slot below.')}</p>`;
     return false;
   };
 
@@ -451,16 +809,16 @@ async function resolveGroupInvite(token, cfg) {
       where('campaignId', '==', campaignId),
       where('groupToken', '==', token)
     ));
-    if (snap.empty) return fail('Ce lien d\'invitation n\'est plus valide.');
+    if (snap.empty) return fail(tr('Ce lien d\'invitation n\'est plus valide.', 'This invitation link is no longer valid.'));
     group = snap.docs.map(d => ({ id: d.id, ...d.data() }));
   } catch (e) {
     console.error(e);
-    return fail('Impossible de vérifier l\'invitation.');
+    return fail(tr('Impossible de vérifier l\'invitation.', 'The invitation could not be checked.'));
   }
 
   // Le groupe est-il complet ? (un doc interview par cooptant du groupe)
   if (group.length >= cfg.maxParGroupe) {
-    return fail(`Ce groupe est complet (${cfg.maxParGroupe} cooptants maximum).`);
+    return fail(tr(`Ce groupe est complet (${cfg.maxParGroupe} cooptants maximum).`, `This group is full (${cfg.maxParGroupe} candidates maximum).`));
   }
 
   const host  = group[0];
@@ -468,7 +826,7 @@ async function resolveGroupInvite(token, cfg) {
   const end   = host.datetimeEnd?.toDate   ? host.datetimeEnd.toDate()   : new Date(host.datetimeEnd);
 
   // Créneau déjà passé → l'invitation n'a plus de sens
-  if (start < new Date()) return fail('Ce créneau est déjà passé.');
+  if (start < new Date()) return fail(tr('Ce créneau est déjà passé.', 'This slot has already passed.'));
 
   // Prénom de l'hôte, pour que l'invité sache avec qui il passe l'entretien
   let hostName = '';
@@ -482,16 +840,17 @@ async function resolveGroupInvite(token, cfg) {
   section.style.display = '';
   body.innerHTML = `
     <p class="text-sm" style="margin-bottom:10px;">
-      ${hostName ? `<strong>${esc(hostName)}</strong> t'a invité` : 'Tu as été invité'}
-      à passer l'entretien ensemble. Ton créneau est donc déjà fixé :
+      ${EN
+        ? `${hostName ? `<strong>${esc(hostName)}</strong> invited you` : 'You were invited'} to take the interview together, so your slot is already set:`
+        : `${hostName ? `<strong>${esc(hostName)}</strong> t'a invité` : 'Tu as été invité'} à passer l'entretien ensemble. Ton créneau est donc déjà fixé :`}
     </p>
     <div class="slot-confirm-box" style="margin-top:0;">
       <span style="font-size:20px;">📅</span>
-      <span>${fmtDate(start)} · ${start.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}
-        - ${end.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</span>
+      <span>${fmtDate(start)} · ${start.toLocaleTimeString(LOCALE,{hour:'2-digit',minute:'2-digit'})}
+        - ${end.toLocaleTimeString(LOCALE,{hour:'2-digit',minute:'2-digit'})}</span>
     </div>
     <p class="text-sm text-muted" style="margin-top:10px;">
-      Remplis tes informations ci-dessus, et c'est réservé.
+      ${tr("Remplis tes informations ci-dessus, et c'est réservé.", "Fill in your details above and it's booked.")}
     </p>`;
   return true;
 }
@@ -507,7 +866,7 @@ async function loadAvailableSlots() {
 
   // Arrivée via un lien « passe l'entretien avec moi » : le créneau est imposé,
   // on ne montre donc aucun sélecteur.
-  if (cfg.avecEntretien && cfg.entretienCollectif && paramLien('avec')) {
+  if (!modeStand && cfg.avecEntretien && cfg.entretienCollectif && paramLien('avec')) {
     const joined = await resolveGroupInvite(paramLien('avec'), cfg);
     if (joined) {
       useSlotPicker = false;   // pas de choix : on suit l'hôte
@@ -575,8 +934,9 @@ async function loadAvailableSlots() {
       const note = document.createElement('p');
       note.className = 'text-sm text-muted';
       note.style.cssText = 'margin:-8px 0 16px;';
-      note.textContent = "L'association n'a pas encore ouvert de créneaux : "
-        + 'indique tes disponibilités, elle te proposera un horaire.';
+      note.textContent = tr("L'association n'a pas encore ouvert de créneaux : "
+        + 'indique tes disponibilités, elle te proposera un horaire.',
+        "The association hasn't opened any slots yet: tell us when you're free and it will suggest a time.");
       const sec = document.getElementById('dispos-section');
       sec.insertBefore(note, sec.querySelector('.hg-wrap'));
       disposEnRepli = true;
@@ -619,8 +979,12 @@ async function loadAvailableSlots() {
     });
     // Période de l'asso (sinon fenêtre glissante), moins les jours trop proches :
     // délai minimum avant un entretien (`delaiReservationJours`).
-    const premierJour = premierJourReservable(cfg.delaiReservationJours);
+    // Sur le stand, pas de délai : dès aujourd'hui, pour les créneaux pas encore passés.
+    const premierJour = modeStand ? debutAujourdhui() : premierJourReservable(cfg.delaiReservationJours);
     const days      = getCampaignDays(campaign).filter(d => d >= premierJour);
+    const maintenant = new Date();
+    const aujourdhui = localDateStr(maintenant);
+    const minMaintenant = maintenant.getHours() * 60 + maintenant.getMinutes();
 
     document.getElementById('slot-duration-label').textContent = `${dureeMin} min`;
 
@@ -648,11 +1012,13 @@ async function loadAvailableSlots() {
       // Un créneau toutes les `pasCreneauxMinutes` (30 par défaut : XXh00, XXh30).
       const pas = pasCreneauxValide(cfg.pasCreneauxMinutes);
       for (let m = 8 * 60; m + dureeMin <= finMin; m += pas) {
+        if (dateStr === aujourdhui && m <= minMaintenant) continue;   // déjà passé
         const startTime = fromMins(m);
         const endTime   = fromMins(m + dureeMin);
 
         // Compte les staffeurs dispos sur toute la durée du créneau
-        const avail = staffAvails.filter(sa => staffFreeForSlot(sa, dateStr, m, dureeMin));
+        // Entretien en anglais (si l'asso l'exige) : staffeurs anglophones seulement.
+        const avail = staffUtilisable(staffAvails).filter(sa => staffFreeForSlot(sa, dateStr, m, dureeMin));
         if (avail.length < nbJurys) continue;
 
         // Entretiens déjà réservés qui chevauchent ce créneau (même jour).
@@ -665,28 +1031,64 @@ async function loadAvailableSlots() {
         // Jurés encore libres : on retire les personnes RÉELLEMENT prises par
         // ces entretiens, pas « nbJurys par entretien » (voir juresEncoreLibres).
         const remaining = juresEncoreLibres(avail.map(sa => sa.userId), overlaps, nbJurys);
-        const booked    = remaining < nbJurys;
+        // Limite d'entretiens en même temps (salles, place) : chevauchement
+        // strict, sans la pause.
+        const enCours = bookedIntervals.filter(b =>
+          b.dateStr === dateStr && b.startMin < m + dureeMin && b.endMin > m);
+        const booked  = remaining < nbJurys || pleinEnParallele(enCours, m, m + dureeMin, cfg.maxEntretiensParallele);
+
+        // Créneau qui n'existe que grâce à des dispos « si vraiment pas le choix » :
+        // réservable, mais jamais conseillé.
+        const principaux = avail.filter(sa => !enSecours(sa, dateStr, m, dureeMin));
+        const secours = !booked && juresEncoreLibres(principaux.map(sa => sa.userId), overlaps, nbJurys) < nbJurys;
 
         const key = `${dateStr}T${startTime}`;
         availableSlots.push({
           dateStr, day, startTime, endTime,
+          startMin: m, endMin: m + dureeMin, secours,
           staffCount: avail.length, booked, key,
           overlapIds: overlaps.map(o => o.id),
           // Pour recalculer « Complet » sans refaire tout le calcul (changement
           // de créneau : on retire alors son propre entretien des chevauchements).
           disposIds: avail.map(sa => sa.userId),
           overlaps,
+          enCours,
         });
       }
     });
 
+    // ⭐ Créneaux conseillés : ceux qui collent à un entretien déjà pris (le
+    // staff enchaîne au lieu d'avoir des trous), ou le premier d'un jour vide.
+    const conseil = creneauxConseilles(availableSlots, bookedIntervals, battement);
+    availableSlots.forEach((sl, i) => { sl.conseille = conseil.has(i); });
+
   } catch(e) {
     console.error(e);
-    // Fallback to grid on error (réinitialise le flag pour ne pas bloquer la soumission)
-    useSlotPicker = false;
+    // Chargement raté (réseau mobile, le plus souvent). Avant, le formulaire
+    // basculait EN SILENCE sur une grille de dispos, qu'on pouvait envoyer
+    // vide : le cooptant se croyait inscrit, sans aucun entretien. On le dit,
+    // on propose de réessayer, et l'envoi reste bloqué (useSlotPicker vrai,
+    // aucun créneau choisi).
+    useSlotPicker = true;
     slotLoading.style.display = 'none';
-    slotSection.style.display = 'none';
-    renderDisposGrid(campaign);
+    slotInner.style.display   = 'none';
+    let erreur = document.getElementById('slot-erreur');
+    if (!erreur) {
+      erreur = document.createElement('div');
+      erreur.id = 'slot-erreur';
+      erreur.style.cssText = 'padding:12px 0;';
+      slotSection.appendChild(erreur);
+    }
+    erreur.innerHTML = `<p class="text-sm" style="color:var(--red);font-weight:600;margin-bottom:8px;">${tr(
+      'Les créneaux n\'ont pas pu être chargés. Vérifie ta connexion, puis réessaie.',
+      "The slots couldn't be loaded. Check your connection, then try again.")}</p>
+      <button type="button" class="btn btn-ghost btn-sm">${tr('Réessayer', 'Try again')}</button>`;
+    erreur.style.display = '';
+    erreur.querySelector('button').addEventListener('click', () => {
+      erreur.style.display = 'none';
+      attenteCreneaux(true);
+      creneauxPromesse = loadAvailableSlots().finally(() => attenteCreneaux(false));
+    });
     return;
   }
 
@@ -695,9 +1097,17 @@ async function loadAvailableSlots() {
   if (!availableSlots.length) {
     const reqJurys = Math.min(3, campaignConfig(campaign).nbJurys);
     console.warn(`[créneaux] 0 créneau dispo · ${staffAvails.length} staffeur(s) ont renseigné des dispos · ${reqJurys} juré(s) requis par créneau`);
-    slotNone.querySelector('p').innerHTML = staffAvails.length < reqJurys
-      ? `😔 Aucun créneau disponible pour le moment.<br><span class="text-muted">Il faut au moins <strong>${reqJurys} jurés</strong> disponibles en même temps (seuls ${staffAvails.length} membre·s ont renseigné leurs dispos). L'association te contactera pour fixer un entretien.</span>`
-      : `😔 Aucun créneau disponible pour le moment. L'association te contactera pour fixer un entretien.`;
+    const enAnglais = besoinAnglais() && campaignConfig(campaign).jurysAnglaisRequis;
+    const versFr = (() => { const u = new URL(location.href); u.searchParams.set('lang', 'fr'); return u.toString(); })();
+    slotNone.querySelector('p').innerHTML = enAnglais
+      ? (modeStand
+          ? '😔 Aucun créneau avec des staffeurs anglophones pour le moment.'
+          : `😔 No interview slot in English yet. The association will contact you. <a href="${esc(versFr)}" lang="fr">Passer l'entretien en français</a>`)
+      : staffAvails.length < reqJurys
+      ? tr(`😔 Aucun créneau disponible pour le moment.<br><span class="text-muted">Il faut au moins <strong>${reqJurys} jurés</strong> disponibles en même temps (seuls ${staffAvails.length} membre·s ont renseigné leurs dispos). L'association te contactera pour fixer un entretien.</span>`,
+           `😔 No slot available at the moment.<br><span class="text-muted">At least <strong>${reqJurys} interviewers</strong> need to be free at the same time (only ${staffAvails.length} have shared their availability). The association will contact you to set up an interview.</span>`)
+      : tr(`😔 Aucun créneau disponible pour le moment. L'association te contactera pour fixer un entretien.`,
+           `😔 No slot available at the moment. The association will contact you to set up an interview.`);
     slotNone.style.display = '';
     return;
   }
@@ -759,26 +1169,28 @@ async function juresDeLOrg(orgId) {
  * @param {Date}   end
  * @returns {Promise<string[]>} ids des jurés, au plus `cfg.nbJurys`
  */
-async function attribuerJury(campaignId, cfg, start, end) {
+async function attribuerJury(campaignId, cfg, start, end, excludeIvId = null) {
   try {
     const snap = await getDocs(query(
       collection(db, 'interviews'),
       where('campaignId', '==', campaignId)
     ));
-    const interviews = snap.docs.map(d => {
+    // Son propre entretien (changement de créneau) ne doit pas bloquer ses jurés.
+    const interviews = snap.docs.filter(d => d.id !== excludeIvId).map(d => {
       const iv = d.data();
       const st = iv.datetimeStart?.toDate ? iv.datetimeStart.toDate() : new Date(iv.datetimeStart);
       let en = iv.datetimeEnd?.toDate ? iv.datetimeEnd.toDate()
              : (iv.datetimeEnd ? new Date(iv.datetimeEnd) : null);
       if (!en || isNaN(en)) en = new Date(st.getTime() + cfg.dureeMinutes * 60000);
-      return { datetimeStart: st, datetimeEnd: en, jury1Id: iv.jury1Id, jury2Id: iv.jury2Id, jury3Id: iv.jury3Id };
+      return { datetimeStart: st, datetimeEnd: en, groupId: iv.groupId || null,
+               jury1Id: iv.jury1Id, jury2Id: iv.jury2Id, jury3Id: iv.jury3Id };
     }).filter(iv => !isNaN(iv.datetimeStart));
 
     // Qui est libre sur ce créneau, d'après les dispos déposées par le staff.
     const dateStr  = localDateStr(start);
     const startMin = start.getHours() * 60 + start.getMinutes();
     const derniere = Math.floor((startMin + cfg.dureeMinutes - 1) / 60);
-    const disponibles = staffAvails.filter(sa => {
+    const disponibles = staffUtilisable(staffAvails).filter(sa => {
       const jour = sa.creneaux?.find(d => d.jour === dateStr);
       if (!jour?.creneaux?.length) return false;
       const set = new Set(jour.creneaux);
@@ -788,9 +1200,35 @@ async function attribuerJury(campaignId, cfg, start, end) {
       return true;
     }).map(sa => sa.userId).filter(Boolean);
 
+    // Combien de jurés : le minimum, plus un juré en plus s'il est libre et
+    // qu'il ne coûte aucun autre entretien (voir nbJuresPourEntretien).
+    const marge = (cfg.battementMinutes || 0) * 60000;
+    const vusGroupe = new Set();
+    const uneParGroupe = interviews.filter(iv => {
+      if (!iv.groupId) return true;
+      if (vusGroupe.has(iv.groupId)) return false;
+      vusGroupe.add(iv.groupId); return true;
+    });
+    const chevauchent = uneParGroupe.filter(iv =>
+      iv.datetimeStart.getTime() < end.getTime() + marge && iv.datetimeEnd.getTime() + marge > start.getTime());
+    const libres = juresEncoreLibres(disponibles,
+      chevauchent.map(iv => ({ juryIds: [iv.jury1Id, iv.jury2Id, iv.jury3Id].filter(Boolean) })), cfg.nbJurys);
+    const minutes = d => d.getHours() * 60 + d.getMinutes();
+    const maxPar  = Math.max(0, parseInt(cfg.maxEntretiensParallele, 10) || 0);
+    const autresPossibles = maxPar
+      ? Math.max(0, maxPar - 1 - picEnParallele(
+          uneParGroupe.filter(iv => localDateStr(iv.datetimeStart) === dateStr)
+            .map(iv => ({ startMin: minutes(iv.datetimeStart), endMin: minutes(iv.datetimeEnd) })),
+          startMin, startMin + cfg.dureeMinutes))
+      : Infinity;
+    const nbVoulus = nbJuresPourEntretien({ libres, min: cfg.nbJurys, max: cfg.nbJurysMax, autresPossibles });
+
+    // Dispos « si vraiment pas le choix » sur ce créneau : en dernier recours.
+    const secours = staffAvails.filter(sa => enSecours(sa, dateStr, startMin, cfg.dureeMinutes)).map(sa => sa.userId);
+
     return choisirJury({
-      disponibles, interviews, debut: start, fin: end,
-      nbJurys:      cfg.nbJurys,
+      disponibles, interviews, debut: start, fin: end, secours,
+      nbJurys:      nbVoulus,
       maxAffiles:   cfg.maxEntretiensAffiles,
       battementMin: cfg.battementMinutes || 0,
     });
@@ -827,6 +1265,7 @@ async function creneauEncoreLibre(campaignId, cfg, start, end, excludeIvId) {
 
     const vus = new Set();
     const occupations = [];
+    const enParallele = [];   // chevauchement strict, pour la limite d'entretiens simultanés
     snap.docs.forEach(d => {
       if (d.id === excludeIvId) return;
       const iv = d.data();
@@ -844,9 +1283,10 @@ async function creneauEncoreLibre(campaignId, cfg, start, end, excludeIvId) {
       if (ivStart < endMin + battement && ivEnd + battement > startMin) {
         occupations.push({ juryIds: [iv.jury1Id, iv.jury2Id, iv.jury3Id].filter(Boolean) });
       }
+      enParallele.push({ startMin: ivStart, endMin: ivEnd });
     });
 
-    const disposIds = staffAvails.filter(sa => {
+    const disposIds = staffUtilisable(staffAvails).filter(sa => {
       const jour = sa.creneaux?.find(d => d.jour === dateStr);
       if (!jour?.creneaux?.length) return false;
       const set = new Set(jour.creneaux);
@@ -857,6 +1297,7 @@ async function creneauEncoreLibre(campaignId, cfg, start, end, excludeIvId) {
       return true;
     }).map(sa => sa.userId);
 
+    if (pleinEnParallele(enParallele, startMin, endMin, cfg.maxEntretiensParallele)) return false;
     return juresEncoreLibres(disposIds, occupations, nbJurys) >= nbJurys;
   } catch (e) {
     console.warn('Revérification du créneau impossible :', e);
@@ -882,14 +1323,14 @@ function renderDayTabs() {
   const heures = [...new Set(availableSlots.filter(s => jours.includes(s.dateStr)).map(s => s.startTime))].sort();
   const scroll = { left: wrap.scrollLeft, top: wrap.scrollTop };
 
-  let html = '<table class="rdv-cal"><thead><tr><th class="rdv-coin" scope="col"><span class="sr-only">Heure</span></th>';
+  let html = `<table class="rdv-cal"><thead><tr><th class="rdv-coin" scope="col"><span class="sr-only">${tr('Heure', 'Time')}</span></th>`;
   jours.forEach(j => {
     const d = new Date(j + 'T00:00:00');
     const libres = availableSlots.filter(s => s.dateStr === j && !s.booked).length;
-    const wd = d.toLocaleDateString('fr-FR', { weekday: 'short' });
+    const wd = d.toLocaleDateString(LOCALE, { weekday: 'short' });
     html += `<th scope="col" data-jour="${j}">${wd.charAt(0).toUpperCase() + wd.slice(1)}
-      <span class="rdv-jour-date">${d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</span>
-      <span class="rdv-jour-date">${libres} libre${libres > 1 ? 's' : ''}</span></th>`;
+      <span class="rdv-jour-date">${d.toLocaleDateString(LOCALE, { day: 'numeric', month: 'short' })}</span>
+      <span class="rdv-jour-date">${libres} ${EN ? 'free' : `libre${libres > 1 ? 's' : ''}`}</span></th>`;
   });
   html += '</tr></thead><tbody>';
   heures.forEach(h => {
@@ -900,11 +1341,13 @@ function renderDayTabs() {
       const actuel = !!existingIvId && s.key === creneauActuelCle;
       const choisi = selectedSlot?.key === s.key;
       const libre  = !s.booked || choisi || actuel;
-      const jourLong = new Date(j + 'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+      const jourLong = new Date(j + 'T00:00:00').toLocaleDateString(LOCALE, { weekday: 'long', day: 'numeric', month: 'long' });
       const etat = choisi ? 'choisi' : (libre ? 'libre' : 'complet');
-      html += `<td><button type="button" class="rdv-cell${choisi ? ' choisi' : ''}${actuel ? ' actuel' : ''}"
+      const ETATS = { choisi: tr('choisi', 'selected'), libre: tr('libre', 'available'), complet: tr('complet', 'full') };
+      const conseille = !!s.conseille && !s.booked && !choisi && !actuel;
+      html += `<td><button type="button" class="rdv-cell${choisi ? ' choisi' : ''}${actuel ? ' actuel' : ''}${conseille ? ' conseille' : ''}"
         data-cle="${s.key}" ${libre ? '' : 'disabled'} aria-pressed="${choisi}"
-        aria-label="${jourLong}, ${s.startTime} à ${s.endTime}, ${actuel && !choisi ? 'ton créneau actuel' : etat}">${choisi ? '✓' : (actuel ? 'Actuel' : (libre ? s.startTime : 'Complet'))}</button></td>`;
+        aria-label="${jourLong}, ${s.startTime} ${tr('à', 'to')} ${s.endTime}, ${actuel && !choisi ? tr('ton créneau actuel', 'your current slot') : ETATS[etat]}${conseille ? tr(', conseillé', ', recommended') : ''}">${choisi ? '✓' : (actuel ? tr('Actuel', 'Current') : (libre ? `${conseille ? '⭐ ' : ''}${s.startTime}` : tr('Complet', 'Full')))}</button></td>`;
     });
     html += '</tr>';
   });
@@ -927,13 +1370,15 @@ function selectSlot(s) {
 
   // Update submit button label
   if (existingIvId) {
-    document.getElementById('submit-text').textContent = 'Modifier mon créneau 🔄';
+    document.getElementById('submit-text').textContent = tr('Modifier mon créneau 🔄', 'Change my slot 🔄');
   }
   updateProgress();
 }
 
 // ── Email blur : detect returning candidate ──────────────────
 document.getElementById('email').addEventListener('blur', async () => {
+  // Stand : « prenom.nom » suffit, la fin de l'adresse est ajoutée.
+  if (modeStand) completerEmailStand(document.getElementById('email'));
   const email = document.getElementById('email').value.trim().toLowerCase();
   if (!email.includes('@') || !campaignId) return;
 
@@ -941,7 +1386,7 @@ document.getElementById('email').addEventListener('blur', async () => {
   // redige toute sa motivation est frustrant.
   const champ = document.getElementById('email');
   if (!estEmailEmlyon(email)) {
-    setError('err-email', 'Utilise ton adresse emlyon, par exemple prenom.nom@edu.em-lyon.com.');
+    setError('err-email', MSG_EMAIL_EMLYON);
     champ.classList.add('error');
     return;
   }
@@ -998,9 +1443,9 @@ function afficherReponsesConservees() {
   note.id = 'reponses-conservees';
   note.className = 'reponses-conservees';
   note.innerHTML = `
-    <div><strong>✓ Tes réponses sont déjà enregistrées.</strong>
-      <span class="text-muted">Pas besoin de les retaper pour changer de créneau.</span></div>
-    <button type="button" class="btn btn-ghost btn-sm">Modifier mes réponses</button>`;
+    <div><strong>${tr('✓ Tes réponses sont déjà enregistrées.', '✓ Your answers are already saved.')}</strong>
+      <span class="text-muted">${tr('Pas besoin de les retaper pour changer de créneau.', 'No need to type them again to change your slot.')}</span></div>
+    <button type="button" class="btn btn-ghost btn-sm">${tr('Modifier mes réponses', 'Edit my answers')}</button>`;
   note.querySelector('button').addEventListener('click', () => {
     // On repart de champs vides : les réponses d'avant ne s'affichent pas par
     // ce chemin, pour la même raison qu'elles ne sont pas préremplies.
@@ -1079,7 +1524,10 @@ async function chargerCandidatureExistante(cand, { depuisLien }) {
       // créneaux libres.
       availableSlots.forEach(s => {
         const autres = (s.overlaps || []).filter(o => o.id !== existingIvId);
-        s.booked = juresEncoreLibres(s.disposIds || [], autres, campaignNbJurys) < campaignNbJurys;
+        const debutS = toMins(s.startTime);
+        s.booked = juresEncoreLibres(s.disposIds || [], autres, campaignNbJurys) < campaignNbJurys
+          || pleinEnParallele((s.enCours || []).filter(o => o.id !== existingIvId),
+                              debutS, toMins(s.endTime), campaignConfig(campaign).maxEntretiensParallele);
       });
 
       // Find & pre-select the matching slot
@@ -1093,22 +1541,27 @@ async function chargerCandidatureExistante(cand, { depuisLien }) {
         selectedDay  = dateStr;
         selectSlot(existing);
       } else {
+        garderCreneauActuel = dt > new Date();
         renderDayTabs();
       }
 
       banner.style.display = '';
       banner.innerHTML = `
-        <div style="font-weight:700;font-size:14px;margin-bottom:4px;">🔄 Tu as déjà un entretien réservé</div>
-        <div class="text-sm">📅 ${fmtDate(dt)} · ${dt.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})} - ${end.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</div>
-        <div class="text-sm text-muted" style="margin-top:4px;">Tu peux changer de créneau ci-dessous et soumettre à nouveau.</div>`;
-      document.getElementById('submit-text').textContent = 'Modifier mon créneau 🔄';
+        <div style="font-weight:700;font-size:14px;margin-bottom:4px;">${tr('🔄 Tu as déjà un entretien réservé', '🔄 You already have an interview booked')}</div>
+        <div class="text-sm">📅 ${fmtDate(dt)} · ${dt.toLocaleTimeString(LOCALE,{hour:'2-digit',minute:'2-digit'})} - ${end.toLocaleTimeString(LOCALE,{hour:'2-digit',minute:'2-digit'})}</div>
+        <div class="text-sm text-muted" style="margin-top:4px;">${garderCreneauActuel
+          ? tr('Il est conservé. Tu peux en choisir un autre ci-dessous si tu veux le changer.', "It's kept. You can pick another one below if you want to change it.")
+          : tr('Tu peux changer de créneau ci-dessous et soumettre à nouveau.', 'You can pick another slot below and submit again.')}</div>`;
+      document.getElementById('submit-text').textContent = garderCreneauActuel
+        ? tr('Enregistrer mon dossier ✓', 'Save my application ✓')
+        : tr('Modifier mon créneau 🔄', 'Change my slot 🔄');
     } else {
       existingIvId = null;
       existingIv   = null;
       banner.style.display = '';
       banner.innerHTML = `
-        <div style="font-weight:700;font-size:14px;margin-bottom:4px;">👋 Content de te revoir !</div>
-        <div class="text-sm text-muted">Ta candidature existe déjà. Tu peux mettre à jour tes informations et réserver un nouveau créneau.</div>`;
+        <div style="font-weight:700;font-size:14px;margin-bottom:4px;">${tr('👋 Content de te revoir !', '👋 Welcome back!')}</div>
+        <div class="text-sm text-muted">${tr('Ta candidature existe déjà. Tu peux mettre à jour tes informations et réserver un nouveau créneau.', 'Your application already exists. You can update your details and book a new slot.')}</div>`;
     }
   } catch(e) { console.warn(e); }
 }
@@ -1123,6 +1576,8 @@ async function chargerCandidatureExistante(cand, { depuisLien }) {
  * quelqu'un pour un tiret.
  */
 const DOMAINES_EMLYON = ['em-lyon.com', 'emlyon.com'];
+const MSG_EMAIL_EMLYON = tr('Utilise ton adresse emlyon, par exemple prenom.nom@edu.em-lyon.com.',
+                            'Use your emlyon address, for example firstname.lastname@edu.em-lyon.com.');
 
 /**
  * L'adresse appartient-elle a emlyon ?
@@ -1149,11 +1604,16 @@ function valeurQuestion(el) {
 function renderCustomQuestions(questions) {
   const container = document.getElementById('custom-questions-container');
   container.innerHTML = '';
+  let affichees = 0;
   questions.forEach((q, i) => {
+    // Stand : seulement les questions choisies. L'index d'origine est gardé,
+    // c'est lui qui relie un champ `cq_i` à sa question.
+    if (modeStand && !standQuestionIds.has(q.id)) return;
+    affichees++;
     const group = document.createElement('div'); group.className = 'form-group';
-    if (q.imageDataUrl) {
+    if (q.imageUrl || q.imageDataUrl) {
       const img = document.createElement('img');
-      img.src = q.imageDataUrl;
+      img.src = q.imageUrl || q.imageDataUrl;
       img.alt = '';
       img.style.cssText = 'max-width:100%;max-height:200px;border-radius:6px;margin-bottom:8px;display:block;';
       group.appendChild(img);
@@ -1161,17 +1621,17 @@ function renderCustomQuestions(questions) {
     const label = document.createElement('label');
     label.className = 'form-label';
     label.setAttribute('for', `cq_${i}`);
-    label.innerHTML = q.label + (q.required ? ' <span class="required">*</span>' : '');
+    label.innerHTML = libelleQuestion(q) + (q.required ? ' <span class="required">*</span>' : '');
     group.appendChild(label);
     let input;
     if (q.type === 'longtext') {
       input = document.createElement('textarea'); input.className = 'form-textarea'; input.rows = 3;
-      if (q.placeholder) input.placeholder = q.placeholder;
+      { const aide = EN ? q.placeholderEn : q.placeholder; if (aide) input.placeholder = aide; }
     } else if (q.type === 'select' && q.options?.length) {
       input = document.createElement('select'); input.className = 'form-select';
-      const ph = document.createElement('option'); ph.value = ''; ph.textContent = 'Sélectionne';
+      const ph = document.createElement('option'); ph.value = ''; ph.textContent = tr('Sélectionne', 'Choose');
       input.appendChild(ph);
-      q.options.forEach(opt => { const o = document.createElement('option'); o.value = opt; o.textContent = opt; input.appendChild(o); });
+      optionsQuestion(q).forEach(({ valeur, texte }) => { const o = document.createElement('option'); o.value = valeur; o.textContent = texte; input.appendChild(o); });
     } else if (q.type === 'checkbox') {
       // Case a cocher simple (charte, engagement, disponibilite le week-end...).
       const wrap = document.createElement('label');
@@ -1179,7 +1639,7 @@ function renderCustomQuestions(questions) {
       wrap.setAttribute('for', `cq_${i}`);
       input = document.createElement('input'); input.type = 'checkbox';
       const txt = document.createElement('span');
-      txt.textContent = q.placeholder || 'Oui';
+      txt.textContent = (EN ? q.placeholderEn : q.placeholder) || tr('Oui', 'Yes');
       wrap.appendChild(input); wrap.appendChild(txt);
       group.appendChild(wrap);
       input._wrapped = true;
@@ -1193,7 +1653,7 @@ function renderCustomQuestions(questions) {
       if (q.type === 'tel')    input.autocomplete = 'tel';
       if (q.type === 'email')  input.autocomplete = 'email';
       if (q.type === 'nombre') input.inputMode = 'numeric';
-      if (q.placeholder) input.placeholder = q.placeholder;
+      { const aide = EN ? q.placeholderEn : q.placeholder; if (aide) input.placeholder = aide; }
     }
     input.id = `cq_${i}`; input.name = `cq_${i}`; input.dataset.qidx = i;
     if (q.required) input.required = true;
@@ -1204,7 +1664,7 @@ function renderCustomQuestions(questions) {
     group.appendChild(err);
     container.appendChild(group);
   });
-  document.getElementById('custom-questions-section').style.display = 'block';
+  document.getElementById('custom-questions-section').style.display = affichees ? 'block' : 'none';
 }
 
 // ── Grille de dispos du cooptant (mode « dispos ») ────────────
@@ -1217,7 +1677,7 @@ function renderDisposGrid(campaign) {
   // Si l'asso a fixé une période, on l'affiche en entier ; sinon fenêtre glissante
   // (raccourcie sur mobile pour rester lisible).
   // Même délai minimum que pour la réservation d'un créneau.
-  const premierJour = premierJourReservable(campaignConfig(campaign).delaiReservationJours);
+  const premierJour = modeStand ? debutAujourdhui() : premierJourReservable(campaignConfig(campaign).delaiReservationJours);
   const days = getCampaignDays(campaign, isMobile ? 14 : 28).filter(d => d >= premierJour);
   if (!days.length) return;
   document.getElementById('dispos-section').style.display = '';
@@ -1232,8 +1692,8 @@ function renderDisposGrid(campaign) {
   days.forEach((day, ci) => {
     const th = document.createElement('div'); th.className = 'hg-day-th';
     const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'hg-day-btn';
-    const dn = day.toLocaleDateString('fr-FR', {weekday:'short'});
-    const dd = day.toLocaleDateString('fr-FR', {day:'numeric', month:'short'});
+    const dn = day.toLocaleDateString(LOCALE, {weekday:'short'});
+    const dd = day.toLocaleDateString(LOCALE, {day:'numeric', month:'short'});
     btn.innerHTML = `<span>${dn[0].toUpperCase()+dn.slice(1,3)}</span><span class="hg-day-date">${dd}</span>`;
     btn.addEventListener('click', () => {
       const toggles = table.querySelectorAll(`.hg-toggle[data-col="${ci}"]`);
@@ -1278,7 +1738,9 @@ function selToggle(btn, on) {
 }
 function updateDisposCount() {
   const n = document.querySelectorAll('.hg-toggle.selected').length;
-  document.getElementById('dispos-count').textContent = `${n} créneau${n > 1 ? 'x' : ''} sélectionné${n > 1 ? 's' : ''}`;
+  document.getElementById('dispos-count').textContent = EN
+    ? `${n} slot${n === 1 ? '' : 's'} selected`
+    : `${n} créneau${n > 1 ? 'x' : ''} sélectionné${n > 1 ? 's' : ''}`;
 }
 function getSelectedDispos() {
   const byDay = {};
@@ -1298,7 +1760,7 @@ function updateProgress() {
   if (joinGroup) { filled++; total++; }   // créneau déjà fixé par l'invitation
   const questions = campaign?.formConfig?.customQuestions || [];
   questions.forEach((q, i) => {
-    if (!q.required) return;
+    if (!q.required || !document.getElementById(`cq_${i}`)) return;   // question absente (stand)
     total++;
     if (reponsesConservees || valeurQuestion(document.getElementById(`cq_${i}`))) filled++;
   });
@@ -1320,17 +1782,26 @@ function validate() {
   const prenom = document.getElementById('prenom').value.trim();
   const nom    = document.getElementById('nom').value.trim();
   const email  = document.getElementById('email').value.trim();
-  if (!prenom) { setError('err-prenom', 'Le prénom est requis.'); document.getElementById('prenom').classList.add('error'); valid = false; }
-  if (!nom)    { setError('err-nom', 'Le nom est requis.');       document.getElementById('nom').classList.add('error');    valid = false; }
-  if (!email)  { setError('err-email', "L'email est requis.");    document.getElementById('email').classList.add('error');  valid = false; }
-  else if (!email.includes('@')) { setError('err-email', 'Email invalide.'); document.getElementById('email').classList.add('error'); valid = false; }
+  if (!prenom) { setError('err-prenom', tr('Le prénom est requis.', 'First name is required.')); document.getElementById('prenom').classList.add('error'); valid = false; }
+  if (!nom)    { setError('err-nom', tr('Le nom est requis.', 'Last name is required.'));       document.getElementById('nom').classList.add('error');    valid = false; }
+  // Stand : l'email n'est demandé que si l'asso l'a choisi dans Paramètres.
+  const emailRequis = !modeStand || campaignConfig(campaign).standEmail;
+  if (!email)  { if (emailRequis) { setError('err-email', tr("L'email est requis.", 'Email is required.'));    document.getElementById('email').classList.add('error');  valid = false; } }
+  else if (!email.includes('@')) { setError('err-email', tr('Email invalide.', 'Invalid email.')); document.getElementById('email').classList.add('error'); valid = false; }
   else if (!estEmailEmlyon(email)) {
-    setError('err-email', 'Utilise ton adresse emlyon, par exemple prenom.nom@edu.em-lyon.com.');
+    setError('err-email', MSG_EMAIL_EMLYON);
     document.getElementById('email').classList.add('error');
     valid = false;
   }
   // En rejoignant un groupe le créneau est imposé : rien à sélectionner.
-  if (useSlotPicker && !selectedSlot && !joinGroup) { setError('err-slot', 'Sélectionne un créneau d\'entretien.'); valid = false; }
+  // Grille de dispos affichée : au moins un créneau. Une grille vide donnait
+  // une candidature sans entretien ni disponibilité, donc impossible à placer.
+  const grille = document.getElementById('dispos-section');
+  if (!useSlotPicker && !joinGroup && grille && grille.style.display !== 'none' && !getSelectedDispos().length) {
+    setError('err-dispos', tr('Coche au moins un créneau où tu es disponible.', 'Tick at least one time when you are available.'));
+    valid = false;
+  }
+  if (useSlotPicker && !selectedSlot && !joinGroup && !garderCreneauActuel) { setError('err-slot', tr('Sélectionne un créneau d\'entretien.', 'Pick an interview slot.')); valid = false; }
   const questions = campaign?.formConfig?.customQuestions || [];
   // Réponses conservées : les champs sont masqués et vides, les exiger
   // bloquerait l'envoi alors que tout est déjà enregistré.
@@ -1338,8 +1809,25 @@ function validate() {
     questions.forEach((q, i) => {
       if (q.required) {
         const el = document.getElementById(`cq_${i}`);
-        if (el && !valeurQuestion(el)) { setError(`err_cq_${i}`, 'Ce champ est requis.'); el.classList.add('error'); valid = false; }
+        if (el && !valeurQuestion(el)) { setError(`err_cq_${i}`, tr('Ce champ est requis.', 'This field is required.')); el.classList.add('error'); valid = false; }
       }
+    });
+  }
+  if (duoActif) {
+    const p2 = lireDuo();
+    const champ = id => document.getElementById(id);
+    if (!p2.prenom) { setError('err-prenom2', tr('Le prénom est requis.', 'First name is required.')); champ('prenom2').classList.add('error'); valid = false; }
+    if (!p2.nom)    { setError('err-nom2', tr('Le nom est requis.', 'Last name is required.'));       champ('nom2').classList.add('error');    valid = false; }
+    if (!p2.email) {
+      if (emailRequis) { setError('err-email2', tr("L'email est requis.", 'Email is required.')); champ('email2').classList.add('error'); valid = false; }
+    } else if (!estEmailEmlyon(p2.email)) {
+      setError('err-email2', MSG_EMAIL_EMLYON); champ('email2').classList.add('error'); valid = false;
+    } else if (p2.email === email.toLowerCase()) {
+      setError('err-email2', tr('Même adresse que la 1re personne.', 'Same address as the first person.')); champ('email2').classList.add('error'); valid = false;
+    }
+    questions.forEach((q, i) => {
+      const el = document.getElementById(`cq2_${i}`);
+      if (q.required && el && !valeurQuestion(el)) { setError(`err_cq2_${i}`, tr('Ce champ est requis.', 'This field is required.')); el.classList.add('error'); valid = false; }
     });
   }
   return valid;
@@ -1349,13 +1837,19 @@ function validate() {
 document.getElementById('candidature-form').addEventListener('submit', async e => {
   e.preventDefault();
   if (!creneauxPrets) {
-    showToast('Les créneaux finissent de charger, un instant…', 'info');
+    showToast(tr('Les créneaux finissent de charger, un instant…', 'Slots are still loading, one moment…'), 'info');
     return;
   }
   if (!validate()) {
     document.querySelector('.form-error:not(:empty)')?.scrollIntoView({ behavior:'smooth', block:'center' });
     return;
   }
+  if (modeStand && !existingCandId && !document.getElementById('email').value.trim()
+      && !(await homonymeAccepte(document.getElementById('prenom').value.trim(), document.getElementById('nom').value.trim()))) {
+    return;
+  }
+  const duo = duoActif && useSlotPicker ? lireDuo() : null;
+  if (duo && !duo.email && !(await homonymeAccepte(duo.prenom, duo.nom))) return;
 
   const btn = document.getElementById('submit-btn');
   btn.disabled = true;
@@ -1382,41 +1876,42 @@ document.getElementById('candidature-form').addEventListener('submit', async e =
     const payload = {
       prenom, nom, email, customAnswers,
       disponibilites: (useSlotPicker || joinGroup) ? [] : getSelectedDispos(),
+      // Langue de l'entretien : celle du formulaire, ou le choix fait au stand.
+      langue: langueDe('stand-langue'),
       updatedAt: serverTimestamp(),
     };
 
-    // Create or update candidate
-    let candidateId = existingCandId;
-    let resultToken;
-
-    if (existingCandId) {
-      const existRef = doc(db, 'candidates', existingCandId);
-      const existDoc = await getDoc(existRef);
-      resultToken = existDoc.data()?.resultToken || generateToken(40);
-      await updateDoc(existRef, { ...payload, resultToken });
-    } else {
-      candidateId = await hashDocId(`${email}::${campaignId}`);
-      const candRef = doc(db, 'candidates', candidateId);
-      const candSnap = await getDoc(candRef);
-      resultToken = candSnap.exists()
-        ? (candSnap.data().resultToken || generateToken(40))
-        : generateToken(40);
-      await setDoc(candRef, {
-        campaignId,
-        organizationId: campaign.organizationId,
-        ...payload,
-        notesInternes: candSnap.exists() ? (candSnap.data().notesInternes || '') : '',
-        resultToken,
-        statut: candSnap.exists() ? (candSnap.data().statut || 'recu') : 'recu',
-        createdAt: candSnap.exists() ? candSnap.data().createdAt : serverTimestamp(),
-      });
-    }
-
-    // Entretien à créer : soit le créneau choisi, soit celui imposé par une
-    // invitation de groupe (dans ce cas il n'y a pas eu de sélecteur).
+    // ── Tout vérifier AVANT d'écrire, puis tout écrire d'un coup ──────
+    // Avant, le cooptant était enregistré d'abord, puis le créneau revérifié,
+    // puis l'entretien créé, en plusieurs écritures. Un créneau pris entre-temps,
+    // un créneau devenu trop proche, une coupure réseau ou une page fermée au
+    // mauvais moment laissaient un cooptant inscrit SANS entretien. Désormais :
+    // lectures et vérifications d'abord (un refus n'écrit rien), puis un seul
+    // lot atomique (writeBatch) : cooptant + entretien, tout ou rien.
     const cfg = campaignConfig(campaign);
-    if ((useSlotPicker && selectedSlot) || joinGroup) {
-      let start, end;
+    const avecEntretienAReserver = !!((useSlotPicker && selectedSlot) || joinGroup);
+
+    let candidateId = existingCandId;
+    if (!candidateId) {
+      // Sans email (stand), pas d'identifiant déterministe possible : identifiant
+      // aléatoire, on a vérifié les homonymes avant.
+      candidateId = email ? await hashDocId(`${email}::${campaignId}`) : generateToken(20);
+    }
+    const candRef  = doc(db, 'candidates', candidateId);
+    const candSnap = await getDoc(candRef);
+    const candAvant = candSnap.exists() ? candSnap.data() : null;
+    const resultToken = candAvant?.resultToken || generateToken(40);
+    // Stand : seules quelques questions sont posées, on garde les autres réponses.
+    if (modeStand && candAvant) payload.customAnswers = { ...(candAvant.customAnswers || {}), ...customAnswers };
+    // Statut : « placé » dès qu'un entretien est réservé, sans jamais reculer
+    // (un entretien déjà fait le reste).
+    const statutApres = st => (avecEntretienAReserver && (!st || st === 'recu')) ? 'place' : (st || 'recu');
+
+    let start = null, end = null, ivData = null;
+    const personnes = [{ prenom, token: resultToken, langue: payload.langue }];
+    let p2 = null;
+
+    if (avecEntretienAReserver) {
       if (joinGroup) {
         start = joinGroup.start;
         end   = joinGroup.end;      // on colle exactement à l'entretien de l'hôte
@@ -1427,14 +1922,43 @@ document.getElementById('candidature-form').addEventListener('submit', async e =
         end = new Date(start.getTime() + cfg.dureeMinutes * 60 * 1000);
       }
 
-      // Jury attribué dès la réservation. Avant, l'entretien naissait sans
-      // aucun juré et le bureau devait tout remplir à la main dans le planning.
-      // On applique la même règle de continuité que l'algorithme : les mêmes
-      // personnes enchaînent les créneaux qui se suivent. Le bureau reste
-      // libre de changer depuis le planning.
-      const jures = joinGroup ? [] : await attribuerJury(campaignId, cfg, start, end);
+      // Revérifications (rien n'est encore écrit) : délai minimum, la page a pu
+      // rester ouverte depuis la veille ; puis le créneau lui-même, qu'un autre
+      // a pu réserver depuis le chargement. Firestore n'a pas de contrainte
+      // d'unicité : c'est une revérification, pas un verrou. Rejoindre le
+      // créneau d'un ami n'est pas concerné (déjà fixé).
+      const refus = async message => {
+        showToast(message, 'error');
+        selectedSlot = null;
+        document.getElementById('slot-confirm-box').style.display = 'none';
+        await loadAvailableSlots();
+        document.getElementById('slot-picker-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        btn.disabled = false;
+        document.getElementById('submit-text').style.display = '';
+        document.getElementById('submit-spinner').style.display = 'none';
+      };
+      const tropTot = modeStand ? start < new Date() : start < premierJourReservable(cfg.delaiReservationJours);
+      if (!joinGroup && tropTot) {
+        return refus(modeStand
+          ? tr('Ce créneau est déjà passé. Choisis-en un autre.', 'This slot has already passed. Pick another one.')
+          : tr('Ce créneau est trop proche. Choisis-en un plus tard.', 'This slot is too soon. Pick a later one.'));
+      }
+      if (!joinGroup && !(await creneauEncoreLibre(campaignId, cfg, start, end, existingIvId))) {
+        return refus(tr('Ce créneau vient d\'être réservé. Choisis-en un autre.', 'This slot was just booked. Pick another one.'));
+      }
 
-      const ivData = {
+      // Jury attribué dès la réservation, avec la règle de continuité de
+      // l'algorithme. Même horaire qu'avant (il renvoie le formulaire sans
+      // changer de créneau) : on garde son jury et sa salle ; les règles
+      // interdisent d'ailleurs à un anonyme d'y toucher sans changer d'horaire.
+      const debutAvant = existingIv?.datetimeStart?.toDate ? existingIv.datetimeStart.toDate()
+                        : (existingIv?.datetimeStart ? new Date(existingIv.datetimeStart) : null);
+      const memeHoraire = !!debutAvant && debutAvant.getTime() === start.getTime();
+      const jures = joinGroup ? []
+        : memeHoraire ? [existingIv.jury1Id, existingIv.jury2Id, existingIv.jury3Id]
+        : await attribuerJury(campaignId, cfg, start, end, existingIvId);
+
+      ivData = {
         campaignId,
         organizationId: campaign.organizationId,
         candidateId,
@@ -1445,16 +1969,18 @@ document.getElementById('candidature-form').addEventListener('submit', async e =
         jury1Id:        jures[0] || null,
         jury2Id:        jures[1] || null,
         jury3Id:        jures[2] || null,
-        roomId:         null, salleNom: null,
+        roomId:         memeHoraire ? (existingIv.roomId ?? null) : null,
+        salleNom:       memeHoraire ? (existingIv.salleNom ?? null) : null,
       };
 
       // Entretien à plusieurs : le groupe partage un `groupId` (une seule
       // occupation de créneau et un seul jury pour tout le groupe).
       // `groupToken` est le lien d'invitation, distinct du resultToken du
       // cooptant : partager ce dernier exposerait le suivi de sa candidature.
-      if (cfg.entretienCollectif) {
+      // Stand, entretien à deux : même mécanisme, même quand l'asso n'a pas
+      // ouvert les entretiens à plusieurs aux cooptants.
+      if (cfg.entretienCollectif || duo) {
         if (joinGroup) {
-          // On rejoint le groupe existant : on n'en crée pas un nouveau.
           ivData.groupId    = joinGroup.groupId;
           ivData.groupToken = joinGroup.groupToken;
         } else {
@@ -1463,57 +1989,66 @@ document.getElementById('candidature-form').addEventListener('submit', async e =
         }
       }
 
-      // Les créneaux occupés ont été calculés au chargement de la page. Entre
-      // ce moment et l'envoi, quelqu'un a pu réserver : sur une campagne où le
-      // lien part à tout le monde en même temps, deux cooptants prenaient le
-      // même horaire. On revérifie donc juste avant d'écrire.
-      // Firestore n'a pas de contrainte d'unicité : c'est une revérification,
-      // pas un verrou, mais elle ramène la fenêtre de collision à quelques
-      // centaines de millisecondes au lieu de plusieurs minutes.
-      // Délai minimum revérifié à l'envoi : la page a pu rester ouverte depuis la
-      // veille. Rejoindre le créneau d'un ami n'est pas concerné (déjà fixé).
-      if (!joinGroup && start < premierJourReservable(cfg.delaiReservationJours)) {
-        showToast('Ce créneau est trop proche. Choisis-en un plus tard.', 'error');
-        selectedSlot = null;
-        document.getElementById('slot-confirm-box').style.display = 'none';
-        await loadAvailableSlots();
-        document.getElementById('slot-picker-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        btn.disabled = false;
-        document.getElementById('submit-text').style.display = '';
-        document.getElementById('submit-spinner').style.display = 'none';
-        return;
-      }
-      if (!joinGroup && !(await creneauEncoreLibre(campaignId, cfg, start, end, existingIvId))) {
-        showToast('Ce créneau vient d\'être réservé. Choisis-en un autre.', 'error');
-        selectedSlot = null;
-        document.getElementById('slot-confirm-box').style.display = 'none';
-        await loadAvailableSlots();
-        document.getElementById('slot-picker-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        btn.disabled = false;
-        document.getElementById('submit-text').style.display = '';
-        document.getElementById('submit-spinner').style.display = 'none';
-        return;
-      }
+      // 2e personne (stand) : lue maintenant, écrite dans le même lot.
+      if (duo) p2 = await preparerSecondCooptant(duo);
+    }
 
-      if (existingIvId) {
-        await updateDoc(doc(db, 'interviews', existingIvId), { ...ivData, updatedAt: serverTimestamp() });
-      } else {
-        await addDoc(collection(db, 'interviews'), { ...ivData, createdAt: serverTimestamp() });
+    // ── Écriture : un seul lot, tout ou rien ─────────────────────────
+    const lot = writeBatch(db);
+    if (existingCandId && candAvant) {
+      // Candidature retrouvée (email ou lien personnel) : mise à jour champ par
+      // champ, comme avant, pour ne rien perdre de ce que le bureau y a mis.
+      lot.update(candRef, { ...payload, resultToken, statut: statutApres(candAvant.statut) });
+    } else lot.set(candRef, {
+      // Document déjà là (même email) : on part de lui, pour garder ce que le
+      // bureau y a ajouté (case Messenger, langue corrigée…).
+      ...(candAvant || {}),
+      campaignId,
+      organizationId: campaign.organizationId,
+      ...payload,
+      resultToken,
+      statut:    statutApres(candAvant?.statut),
+      createdAt: candAvant?.createdAt || serverTimestamp(),
+      ...(candAvant?.source ? { source: candAvant.source } : (modeStand && !candAvant ? { source: 'stand' } : {})),
+      ...(candAvant?.userId ? { userId: candAvant.userId } : {}),
+    });
+    if (ivData) {
+      if (existingIvId) lot.update(doc(db, 'interviews', existingIvId), { ...ivData, updatedAt: serverTimestamp() });
+      else lot.set(doc(collection(db, 'interviews')), { ...ivData, createdAt: serverTimestamp() });
+      // 2e personne : même créneau, même jury, même groupe (une seule occupation).
+      if (p2) {
+        lot.set(doc(db, 'candidates', p2.id), { ...p2.donnees, statut: statutApres(p2.statutAvant) });
+        const iv2 = { ...ivData, candidateId: p2.id };
+        if (p2.ivExistantId) lot.update(doc(db, 'interviews', p2.ivExistantId), { ...iv2, updatedAt: serverTimestamp() });
+        else lot.set(doc(collection(db, 'interviews')), { ...iv2, createdAt: serverTimestamp() });
+        personnes.push({ prenom: duo.prenom, token: p2.resultToken, langue: p2.donnees.langue });
       }
+    }
+    // Réseau lent : on prévient au lieu de laisser croire que c'est bloqué.
+    const lent = setTimeout(() => showToast(tr('Connexion lente, ne ferme pas la page…', 'Slow connection, please keep this page open…'), 'info'), 8000);
+    try { await lot.commit(); } finally { clearTimeout(lent); }
 
-      // Update candidate statut
-      await updateDoc(doc(db, 'candidates', candidateId), { statut: 'place' });
+    if (avecEntretienAReserver) {
+      if (modeStand) return afficherFinStand({ personnes, start, end });
 
       // Redirect to confirmation page
-      window.location.href = `/confirmation.html?token=${resultToken}&campaign=${campaignId}`;
+      window.location.href = `/confirmation.html?token=${resultToken}&campaign=${campaignId}${EN ? '&lang=en' : ''}`;
     } else {
+      if (modeStand) return afficherFinStand({ personnes: [{ prenom, token: resultToken, langue: payload.langue }], start: null, end: null });
+
+      // Entretien actuel conservé : rien à réserver, on retourne à sa confirmation.
+      if (garderCreneauActuel && existingIvId) {
+        window.location.href = `/confirmation.html?token=${resultToken}&campaign=${campaignId}${EN ? '&lang=en' : ''}`;
+        return;
+      }
+
       // No slot → redirect to result page
-      window.location.href = `/candidat.html?token=${resultToken}`;
+      window.location.href = `/candidat.html?token=${resultToken}${EN ? '&lang=en' : ''}`;
     }
 
   } catch (err) {
     console.error(err);
-    showToast('Erreur : ' + err.message, 'error');
+    showToast(tr('Erreur : ', 'Error: ') + err.message, 'error');
     btn.disabled = false;
     document.getElementById('submit-text').style.display = '';
     document.getElementById('submit-spinner').style.display = 'none';

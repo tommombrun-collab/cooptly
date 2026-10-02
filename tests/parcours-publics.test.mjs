@@ -4,7 +4,7 @@
  * par les regles (le symptome utilisateur est "Missing or insufficient permissions").
  */
 import { initializeTestEnvironment, assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
-import { doc, setDoc, updateDoc, addDoc, collection, deleteDoc, getDocs, query, where } from 'firebase/firestore';
+import { doc, setDoc, updateDoc, addDoc, collection, deleteDoc, getDocs, query, where, writeBatch } from 'firebase/firestore';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
@@ -30,6 +30,45 @@ test('postuler.html : candidature + entretien + passage a "place"', async () => 
   await assertSucceeds(updateDoc(doc(anon,'candidates','c1'), { statut:'place' }));
 });
 
+test('postuler.html : cooptant et entretien ecrits dans un seul lot (tout ou rien)', async () => {
+  const lot = writeBatch(anon);
+  lot.set(doc(anon,'candidates','lot1'), {
+    campaignId:'camp1', organizationId:'orgA', email:'lot1@edu.em-lyon.com',
+    prenom:'Lea', nom:'L', statut:'place', resultToken:'tokL', notesInternes:'', customAnswers:{},
+  });
+  lot.set(doc(collection(anon,'interviews')), {
+    campaignId:'camp1', organizationId:'orgA', candidateId:'lot1', statut:'planifie', selfBooked:true,
+    datetimeStart: new Date('2026-10-05T10:00:00'), jury1Id:'A', jury2Id:'B', jury3Id:null, roomId:null, salleNom:null,
+  });
+  await assertSucceeds(lot.commit());
+});
+
+test('postuler.html : changement de creneau dans un seul lot (cooptant + entretien)', async () => {
+  await seed('candidates/lot2', { campaignId:'camp1', organizationId:'orgA', email:'lot2@edu.em-lyon.com',
+    prenom:'Max', statut:'place', resultToken:'tokM', notesInternes:'note' });
+  await seed('interviews/ivLot2', { campaignId:'camp1', organizationId:'orgA', candidateId:'lot2', selfBooked:true,
+    statut:'planifie', datetimeStart: new Date('2026-10-05T10:00:00'), jury1Id:'A', jury2Id:'B', jury3Id:null, roomId:'r1', salleNom:null });
+  const lot = writeBatch(anon);
+  lot.update(doc(anon,'candidates','lot2'), { prenom:'Max', email:'lot2@edu.em-lyon.com', resultToken:'tokM', statut:'place', customAnswers:{} });
+  lot.update(doc(anon,'interviews','ivLot2'), { campaignId:'camp1', organizationId:'orgA', candidateId:'lot2', selfBooked:true,
+    statut:'planifie', datetimeStart: new Date('2026-10-06T11:00:00'), jury1Id:'C', jury2Id:'D', jury3Id:null, roomId:null, salleNom:null });
+  await assertSucceeds(lot.commit());
+});
+
+test('un lot refuse n ecrit rien : pas de cooptant sans entretien', async () => {
+  const lot = writeBatch(anon);
+  lot.set(doc(anon,'candidates','lot3'), { campaignId:'camp1', organizationId:'orgA', email:'lot3@edu.em-lyon.com', statut:'place' });
+  // Écriture interdite dans le même lot (s'attribuer une salle sans changer d'horaire).
+  lot.update(doc(anon,'interviews','ivLot2'), { selfBooked:true, roomId:'salle-choisie' });
+  await assertFails(lot.commit());
+  // withSecurityRulesDisabled ne renvoie pas la valeur du rappel : on la capture.
+  let reste = -1;
+  await env.withSecurityRulesDisabled(async c => {
+    reste = (await getDocs(query(collection(c.firestore(),'candidates'), where('email','==','lot3@edu.em-lyon.com')))).size;
+  });
+  if (reste !== 0) throw new Error(`le cooptant a ete ecrit malgre le refus du lot (${reste})`);
+});
+
 test('postuler.html : re-soumission du formulaire par le meme cooptant', async () => {
   await seed('candidates/c2', {
     campaignId:'camp1', organizationId:'orgA', email:'d@e.f',
@@ -37,8 +76,37 @@ test('postuler.html : re-soumission du formulaire par le meme cooptant', async (
   });
   await assertSucceeds(setDoc(doc(anon,'candidates','c2'), {
     campaignId:'camp1', organizationId:'orgA', email:'d@e.f',
-    statut:'place', resultToken:'tok2', notesInternes:'note du bureau', prenom:'Anais',
+    statut:'place', resultToken:'tok2', notesInternes:'note du bureau', prenom:'Ines',
   }));
+});
+
+test('postuler.html : report de creneau sans compte (nouveau jury, salle liberee)', async () => {
+  await seed('interviews/ivR', {
+    organizationId:'orgA', campaignId:'camp1', candidateId:'cR', selfBooked:true, statut:'planifie',
+    datetimeStart: new Date('2026-10-01T10:00:00'), jury1Id:'A', jury2Id:'B', jury3Id:null, roomId:'r1', salleNom:null,
+  });
+  // Tel que postuler.html l'ecrit : nouvel horaire, jury reattribue, salle videe.
+  await assertSucceeds(updateDoc(doc(anon,'interviews','ivR'), {
+    organizationId:'orgA', campaignId:'camp1', candidateId:'cR', selfBooked:true, statut:'planifie',
+    datetimeStart: new Date('2026-10-02T10:00:00'), jury1Id:'C', jury2Id:'D', jury3Id:null, roomId:null, salleNom:null,
+  }));
+  // Meme horaire : le jury ne bouge pas sans compte.
+  await assertFails(updateDoc(doc(anon,'interviews','ivR'), { selfBooked:true, jury1Id:'moi' }));
+});
+
+test('mode stand : inscrit sans email, il ajoute son email depuis son lien', async () => {
+  await seed('candidates/stand1', {
+    campaignId:'camp1', organizationId:'orgA', email:'', source:'stand',
+    statut:'place', resultToken:'tokS', notesInternes:'', prenom:'Lou',
+  });
+  await assertSucceeds(updateDoc(doc(anon,'candidates','stand1'), { email:'lou.b@edu.em-lyon.com', customAnswers:{ q1:'ok' } }));
+  // Une fois posé, l'email ne se change plus sans compte.
+  await assertFails(updateDoc(doc(anon,'candidates','stand1'), { email:'autre@edu.em-lyon.com' }));
+});
+
+test('un email existant ne peut toujours pas etre change sans compte', async () => {
+  await seed('candidates/c2e', { campaignId:'camp1', organizationId:'orgA', email:'x@edu.em-lyon.com', statut:'recu' });
+  await assertFails(updateDoc(doc(anon,'candidates','c2e'), { email:'y@edu.em-lyon.com' }));
 });
 
 test('evaluer-publique.html : le jure sans compte fait avancer le statut', async () => {

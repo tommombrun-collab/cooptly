@@ -206,3 +206,89 @@ test('un entretien hors de l heure ronde reste visible dans sa ligne', () => {
   assert.equal(ligneDuPlanning(new Date(2026, 9, 1, 10, 45), 30), '10:30');
   assert.equal(ligneDuPlanning(new Date(2026, 9, 1, 10, 45), 15), '10:45');
 });
+
+// ── Entretiens en parallèle (config.maxEntretiensParallele) ──────────
+import { pleinEnParallele } from '../public/js/capacite.js';
+const occ = (a, b) => ({ startMin: a, endMin: b });
+
+test('parallele : 0 = pas de limite', () => {
+  assert.equal(pleinEnParallele([occ(540, 570), occ(540, 570), occ(540, 570)], 540, 570, 0), false);
+});
+
+test('parallele : plein quand le maximum est deja atteint au meme moment', () => {
+  assert.equal(pleinEnParallele([occ(540, 570), occ(540, 570)], 540, 570, 2), true);
+  assert.equal(pleinEnParallele([occ(540, 570)], 540, 570, 2), false);
+});
+
+test('parallele : deux entretiens qui se suivent ne comptent pas ensemble', () => {
+  // 9:00-9:30 et 9:30-10:00, nouveau a 9:15 : un seul autre a la fois.
+  assert.equal(pleinEnParallele([occ(540, 570), occ(570, 600)], 555, 585, 2), false);
+  assert.equal(pleinEnParallele([occ(540, 570), occ(570, 600)], 555, 585, 1), true);
+});
+
+test('parallele : un entretien qui finit pile au debut ne gene pas', () => {
+  assert.equal(pleinEnParallele([occ(510, 540)], 540, 570, 1), false);
+});
+
+// ── Langue des staffeurs (config.jurysAnglaisRequis) ────────────────
+import { parleAnglais, staffPourEntretien } from '../public/js/capacite.js';
+
+test('langue : sans reponse, un staffeur ne compte pas comme anglophone', () => {
+  assert.equal(parleAnglais({ userId: 'a' }), false);
+  assert.equal(parleAnglais({ userId: 'a', langues: ['fr'] }), false);
+  assert.equal(parleAnglais({ userId: 'a', langues: ['fr', 'en'] }), true);
+});
+
+test('langue : entretien en anglais exige, seuls les anglophones restent', () => {
+  const staff = [{ userId: 'fr', langues: ['fr'] }, { userId: 'en', langues: ['en'] }, { userId: 'rien' }];
+  assert.deepEqual(staffPourEntretien(staff, { anglais: true, exigerAnglais: true }).map(s => s.userId), ['en']);
+});
+
+test('langue : reglage desactive ou entretien en francais, tout le monde reste', () => {
+  const staff = [{ userId: 'fr', langues: ['fr'] }, { userId: 'en', langues: ['en'] }];
+  assert.equal(staffPourEntretien(staff, { anglais: true, exigerAnglais: false }).length, 2);
+  assert.equal(staffPourEntretien(staff, { anglais: false, exigerAnglais: true }).length, 2);
+});
+
+// ── Créneaux conseillés et dispos de secours ────────────────────────
+import { enSecours, creneauxConseilles } from '../public/js/capacite.js';
+
+test('secours : vrai des qu une heure couverte est en secours', () => {
+  const sa = { secours: [{ jour: '2026-10-05', creneaux: ['11:00'] }] };
+  assert.equal(enSecours(sa, '2026-10-05', 600, 60), false);   // 10:00-11:00
+  assert.equal(enSecours(sa, '2026-10-05', 630, 60), true);    // 10:30-11:30 touche 11 h
+  assert.equal(enSecours({}, '2026-10-05', 660, 30), false);
+});
+
+test('conseilles : les creneaux qui collent a un entretien pose', () => {
+  const c = m => ({ dateStr: 'J', startMin: m, endMin: m + 30 });
+  const creneaux = [c(540), c(570), c(600), c(630), c(660)];   // 9:00 a 11:00
+  const poses = [{ dateStr: 'J', startMin: 600, endMin: 630 }]; // 10:00-10:30 deja pris
+  const s = creneauxConseilles(creneaux.map((x, i) => i === 2 ? { ...x, booked: true } : x), poses);
+  assert.deepEqual([...s].sort(), [1, 3], '9:30 (juste avant) et 10:30 (juste apres)');
+});
+
+test('conseilles : pause comprise', () => {
+  const creneaux = [{ dateStr: 'J', startMin: 645, endMin: 675 }];
+  assert.equal(creneauxConseilles(creneaux, [{ dateStr: 'J', startMin: 600, endMin: 630 }], 15).size, 1);
+});
+
+test('conseilles : jour vide, le premier creneau ; jamais un creneau de secours', () => {
+  const creneaux = [
+    { dateStr: 'J', startMin: 540, endMin: 570, secours: true },
+    { dateStr: 'J', startMin: 570, endMin: 600 },
+    { dateStr: 'J', startMin: 600, endMin: 630 },
+  ];
+  assert.deepEqual([...creneauxConseilles(creneaux, [])], [1]);
+});
+
+test('conseilles : au plus 3 par jour, les trous bouches d abord', () => {
+  const c = m => ({ dateStr: 'J', startMin: m, endMin: m + 30 });
+  // Entretiens a 9:00, 10:00, 12:00, 14:00 ; 9:30 bouche le trou entre 9:00 et 10:00.
+  const poses = [540, 600, 720, 840].map(m => ({ dateStr: 'J', startMin: m, endMin: m + 30 }));
+  const creneaux = [570, 630, 690, 750, 810, 870].map(c);
+  const s = creneauxConseilles(creneaux, poses);
+  assert.equal(s.size, 3);
+  assert.ok(s.has(0), '9:30, entre deux entretiens, passe en premier');
+  assert.equal(creneauxConseilles(creneaux, poses, 0, 15, 2).size, 2);
+});

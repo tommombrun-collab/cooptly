@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <script>(function(){var t=localStorage.getItem("_theme");if(t)document.documentElement.setAttribute("data-theme",t);})();</script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Connexions · Admin Cooptly</title>
+  <!-- Connexions ouvertes d'avance : sans elles, chaque serveur (polices,
+       SDK, base de données) coûtait sa propre poignée de main réseau au
+       moment où la page en avait besoin. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin />
+  <!-- Le SDK est préchargé dès l'en-tête. Sinon le navigateur ne le
+       découvre qu'en arrivant au script, tout en bas de la page. -->
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js" />
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js" />
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js" />
+  <!-- Polices en <link> et non plus en @import dans main.css : l'@import
+       obligeait à télécharger la feuille de style avant même de découvrir
+       les polices, trois allers-retours à la suite avant le texte. -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Antic&family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;600;700&display=swap" />
+  <link rel="stylesheet" href="/css/main.css" />
+</head>
+<body>
+
+<nav class="nav">
+  <a href="/admin/dashboard.html" class="nav-brand">
+    <div class="nav-brand-icon">C</div>
+    <span class="nav-brand-name">Cooptly</span>
+  </a>
+    <div class="nav-links">
+    <a href="/admin/dashboard.html" class="nav-link">Vue d'ensemble</a>
+    <a href="/admin/organisations.html" class="nav-link">Organisations</a>
+    <a href="/admin/permissions.html" class="nav-link">Permissions</a>
+    <a href="/admin/connexions.html" class="nav-link active">Connexions</a>
+    <a href="/admin/data.html" class="nav-link">Base de données</a>
+  </div>
+  <div class="nav-right">
+    <span id="user-name" style="font-size:13px;color:var(--text-muted);"></span>
+    <button class="btn btn-ghost btn-sm" id="btn-logout">Déconnexion</button>
+  </div>
+</nav>
+
+<style>
+  .cx-barres { display:flex; align-items:flex-end; gap:2px; height:26px; }
+  .cx-barres i { display:block; width:5px; min-height:2px; border-radius:2px; background:var(--indigo); opacity:.85; }
+  .cx-barres i.vide { background:var(--border); opacity:1; }
+  .cx-inactif td { color:var(--text-muted); }
+  table.cx td, table.cx th { vertical-align:middle; }
+  .cx-num { font-family:var(--font-mono); font-variant-numeric:tabular-nums; text-align:right; }
+</style>
+
+<main class="page">
+  <div class="flex-between mb-24" style="gap:12px;flex-wrap:wrap;">
+    <div>
+      <h1>Connexions</h1>
+      <p>Activité des membres qui ont un compte (bureau, admin). Visible par vous seul·e.</p>
+    </div>
+    <input class="form-input" id="cx-recherche" placeholder="Rechercher un nom, un email, une asso…" style="max-width:300px;" />
+  </div>
+
+  <div class="stats-grid mb-24">
+    <div class="stat-card"><div class="stat-value" id="cx-aujourdhui">·</div><div class="stat-label">Actifs aujourd'hui</div></div>
+    <div class="stat-card"><div class="stat-value" id="cx-7j">·</div><div class="stat-label">Actifs sur 7 jours</div></div>
+    <div class="stat-card"><div class="stat-value" id="cx-comptes">·</div><div class="stat-label">Comptes suivis</div></div>
+    <div class="stat-card"><div class="stat-value" id="cx-jamais">·</div><div class="stat-label">Sans activité enregistrée</div></div>
+  </div>
+
+  <div class="card">
+    <div id="cx-chargement" style="text-align:center;padding:40px;"><div class="spinner" style="margin:auto;"></div></div>
+    <div class="table-wrap" id="cx-wrap" style="display:none;">
+      <table class="cx"><thead><tr>
+        <th>Personne</th><th>Asso · rôle</th><th>Dernière activité</th>
+        <th class="cx-num" title="Sessions sur les 7 derniers jours">7 j</th>
+        <th class="cx-num" title="Sessions sur les 30 derniers jours">30 j</th>
+        <th title="Sessions par jour, sur les 30 derniers jours">30 derniers jours</th>
+      </tr></thead><tbody id="cx-corps"></tbody></table>
+    </div>
+    <p class="text-sm text-muted" style="margin-top:14px;">
+      Une session = un onglet ouvert ce jour-là sur une page du bureau. Les statistiques commencent le jour de leur mise en place :
+      pour la date de dernière connexion d'avant, voir la console Firebase → Authentication.
+      Les staffeurs sans compte (liens publics) n'apparaissent pas. Pensez à informer les membres que leur activité est enregistrée.
+    </p>
+  </div>
+</main>
+
+<script type="module">
+import { requireAdmin, logout, app } from '/js/auth.js';
+import { getFirestore, collection, getDocs }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { initBurgerMenu } from '/js/nav.js';
+import { esc, pourRecherche } from '/js/utils.js';
+
+const db = getFirestore(app);
+const jourStr = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const joursAvant = n => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - n); return d; };
+
+/** « il y a 3 h », « hier », « 12 sept. » */
+function ilYa(date) {
+  if (!date) return 'jamais';
+  const min = Math.round((Date.now() - date.getTime()) / 60000);
+  if (min < 2) return 'à l\'instant';
+  if (min < 60) return `il y a ${min} min`;
+  const h = Math.round(min / 60);
+  if (h < 24) return `il y a ${h} h`;
+  const j = Math.round(h / 24);
+  if (j === 1) return 'hier';
+  if (j < 7) return `il y a ${j} jours`;
+  return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+}
+
+let lignes = [];
+
+async function init() {
+  const user = await requireAdmin();
+  initBurgerMenu(user);
+  document.getElementById('btn-logout')?.addEventListener('click', async () => { await logout(); location.href = '/index.html'; });
+
+  const [actSnap, memSnap, orgSnap] = await Promise.all([
+    getDocs(collection(db, 'activite')),
+    getDocs(collection(db, 'memberships')),
+    getDocs(collection(db, 'organizations')),
+  ]);
+  const orgNom = new Map(orgSnap.docs.map(d => [d.id, d.data().name || d.id]));
+  const actParUid = new Map(actSnap.docs.map(d => [d.id, d.data()]));
+
+  // Tous les comptes rattachés à une asso, avec ou sans activité enregistrée.
+  const comptes = new Map();
+  memSnap.docs.forEach(d => {
+    const m = d.data();
+    if (!m.userId) return;   // pré-ajout par email sans compte : pas de connexion possible
+    const c = comptes.get(m.userId) || { uid: m.userId, nom: '', email: m.email || '', assos: new Set(), role: '' };
+    c.nom = c.nom || m.displayName || [m.firstName, m.lastName].filter(Boolean).join(' ');
+    if (m.organizationId) c.assos.add(orgNom.get(m.organizationId) || m.organizationId);
+    c.role = c.role || m.role || '';
+    comptes.set(m.userId, c);
+  });
+  actParUid.forEach((a, uid) => {
+    if (!comptes.has(uid)) comptes.set(uid, { uid, nom: a.nom || '', email: a.email || '', assos: new Set(a.orgName ? [a.orgName] : []), role: a.role || '' });
+  });
+
+  const debut7 = jourStr(joursAvant(6)), debut30 = jourStr(joursAvant(29)), auj = jourStr(new Date());
+  lignes = [...comptes.values()].map(c => {
+    const a = actParUid.get(c.uid) || {};
+    const jours = a.jours || {};
+    const somme = depuis => Object.entries(jours).filter(([j]) => j >= depuis).reduce((t, [, n]) => t + (n || 0), 0);
+    return {
+      ...c,
+      nom: c.nom || a.nom || c.email,
+      assosTexte: [...c.assos].join(', '),
+      derniere: a.derniereActivite?.toDate ? a.derniereActivite.toDate() : null,
+      s7: somme(debut7), s30: somme(debut30),
+      aujourdhui: (jours[auj] || 0) > 0,
+      jours,
+    };
+  }).sort((x, y) => (y.derniere?.getTime() || 0) - (x.derniere?.getTime() || 0) || x.nom.localeCompare(y.nom, 'fr'));
+
+  document.getElementById('cx-aujourdhui').textContent = lignes.filter(l => l.aujourdhui).length;
+  document.getElementById('cx-7j').textContent = lignes.filter(l => l.s7 > 0).length;
+  document.getElementById('cx-comptes').textContent = lignes.length;
+  document.getElementById('cx-jamais').textContent = lignes.filter(l => !l.derniere).length;
+  document.getElementById('cx-chargement').style.display = 'none';
+  document.getElementById('cx-wrap').style.display = '';
+  dessiner();
+  document.getElementById('cx-recherche').addEventListener('input', dessiner);
+}
+
+function dessiner() {
+  const q = pourRecherche(document.getElementById('cx-recherche').value);
+  const jours30 = Array.from({ length: 30 }, (_, k) => jourStr(joursAvant(29 - k)));
+  const ROLES = { secge: 'Sec-gé', president: 'Président(e)', admin: 'Admin' };
+  document.getElementById('cx-corps').innerHTML = lignes
+    .filter(l => !q || pourRecherche(`${l.nom} ${l.email} ${l.assosTexte}`).includes(q))
+    .map(l => {
+      const max = Math.max(1, ...jours30.map(j => l.jours[j] || 0));
+      const barres = jours30.map(j => {
+        const n = l.jours[j] || 0;
+        return `<i class="${n ? '' : 'vide'}" style="height:${n ? Math.max(4, Math.round(26 * n / max)) : 2}px" title="${esc(j)} : ${n} session${n > 1 ? 's' : ''}"></i>`;
+      }).join('');
+      return `<tr class="${l.derniere ? '' : 'cx-inactif'}">
+        <td><strong>${esc(l.nom)}</strong><div class="text-sm text-muted">${esc(l.email)}</div></td>
+        <td class="text-sm">${esc(l.assosTexte || '·')}${l.role ? `<div class="text-muted">${esc(ROLES[l.role] || l.role)}</div>` : ''}</td>
+        <td title="${l.derniere ? esc(l.derniere.toLocaleString('fr-FR')) : ''}">${esc(ilYa(l.derniere))}</td>
+        <td class="cx-num">${l.s7}</td>
+        <td class="cx-num">${l.s30}</td>
+        <td><div class="cx-barres" aria-label="${l.s30} sessions sur 30 jours">${barres}</div></td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="6" class="text-muted">Personne ne correspond.</td></tr>';
+}
+
+init().catch(e => {
+  document.getElementById('cx-chargement').innerHTML = `<p style="color:var(--red);">Erreur : ${esc(e.message)}</p>`;
+});
+</script>
+</body>
+</html>

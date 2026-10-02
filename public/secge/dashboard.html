@@ -22,6 +22,29 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Antic&family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;600;700&display=swap" />
   <link rel="stylesheet" href="/css/main.css" />
   <style>
+    .th-mini { display:block; margin-top:2px; border:0; background:none; padding:0; font:inherit; font-size:10.5px;
+      font-weight:600; text-transform:none; letter-spacing:0; color:var(--indigo-dark); cursor:pointer; }
+    .th-mini:hover { text-decoration:underline; }
+    .th-mini:focus-visible { outline:2px solid var(--indigo); outline-offset:2px; border-radius:4px; }
+    .cp-crayon { text-decoration:none; margin-left:6px; padding:2px 6px; border-radius:6px; border:1px solid var(--border); font-size:13px; }
+    .cp-crayon:hover { border-color:var(--indigo); background:var(--indigo-light); }
+    .cp-crayon:focus-visible { outline:2px solid var(--indigo); outline-offset:2px; }
+    /* ── Panneau « Partager » ─────────────────────────────────── */
+    .partage-overlay { display:none; position:fixed; inset:0; z-index:9990; background:rgba(0,0,0,.45);
+      backdrop-filter:blur(3px); align-items:flex-start; justify-content:center; padding:48px 16px; overflow:auto; }
+    .partage-overlay.open { display:flex; }
+    .partage-panneau { background:var(--surface); border:1px solid var(--border); border-radius:14px; width:min(620px,100%);
+      box-shadow:0 24px 64px rgba(0,0,0,.2); padding:20px 22px; }
+    .partage-tete { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+    .partage-section { font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); margin:18px 0 8px; }
+    .partage-lien { display:flex; gap:12px; align-items:center; padding:10px 0; border-top:1px solid var(--border); }
+    .partage-lien:first-of-type { border-top:none; }
+    .partage-texte { flex:1; min-width:0; }
+    .partage-texte strong { display:block; font-size:14px; }
+    .partage-texte span { font-size:12.5px; color:var(--text-muted); }
+    .partage-actions { display:flex; gap:6px; flex-shrink:0; }
+    @media (max-width:560px) { .partage-lien { flex-direction:column; align-items:stretch; } .partage-actions { justify-content:flex-end; } }
+
     /* ── Fenêtre « dossier » d'un cooptant récent ─────────────── */
     #cp-overlay { display:none; position:fixed; inset:0; z-index:9990; background:rgba(0,0,0,.5);
       backdrop-filter:blur(3px); align-items:center; justify-content:center; padding:16px; }
@@ -89,8 +112,9 @@
       </div>
     </div>
     <div class="flex-gap">
-      <button class="btn btn-ghost btn-sm" id="btn-qr-code" title="QR Code cooptation">📱 QR Code</button>
-      <button class="btn btn-primary" id="btn-copy-link">🔗 Copier le lien</button>
+      <button class="btn btn-ghost btn-sm" id="btn-stand" title="Ouvre le formulaire court pour inscrire quelqu'un sur place, sur un stand">📍 Mode stand</button>
+      <button class="btn btn-ghost btn-sm" id="btn-partager" aria-haspopup="dialog" title="Tous les liens : formulaire (français, anglais, QR code) et liens du staff (dispos, évaluation, planning, stand)">🔗 Partager</button>
+      <button class="btn btn-primary" id="btn-copy-link" title="Copie le lien du formulaire de cooptation, à diffuser aux cooptants">Copier le lien du formulaire</button>
     </div>
   </div>
 
@@ -98,17 +122,23 @@
   <select id="campaign-select" style="display:none;"></select>
 
   <div class="stats-grid mb-16">
-    <div class="stat-card"><div class="stat-value" id="stat-total">·</div><div class="stat-label">Cooptants reçus</div></div>
+    <div class="stat-card"><div class="stat-value" id="stat-total">·</div><div class="stat-label">Cooptants reçus</div><div class="stat-label" id="stat-stand" style="display:none;margin-top:2px;"></div></div>
     <div class="stat-card"><div class="stat-value" id="stat-places" style="color:var(--green);">·</div><div class="stat-label">Placés</div></div>
     <div class="stat-card"><div class="stat-value" id="stat-attente" style="color:var(--orange);">·</div><div class="stat-label">En attente</div></div>
     <div class="stat-card"><div class="stat-value" id="stat-faits" style="color:var(--indigo);">·</div><div class="stat-label">Entretiens faits</div></div>
   </div>
 
-  <!-- Liens staff : discrets, entre les stats et le tableau -->
-  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px;">
-    <button class="btn btn-ghost btn-sm" id="btn-copy-dispo">📅 Dispos (staff)</button>
-    <button class="btn btn-ghost btn-sm" id="btn-copy-eval">🎙 Lien évaluation</button>
-    <button class="btn btn-ghost btn-sm" id="btn-copy-planning">📋 Planning public</button>
+  <div style="margin-bottom:24px;"></div>
+
+  <!-- Panneau « Partager » : tous les liens, chacun avec une phrase qui dit à quoi il sert. -->
+  <div id="partage-overlay" class="partage-overlay" role="dialog" aria-modal="true" aria-labelledby="partage-titre">
+    <div class="partage-panneau">
+      <div class="partage-tete">
+        <h2 id="partage-titre" style="margin:0;">Partager</h2>
+        <button type="button" class="btn btn-ghost btn-sm" id="partage-fermer" aria-label="Fermer">✕</button>
+      </div>
+      <div id="partage-corps"></div>
+    </div>
   </div>
 
   <!-- Modal QR Code -->
@@ -183,14 +213,17 @@
       <h2>Cooptants récents</h2>
       <div class="flex-gap">
         <input class="form-input" id="search" placeholder="Rechercher…" style="width:180px;font-size:14px;" />
-        <select class="form-select" id="filter" style="width:150px;font-size:14px;">
+        <select class="form-select" id="filter" style="width:210px;font-size:14px;">
           <option value="">Tous</option>
           <option value="recu">Reçus</option>
           <option value="place">Placés</option>
           <option value="entretien_fait">Entretien fait</option>
           <option value="accepte">Acceptés</option>
           <option value="refuse">Refusés</option>
+          <option value="messenger-non">Pas encore dans Messenger</option>
+          <option value="messenger-oui">Dans le groupe Messenger</option>
         </select>
+        <span id="messenger-compte" class="text-sm text-muted"></span>
       </div>
     </div>
     <div id="cands-loading" style="padding:8px 0 16px;">
@@ -207,6 +240,8 @@
         <th aria-sort="none"><button class="th-tri" data-tri="email">Email <span class="tri-fleche" aria-hidden="true"></span></button></th>
         <th aria-sort="none"><button class="th-tri" data-tri="statut">Statut <span class="tri-fleche" aria-hidden="true"></span></button></th>
         <th aria-sort="descending"><button class="th-tri" data-tri="date">Soumis le <span class="tri-fleche" aria-hidden="true"></span></button></th>
+        <th aria-sort="none"><button class="th-tri" data-tri="messenger" title="Ajouté au groupe Messenger (cliquer pour trier)">Messenger <span class="tri-fleche" aria-hidden="true"></span></button>
+          <button type="button" class="th-mini" id="btn-messenger-tout" title="Cocher « ajouté au groupe Messenger » pour tous les cooptants affichés">✓ tout cocher</button></th>
         <th>Lien</th>
       </tr></thead><tbody id="cands-body"></tbody></table>
     </div>
@@ -217,14 +252,16 @@
 import { requireSecge, logout, getMyMemberships, resolveOrgContext } from '/js/auth.js';
 import { app } from '/js/auth.js';
 import { initBurgerMenu } from '/js/nav.js';
-import { getFirestore, collection, query, where, getDocs, getDoc, doc }
+import { getFirestore, collection, query, where, getDocs, getDoc, doc, updateDoc, writeBatch }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { getOrCreateOrgCampaign } from '/js/db.js';
-import { showToast, formatDatetime, esc, campaignConfig, confirmDialog, telephoneCooptant, reponsesOrdonnees } from '/js/utils.js';
+import { showToast, formatDatetime, esc, campaignConfig, confirmDialog, telephoneCooptant, reponsesOrdonnees, pourRecherche } from '/js/utils.js';
 import { runPlacementAlgorithm } from '/js/algo.js';
+import { enregistrerNote, idNoteCooptant } from '/js/notes.js';
 
 const db = getFirestore(app);
 let user, currentOrg, currentCampaignId, currentCampaign=null, allCandidates=[];
+let affiches=[];   // cooptants actuellement affichés (après recherche et filtre)
 const BADGES={recu:['badge-orange','Reçu'],place:['badge-blue','Placé'],entretien_fait:['badge-green','Entretien fait'],accepte:['badge-green','Accepté ✓'],refuse:['badge-gray','Refusé']};
 
 async function init() {
@@ -282,23 +319,17 @@ async function init() {
     await loadCandidates(currentCampaignId);
   } else { showNoCandidates(); }
 
-  document.getElementById('btn-copy-link').addEventListener('click',copyLink);
-  document.getElementById('btn-copy-dispo').addEventListener('click',()=>{
+  document.getElementById('btn-copy-link').addEventListener('click',()=>copyLink());
+  document.getElementById('btn-partager').addEventListener('click',ouvrirPartage);
+  document.getElementById('partage-fermer').addEventListener('click',fermerPartage);
+  document.getElementById('partage-overlay').addEventListener('click',e=>{ if(e.target===e.currentTarget) fermerPartage(); });
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape') fermerPartage(); });
+  // Mode stand : le formulaire en version courte, pour inscrire sur place.
+  document.getElementById('btn-stand').addEventListener('click',()=>{
     if(!currentOrg)return showToast('Organisation non chargée.','error');
-    const url=`${location.origin}/dispos-publique.html?org=${currentOrg.slug||currentOrg.id}`;
-    navigator.clipboard.writeText(url).then(()=>showToast('Lien des disponibilités copié !','success'));
+    window.open(`/postuler.html?org=${encodeURIComponent(currentOrg.slug||currentOrg.id)}&stand=1`,'_blank');
   });
-  document.getElementById('btn-copy-planning').addEventListener('click',()=>{
-    if(!currentOrg)return showToast('Organisation non chargée.','error');
-    const url=`${location.origin}/planning-public.html?org=${currentOrg.slug||currentOrg.id}`;
-    navigator.clipboard.writeText(url).then(()=>showToast('Lien du planning copié !','success'));
-  });
-  document.getElementById('btn-copy-eval').addEventListener('click',()=>{
-    if(!currentOrg)return showToast('Organisation non chargée.','error');
-    const url=`${location.origin}/evaluer-publique.html?org=${currentOrg.slug||currentOrg.id}`;
-    navigator.clipboard.writeText(url).then(()=>showToast('Lien d\'évaluation copié !','success'));
-  });
-  document.getElementById('btn-qr-code').addEventListener('click',showQR);
+
   document.getElementById('btn-run-algo').addEventListener('click',runPlacement);
   document.getElementById('search').addEventListener('input',applyFilters);
   document.getElementById('filter').addEventListener('change',applyFilters);
@@ -384,6 +415,10 @@ async function loadCandidates(cid) {
     const snap=await getDocs(query(collection(db,'candidates'),where('campaignId','==',cid)));
     allCandidates=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.createdAt?.toMillis?.()??0)-(b.createdAt?.toMillis?.()??0));
     document.getElementById('stat-total').textContent=allCandidates.length;
+    const nbStand=allCandidates.filter(c=>c.source==='stand').length;
+    const statStand=document.getElementById('stat-stand');
+    statStand.textContent=`dont 📍 ${nbStand} sur place`;
+    statStand.style.display=nbStand?'':'none';
     document.getElementById('stat-places').textContent=allCandidates.filter(c=>['place','entretien_fait'].includes(c.statut)).length;
     document.getElementById('stat-attente').textContent=allCandidates.filter(c=>c.statut==='recu').length;
     document.getElementById('stat-faits').textContent=allCandidates.filter(c=>['entretien_fait','accepte'].includes(c.statut)).length;
@@ -395,18 +430,62 @@ async function loadCandidates(cid) {
   }
 }
 
+// Cocher « Messenger » pour tous les cooptants affichés, en un seul lot :
+// il ne reste qu'à décocher les quelques absents du groupe.
+document.getElementById('btn-messenger-tout').addEventListener('click',async()=>{
+  const aCocher=affiches.filter(c=>!c.ajouteMessenger);
+  if(!aCocher.length) return showToast('Tous les cooptants affichés sont déjà cochés.','info');
+  if(!await confirmDialog(`Cocher « ajouté au groupe Messenger » pour ${aCocher.length} cooptant${aCocher.length>1?'s':''} ? Vous pourrez décocher ensuite ceux qui manquent.`,
+    {title:'Groupe Messenger',confirmLabel:'Tout cocher',danger:false})) return;
+  const btn=document.getElementById('btn-messenger-tout'); btn.disabled=true;
+  try{
+    for(let i=0;i<aCocher.length;i+=400){
+      const lot=writeBatch(db);
+      aCocher.slice(i,i+400).forEach(c=>lot.update(doc(db,'candidates',c.id),{ajouteMessenger:true}));
+      await lot.commit();
+    }
+    aCocher.forEach(c=>{c.ajouteMessenger=true;});
+    applyFilters();
+    showToast(`${aCocher.length} cooptant${aCocher.length>1?'s':''} coché${aCocher.length>1?'s':''}.`,'success');
+  }catch(err){ showToast('Non enregistré : '+err.message,'error'); }
+  finally{ btn.disabled=false; }
+});
+
+/** « Messenger : 12/40 ajoutés », sur tous les cooptants (pas seulement le filtre). */
+function compterMessenger(){
+  const el=document.getElementById('messenger-compte');
+  if(!el) return;
+  const n=allCandidates.filter(c=>c.ajouteMessenger).length;
+  el.textContent=allCandidates.length?`Messenger : ${n}/${allCandidates.length} ajoutés`:'';
+}
+
 function renderTable(cands) {
+  compterMessenger();
   const tbody=document.getElementById('cands-body'); tbody.innerHTML='';
   if(!cands.length){document.getElementById('cands-empty').style.display='';document.getElementById('cands-wrap').style.display='none';return;}
   document.getElementById('cands-wrap').style.display='';
   cands.forEach(c=>{
     const [bc,label]=BADGES[c.statut]||['badge-gray',c.statut];
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td><strong>${esc(c.prenom||'')} ${esc(c.nom||'')}</strong></td><td>${esc(c.email||'·')}</td><td><span class="badge ${bc}">${label}</span></td><td style="color:var(--text-muted);font-size:13px;">${c.createdAt?formatDatetime(c.createdAt):'·'}</td><td><a href="/candidat.html?token=${esc(c.resultToken||'')}" target="_blank" class="btn btn-ghost btn-sm" title="Page de suivi vue par le cooptant" aria-label="Page de suivi vue par le cooptant">🔗</a></td>`;
+    tr.innerHTML=`<td><strong>${esc(c.prenom||'')} ${esc(c.nom||'')}</strong>${c.langue==='en'?' <span title="Entretien en anglais">🇬🇧</span>':''}</td><td>${esc(c.email||'·')}</td><td><span class="badge ${bc}">${label}</span></td><td style="color:var(--text-muted);font-size:13px;">${c.createdAt?formatDatetime(c.createdAt):'·'}</td><td style="text-align:center;"><input type="checkbox" class="case-messenger" ${c.ajouteMessenger?'checked':''} aria-label="${esc(`${c.prenom||''} ${c.nom||''}`.trim())} ajouté au groupe Messenger" title="Ajouté au groupe Messenger" style="width:18px;height:18px;cursor:pointer;accent-color:var(--indigo);" /></td><td><a href="/candidat.html?token=${esc(c.resultToken||'')}" target="_blank" class="btn btn-ghost btn-sm" title="Page de suivi vue par le cooptant" aria-label="Page de suivi vue par le cooptant">🔗</a></td>`;
     // Toute la ligne ouvre le dossier du cooptant dans une fenêtre, sans
     // quitter le tableau de bord. Le bouton 🔗 garde son rôle : la page de suivi.
     tr.className='row-link'; tr.tabIndex=0; tr.title='Voir le dossier du cooptant';
-    tr.addEventListener('click',e=>{ if(e.target.closest('a,button')) return; ouvrirDossier(c, tr); });
+    tr.addEventListener('click',e=>{ if(e.target.closest('a,button,input')) return; ouvrirDossier(c, tr); });
+    // Suivi de l'ajout manuel au groupe Messenger : enregistré tout de suite.
+    const caseM=tr.querySelector('.case-messenger');
+    caseM.addEventListener('change',async()=>{
+      const oui=caseM.checked;
+      caseM.disabled=true;
+      try{
+        await updateDoc(doc(db,'candidates',c.id),{ajouteMessenger:oui});
+        c.ajouteMessenger=oui;
+        compterMessenger();
+      }catch(err){
+        caseM.checked=!oui;
+        showToast('Non enregistré : '+err.message,'error');
+      }finally{ caseM.disabled=false; }
+    });
     tr.addEventListener('keydown',e=>{ if(e.target===tr&&(e.key==='Enter'||e.key===' ')){e.preventDefault();ouvrirDossier(c, tr);} });
     tbody.appendChild(tr);
   });
@@ -443,7 +522,10 @@ async function ouvrirDossier(c, declencheur) {
     <div id="cp-entretien"></div>
     ${reps.length ? `<div><div class="cp-section">Réponses au formulaire</div>${reps.map(({ label, value }) =>
       `<div class="cp-rep"><div class="cp-k">${esc(label)}</div><div class="cp-v">${esc(value)}</div></div>`).join('')}</div>`
-      : '<p class="text-sm text-muted" style="margin:0;">Aucune réponse au formulaire.</p>'}`;
+      : '<p class="text-sm text-muted" style="margin:0;">Aucune réponse au formulaire.</p>'}
+    <div><label class="cp-section" for="cp-note" style="display:block;">Note interne <span id="cp-note-etat" style="text-transform:none;letter-spacing:0;font-weight:500;" aria-live="polite"></span></label>
+      <textarea class="form-textarea" id="cp-note" rows="3" placeholder="Visible uniquement par le bureau" disabled></textarea></div>`;
+  chargerNote(c);
 
   document.getElementById('cp-overlay').classList.add('open');
   document.getElementById('cp-close').focus();
@@ -455,7 +537,9 @@ async function ouvrirDossier(c, declencheur) {
     if (!document.getElementById('cp-overlay').classList.contains('open') || !zone.isConnected) return;
     const iv = ivSnap.docs.map(d => d.data()).filter(x => x.datetimeStart?.toDate)
       .sort((a, b) => a.datetimeStart.toMillis() - b.datetimeStart.toMillis())[0];
-    if (!iv) { zone.innerHTML = `<div class="cp-grid">${tuile('Entretien', 'Pas encore planifié')}</div>`; return; }
+    // ✏️ : ouvre l'allocation de ce cooptant dans le planning, pour (re)caler son créneau.
+    const lienCreneau = libelle => `<a class="cp-crayon" href="/planning.html?org=${encodeURIComponent(currentOrg?.id || '')}&allouer=${encodeURIComponent(c.id)}" title="${libelle}" aria-label="${libelle}">✏️</a>`;
+    if (!iv) { zone.innerHTML = `<div class="cp-grid">${tuile('Entretien', `Pas encore planifié ${lienCreneau('Placer ce cooptant dans le planning')}`)}</div>`; return; }
     const s = iv.datetimeStart.toDate();
     const e = iv.datetimeEnd?.toDate?.();
     const hm = d => d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
@@ -478,7 +562,7 @@ async function ouvrirDossier(c, declencheur) {
     if (!zone.isConnected) return;
     const date = s.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
     zone.innerHTML = `<div class="cp-grid">
-      ${tuile('Entretien', `${esc(date)}, ${hm(s)}${e ? ' - ' + hm(e) : ''}`)}
+      ${tuile('Entretien', `${esc(date)}, ${hm(s)}${e ? ' - ' + hm(e) : ''} ${lienCreneau('Changer le créneau')}`)}
       ${tuile('Salle', salle ? esc(salle) : '<span style="color:var(--orange);">À définir</span>')}
       ${tuile('Jury', juryIds.length ? esc(jures.map(n => n || 'Membre du jury').join(', ')) : '<span style="color:var(--red);">À définir</span>')}
     </div>`;
@@ -488,7 +572,48 @@ async function ouvrirDossier(c, declencheur) {
   }
 }
 
+// ── Note interne (notes_internes, la même que sur la page Cooptants) ──
+const notesDossier = new Map();
+let noteOuverte = null;   // { c, texte } : note affichée dans la fenêtre
+
+async function chargerNote(c) {
+  const zone = document.getElementById('cp-note');
+  noteOuverte = null;
+  try {
+    const snap = await getDoc(doc(db, 'notes_internes', idNoteCooptant(c.id)));
+    if (zone !== document.getElementById('cp-note') || !zone.isConnected) return;
+    const texte = snap.exists() ? (snap.data().texte || '') : '';
+    zone.value = texte;
+    zone.disabled = false;
+    noteOuverte = { c, texte };
+    zone.addEventListener('blur', enregistrerNoteOuverte);
+  } catch (err) {
+    console.warn('Note interne illisible :', err);
+    zone.placeholder = 'Note indisponible';
+  }
+}
+
+async function enregistrerNoteOuverte() {
+  const zone = document.getElementById('cp-note');
+  const n = noteOuverte;
+  if (!n || !zone || zone.value === n.texte) return;
+  const v = zone.value;
+  const etat = document.getElementById('cp-note-etat');
+  if (etat) etat.textContent = '· Enregistrement…';
+  try {
+    await enregistrerNote(db, notesDossier, idNoteCooptant(n.c.id),
+      { organizationId: n.c.organizationId || currentOrg?.id, campaignId: currentCampaign?.id, candidateId: n.c.id }, v);
+    n.texte = v;
+    if (etat?.isConnected) etat.textContent = '· Enregistré';
+  } catch (err) {
+    console.error(err);
+    if (etat?.isConnected) etat.textContent = '';
+    showToast("Note non enregistrée : réessaie.", 'error');
+  }
+}
+
 function fermerDossier() {
+  enregistrerNoteOuverte();
   document.getElementById('cp-overlay').classList.remove('open');
   cpDeclencheur?.focus?.();
 }
@@ -509,6 +634,7 @@ const valeurTri = {
   email:  c => (c.email || '').toLocaleLowerCase('fr'),
   statut: c => ORDRE_STATUT[c.statut] ?? 9,
   date:   c => c.createdAt?.toMillis?.() ?? 0,
+  messenger: c => c.ajouteMessenger ? 1 : 0,
 };
 function trier(liste) {
   const v = valeurTri[tri.cle];
@@ -528,15 +654,72 @@ document.querySelectorAll('.th-tri').forEach(b => b.addEventListener('click', ()
 }));
 
 function applyFilters(){
-  const s=document.getElementById('search').value.toLowerCase();
+  // Sans accents : « celeste » trouve « Céleste ».
+  const s=pourRecherche(document.getElementById('search').value);
   const f=document.getElementById('filter').value;
-  renderTable(trier(allCandidates.filter(c=>(!s||`${c.prenom} ${c.nom} ${c.email}`.toLowerCase().includes(s))&&(!f||c.statut===f))));
+  const passe=c=>!f||(f==='messenger-non'?!c.ajouteMessenger:f==='messenger-oui'?!!c.ajouteMessenger:c.statut===f);
+  affiches=trier(allCandidates.filter(c=>(!s||pourRecherche(`${c.prenom} ${c.nom} ${c.email}`).includes(s))&&passe(c)));
+  renderTable(affiches);
 }
 
-function copyLink(){
+// ─── Panneau « Partager » ─────────────────────────────────────────
+// Tous les liens au même endroit, avec une phrase qui dit à quoi chacun sert.
+// Avant : huit boutons éparpillés en haut du tableau de bord.
+let partageDeclencheur=null;
+function liensAPartager(){
+  const o=encodeURIComponent(currentOrg.slug||currentOrg.id);
+  const base=location.origin;
+  return [
+    { section:'Pour les cooptants' },
+    { id:'form', titre:'Formulaire de cooptation', texte:'Le lien à diffuser : réseaux, messageries, affiches.', url:`${base}/postuler.html?org=${o}`, qr:true },
+    { id:'form-en', titre:'🇬🇧 Formulaire en anglais', texte:"Le même formulaire, ouvert en anglais : l'entretien se fera en anglais.", url:`${base}/postuler.html?org=${o}&lang=en` },
+    { section:'Pour le staff' },
+    { id:'dispos', titre:'📅 Dispos du staff', texte:'Chaque staffeur y coche ses créneaux libres et ses langues. Sans compte.', url:`${base}/dispos-publique.html?org=${o}` },
+    { id:'eval', titre:'🎙 Évaluation', texte:'Pour noter un cooptant après son entretien. Ne montre que les entretiens du moment.', url:`${base}/evaluer-publique.html?org=${o}` },
+    { id:'planning', titre:'📋 Planning public', texte:'Le planning des entretiens en lecture seule, sans les notes internes.', url:`${base}/planning-public.html?org=${o}` },
+    { id:'stand', titre:'📍 Mode stand', texte:"Pour inscrire quelqu'un sur place en quelques secondes. Sans compte.", url:`${base}/postuler.html?org=${o}&stand=1` },
+  ];
+}
+function ouvrirPartage(){
+  if(!currentOrg) return showToast('Organisation non chargée.','error');
+  partageDeclencheur=document.activeElement;
+  document.getElementById('partage-corps').innerHTML=liensAPartager().map(l=>l.section
+    ? `<div class="partage-section">${esc(l.section)}</div>`
+    : `<div class="partage-lien">
+        <div class="partage-texte"><strong>${esc(l.titre)}</strong><span>${esc(l.texte)}</span></div>
+        <div class="partage-actions">
+          <button type="button" class="btn btn-primary btn-sm" data-copier="${l.id}">Copier</button>
+          <a class="btn btn-ghost btn-sm" href="${esc(l.url)}" target="_blank" rel="noopener">Ouvrir</a>
+          ${l.qr?'<button type="button" class="btn btn-ghost btn-sm" data-qr="1" title="QR code à afficher ou imprimer">QR code</button>':''}
+        </div>
+      </div>`).join('');
+  document.querySelectorAll('#partage-corps [data-copier]').forEach(b=>b.addEventListener('click',()=>{
+    const id=b.dataset.copier;
+    if(id==='form') return copyLink();
+    if(id==='form-en') return copyLink('en');
+    const l=liensAPartager().find(x=>x.id===id);
+    navigator.clipboard.writeText(l.url).then(()=>showToast(`Lien « ${l.titre.replace(/^\S+\s/,'')} » copié !`,'success'))
+      .catch(()=>showToast('Impossible de copier.','error'));
+  }));
+  document.querySelector('#partage-corps [data-qr]')?.addEventListener('click',()=>{ fermerPartage(); showQR(); });
+  document.getElementById('partage-overlay').classList.add('open');
+  document.querySelector('#partage-corps [data-copier]')?.focus();
+}
+function fermerPartage(){
+  const ov=document.getElementById('partage-overlay');
+  if(!ov.classList.contains('open')) return;
+  ov.classList.remove('open');
+  partageDeclencheur?.focus?.();
+}
+
+// `lang='en'` : le formulaire s'ouvre en anglais (le cooptant garde le bouton FR / EN).
+function copyLink(lang){
   if(!currentOrg)return showToast('Organisation non chargée.','error');
-  const url=`${location.origin}/postuler.html?org=${currentOrg.slug||currentOrg.id}`;
-  navigator.clipboard.writeText(url).then(()=>showToast('Lien copié !','success'));
+  const url=`${location.origin}/postuler.html?org=${currentOrg.slug||currentOrg.id}${lang?`&lang=${lang}`:''}`;
+  const nonTraduites=(currentCampaign?.formConfig?.customQuestions||[]).filter(q=>!q.labelEn).length;
+  navigator.clipboard.writeText(url).then(()=>showToast(lang
+    ? (nonTraduites?`Lien anglais copié. Attention : ${nonTraduites} question${nonTraduites>1?'s':''} pas encore traduite${nonTraduites>1?'s':''} (Paramètres → Formulaire).`:'Lien du formulaire en anglais copié !')
+    : 'Lien copié !', lang&&nonTraduites?'info':'success'));
 }
 
 function showQR(){

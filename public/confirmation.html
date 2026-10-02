@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <script>(function(){var t=localStorage.getItem("_theme");if(t)document.documentElement.setAttribute("data-theme",t);})();</script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Entretien confirmé · Cooptly</title>
+  <title data-en="Interview confirmed · Cooptly">Entretien confirmé · Cooptly</title>
   <!-- Connexions ouvertes d'avance : sans elles, chaque serveur (polices,
        SDK, base de données) coûtait sa propre poignée de main réseau au
        moment où la page en avait besoin. -->
@@ -64,23 +64,24 @@
 <body>
 
 <div class="conf-wrap">
+  <div id="lang-coin" style="display:flex;justify-content:flex-end;margin-bottom:8px;"></div>
 
   <div id="loading-state" style="text-align:center;padding:64px 0;">
     <div class="spinner" style="margin:0 auto 16px;"></div>
-    <p>Chargement de ta confirmation…</p>
+    <p data-en="Loading your confirmation…">Chargement de ta confirmation…</p>
   </div>
 
   <div id="error-state" style="display:none;text-align:center;padding:48px 0;color:var(--red);">
     <div style="font-size:40px;margin-bottom:12px;">⚠️</div>
-    <h2 id="error-msg">Entretien introuvable.</h2>
-    <p class="mt-8" style="color:var(--text-muted);">Vérifie le lien reçu ou contacte ton association.</p>
+    <h2 id="error-msg" data-en="Interview not found.">Entretien introuvable.</h2>
+    <p class="mt-8" style="color:var(--text-muted);" data-en="Check the link you received or contact the association.">Vérifie le lien reçu ou contacte ton association.</p>
   </div>
 
   <div id="content" style="display:none;">
     <div class="conf-header-band"></div>
     <div class="conf-check">✓</div>
-    <h1 style="text-align:center;font-size:26px;margin-bottom:8px;">Entretien confirmé&nbsp;!</h1>
-    <p style="text-align:center;color:var(--text-muted);margin-bottom:28px;" id="subtitle">
+    <h1 style="text-align:center;font-size:26px;margin-bottom:8px;" data-en="Interview confirmed!">Entretien confirmé&nbsp;!</h1>
+    <p style="text-align:center;color:var(--text-muted);margin-bottom:28px;" id="subtitle" data-en="Your slot is booked. Add it to your calendar 👇">
       On a bien réservé ton créneau. Ajoute-le à ton agenda 👇
     </p>
 
@@ -88,7 +89,7 @@
       <div class="conf-detail">
         <div class="conf-detail-icon">👤</div>
         <div>
-          <div class="conf-detail-label">Candidat·e</div>
+          <div class="conf-detail-label" data-en="Candidate">Candidat·e</div>
           <div class="conf-detail-value" id="d-name">·</div>
         </div>
       </div>
@@ -109,7 +110,7 @@
       <div class="conf-detail">
         <div class="conf-detail-icon">🕐</div>
         <div>
-          <div class="conf-detail-label">Horaire</div>
+          <div class="conf-detail-label" data-en="Time">Horaire</div>
           <div class="conf-detail-value" id="d-time">·</div>
         </div>
       </div>
@@ -117,14 +118,14 @@
       <div class="conf-detail" id="d-room-row" style="display:none;">
         <div class="conf-detail-icon">🏫</div>
         <div>
-          <div class="conf-detail-label">Salle</div>
+          <div class="conf-detail-label" data-en="Room">Salle</div>
           <div class="conf-detail-value" id="d-room">·</div>
         </div>
       </div>
 
       <div class="cal-btns">
         <a class="cal-btn primary" id="btn-gcal" target="_blank" rel="noopener">
-          📆 Ajouter à Google Agenda
+          <span data-en="📆 Add to Google Calendar">📆 Ajouter à Google Agenda</span>
         </a>
         <a class="cal-btn" id="btn-ics" download="entretien-cooptation.ics">
           🍎 Apple / Outlook (.ics)
@@ -135,30 +136,30 @@
     <!-- Page de suivi personnelle : sans elle, le cooptant n'avait aucun moyen
          de retrouver son rendez-vous (la plateforme n'envoie pas d'email). -->
     <div class="conf-card" id="suivi-card" style="display:none;margin-top:16px;">
-      <div style="font-weight:700;font-size:15px;margin-bottom:6px;">📌 Suivre ma candidature</div>
-      <p style="font-size:13.5px;color:var(--text-muted);line-height:1.55;margin-bottom:14px;">
+      <div style="font-weight:700;font-size:15px;margin-bottom:6px;" data-en="📌 Track my application">📌 Suivre ma candidature</div>
+      <p style="font-size:13.5px;color:var(--text-muted);line-height:1.55;margin-bottom:14px;" data-en="Bookmark this link or send it to yourself: it lets you find your interview (date, room) and change your slot. It is personal, don't share it.">
         Garde ce lien en favori ou envoie-le-toi : il te permet de retrouver ton rendez-vous
         (date, salle) et de changer de créneau. Il est personnel, ne le partage pas.
       </p>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <a class="cal-btn primary" id="suivi-open" href="#" style="flex:1 1 180px;">Ouvrir ma page de suivi</a>
-        <button class="cal-btn" id="suivi-copy" type="button" style="flex:0 0 auto;padding:13px 16px;">Copier le lien</button>
+        <a class="cal-btn primary" id="suivi-open" href="#" style="flex:1 1 180px;" data-en="Open my tracking page">Ouvrir ma page de suivi</a>
+        <button class="cal-btn" id="suivi-copy" type="button" style="flex:0 0 auto;padding:13px 16px;" data-en="Copy link">Copier le lien</button>
       </div>
     </div>
 
     <!-- Entretien à plusieurs : lien à transmettre à un ami pour qu'il
          rejoigne CE créneau. Affiché seulement si l'asso l'autorise. -->
     <div class="conf-card" id="group-invite" style="display:none;margin-top:16px;">
-      <div style="font-weight:700;font-size:15px;margin-bottom:6px;">🤝 Passer l'entretien avec un ami</div>
+      <div style="font-weight:700;font-size:15px;margin-bottom:6px;" data-en="🤝 Take the interview with a friend">🤝 Passer l'entretien avec un ami</div>
       <p style="font-size:13.5px;color:var(--text-muted);line-height:1.55;margin-bottom:14px;" id="group-invite-desc"></p>
       <div style="display:flex;gap:8px;">
         <input class="form-input" id="group-invite-url" readonly
           style="flex:1;font-size:12.5px;font-family:var(--font-mono);" />
-        <button class="cal-btn primary" id="group-invite-copy" style="flex:0 0 auto;padding:13px 16px;">Copier</button>
+        <button class="cal-btn primary" id="group-invite-copy" style="flex:0 0 auto;padding:13px 16px;" data-en="Copy">Copier</button>
       </div>
     </div>
 
-    <a class="reschedule-link" id="reschedule-link" href="#">
+    <a class="reschedule-link" id="reschedule-link" href="#" data-en="🔄 I can no longer make it, change my slot">
       🔄 Je ne suis plus dispo, changer de créneau
     </a>
   </div>
@@ -172,6 +173,10 @@
   } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
   import { firebaseConfig } from '/js/firebase-config.js';
   import { campaignConfig, paramLien } from '/js/utils.js';
+  import { EN, LOCALE, tr, traduirePage, selecteurLangue } from '/js/langue.js';
+
+  traduirePage();
+  selecteurLangue(document.getElementById('lang-coin'));
 
   const app = initializeApp(firebaseConfig);
   const db  = getFirestore(app);
@@ -203,10 +208,11 @@
   const MOIS = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
   const JOURS = ['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'];
   function fmtDate(d) {
+    if (EN) return d.toLocaleDateString(LOCALE, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
     return `${JOURS[d.getDay()]} ${d.getDate()} ${MOIS[d.getMonth()]} ${d.getFullYear()}`;
   }
   function fmtTime(d) {
-    return `${String(d.getHours()).padStart(2,'0')}h${String(d.getMinutes()).padStart(2,'0')}`;
+    return `${String(d.getHours()).padStart(2,'0')}${EN ? ':' : 'h'}${String(d.getMinutes()).padStart(2,'0')}`;
   }
   // YYYYMMDDTHHMMSS (heure locale) : pour Google Calendar & ICS
   function fmtCalLocal(d) {
@@ -253,8 +259,11 @@
     const orgParam = orgId ? `org=${orgId}&` : '';
     const url = `${location.origin}/postuler.html?${orgParam}campaign=${campaignId}&avec=${iv.groupToken}`;
 
-    document.getElementById('group-invite-desc').textContent =
-      `Envoie ce lien à ${restant > 1 ? `${restant} amis` : 'un ami'} : `
+    document.getElementById('group-invite-desc').textContent = EN
+      ? `Send this link to ${restant > 1 ? `up to ${restant} friends` : 'a friend'}: `
+        + `they will take the interview with you, in this same slot. `
+        + `Only people who have this link can join you.`
+      : `Envoie ce lien à ${restant > 1 ? `${restant} amis` : 'un ami'} : `
       + `${restant > 1 ? 'ils passeront' : 'il passera'} l'entretien avec toi, sur ce même créneau. `
       + `Seules les personnes qui ont ce lien peuvent te rejoindre.`;
     document.getElementById('group-invite-url').value = url;
@@ -263,7 +272,7 @@
     const btn = document.getElementById('group-invite-copy');
     btn.addEventListener('click', () => {
       navigator.clipboard.writeText(url)
-        .then(() => { btn.textContent = 'Copié ✓'; setTimeout(() => btn.textContent = 'Copier', 2000); })
+        .then(() => { btn.textContent = tr('Copié ✓', 'Copied ✓'); setTimeout(() => btn.textContent = tr('Copier', 'Copy'), 2000); })
         .catch(() => {
           // clipboard refusé (http, permission) : sélectionner pour copie manuelle
           const input = document.getElementById('group-invite-url');
@@ -274,7 +283,7 @@
   }
 
   async function init() {
-    if (!token) { showError('Lien invalide.'); return; }
+    if (!token) { showError(tr('Lien invalide.', 'Invalid link.')); return; }
 
     try {
       // 1. Charger le candidat via resultToken
@@ -282,7 +291,7 @@
         collection(db, 'candidates'),
         where('resultToken', '==', token)
       ));
-      if (candSnap.empty) { showError('Candidature introuvable.'); return; }
+      if (candSnap.empty) { showError(tr('Candidature introuvable.', 'Application not found.')); return; }
       const cand = { id: candSnap.docs[0].id, ...candSnap.docs[0].data() };
 
       // 2. Charger l'entretien de ce candidat
@@ -290,7 +299,7 @@
         collection(db, 'interviews'),
         where('candidateId', '==', cand.id)
       ));
-      if (ivSnap.empty) { showError('Aucun entretien réservé pour cette candidature.'); return; }
+      if (ivSnap.empty) { showError(tr('Aucun entretien réservé pour cette candidature.', 'No interview booked for this application.')); return; }
       const iv = ivSnap.docs[0].data();
 
       const start = iv.datetimeStart?.toDate ? iv.datetimeStart.toDate() : new Date(iv.datetimeStart);
@@ -326,6 +335,11 @@
 
       // 4. Remplir l'UI
       document.getElementById('d-name').textContent = `${cand.prenom || ''} ${cand.nom || ''}`.trim() || '·';
+      if (cand.langue === 'en') {
+        document.getElementById('subtitle').textContent = tr(
+          'Ton entretien se passera en anglais. Ajoute-le à ton agenda 👇',
+          'Your interview will be in English. Add it to your calendar 👇');
+      }
       document.getElementById('d-org').textContent  = orgName || '·';
       document.getElementById('d-date').textContent = fmtDate(start);
       document.getElementById('d-time').textContent = `${fmtTime(start)} - ${fmtTime(end)}`;
@@ -335,9 +349,10 @@
       }
 
       // 5. Boutons agenda
-      const eventTitle = `Entretien cooptation${orgName ? ' · ' + orgName : ''}`;
-      const eventDetails = `Entretien de cooptation pour ${cand.prenom || ''} ${cand.nom || ''}.`.trim();
-      const eventLoc = salle ? (orgAddress ? `Salle ${salle}, ${orgAddress}` : `Salle ${salle}`) : orgAddress;
+      const eventTitle = `${tr('Entretien cooptation', 'Interview')}${orgName ? ' · ' + orgName : ''}`;
+      const eventDetails = `${tr('Entretien de cooptation pour', 'Interview for')} ${cand.prenom || ''} ${cand.nom || ''}.`.trim();
+      const motSalle = tr('Salle', 'Room');
+      const eventLoc = salle ? (orgAddress ? `${motSalle} ${salle}, ${orgAddress}` : `${motSalle} ${salle}`) : orgAddress;
 
       // Google Calendar
       const gcalUrl = 'https://calendar.google.com/calendar/render?action=TEMPLATE'
@@ -366,7 +381,7 @@
         'BEGIN:VALARM',
         'TRIGGER:-PT1H',
         'ACTION:DISPLAY',
-        'DESCRIPTION:Entretien cooptation dans 1h',
+        `DESCRIPTION:${tr('Entretien cooptation dans 1h', 'Interview in 1 hour')}`,
         'END:VALARM',
         'END:VEVENT',
         'END:VCALENDAR'
@@ -379,20 +394,20 @@
         // Le jeton personnel permet de rouvrir le formulaire avec toutes ses
         // réponses : seul le cooptant possède ce lien.
         document.getElementById('reschedule-link').href =
-          `/postuler.html?campaign=${campaignId}&modif=${encodeURIComponent(token)}`;
+          `/postuler.html?campaign=${campaignId}&modif=${encodeURIComponent(token)}${EN ? '&lang=en' : ''}`;
       } else {
         document.getElementById('reschedule-link').style.display = 'none';
       }
 
       // 7. Page de suivi personnelle
       if (token) {
-        const suivi = `${location.origin}/candidat.html?token=${encodeURIComponent(token)}`;
+        const suivi = `${location.origin}/candidat.html?token=${encodeURIComponent(token)}${EN ? '&lang=en' : ''}`;
         document.getElementById('suivi-open').href = suivi;
         const copie = document.getElementById('suivi-copy');
         copie.addEventListener('click', async () => {
           try {
             await navigator.clipboard.writeText(suivi);
-            copie.textContent = 'Lien copié ✓';
+            copie.textContent = tr('Lien copié ✓', 'Link copied ✓');
           } catch {
             // Presse-papier refusé : on affiche le lien pour qu'il soit copiable à la main.
             copie.replaceWith(Object.assign(document.createElement('input'), {
@@ -411,7 +426,7 @@
       document.getElementById('content').style.display = '';
     } catch (err) {
       console.error(err);
-      showError('Erreur de chargement : ' + err.message);
+      showError(tr('Erreur de chargement : ', 'Loading error: ') + err.message);
     }
   }
 

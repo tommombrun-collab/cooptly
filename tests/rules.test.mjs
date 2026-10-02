@@ -81,6 +81,9 @@ before(async () => {
         organizationId: org, campaignId: `camp${org}`, userId: 'staff1', creneaux: [],
       });
       await setDoc(doc(db, 'roster_members', `r${org}`), { organizationId: org, displayName: 'Z' });
+      await setDoc(doc(db, 'notes_internes', `c_cand${org}`), {
+        organizationId: org, campaignId: `camp${org}`, candidateId: `cand${org}`, texte: 'note privee',
+      });
     }
 
     // Évaluation legacy sans organizationId : teste le repli par campagne.
@@ -152,6 +155,12 @@ describe('Parcours public : ne doit PAS lire les données internes', () => {
   test('un anonyme ne peut pas reaffecter une evaluation a une autre asso', async () => {
     await assertFails(updateDoc(doc(anon, 'interview_evaluations', `ev${ORG_A}`), {
       organizationId: ORG_B,
+    }));
+  });
+
+  test('un anonyme ne peut pas s attribuer une salle en changeant de creneau', async () => {
+    await assertFails(updateDoc(doc(anon, 'interviews', `iv${ORG_A}`), {
+      selfBooked: true, datetimeStart: new Date('2030-01-02T10:00:00'), roomId: 'salle-choisie',
     }));
   });
 
@@ -303,5 +312,53 @@ describe('Robustesse', () => {
 
   test('platform_campaigns n est plus lisible par un simple bureau', async () => {
     await assertFails(getDocs(collection(bureauA, 'platform_campaigns')));
+  });
+});
+
+describe('Notes internes : privees au bureau de l asso', () => {
+  test('un anonyme ne lit aucune note', async () => {
+    await assertFails(getDoc(doc(anon, 'notes_internes', `c_cand${ORG_A}`)));
+    await assertFails(getDocs(collection(anon, 'notes_internes')));
+  });
+
+  test('le bureau A lit et ecrit les notes de son asso', async () => {
+    await assertSucceeds(getDocs(query(collection(bureauA, 'notes_internes'), where('organizationId', '==', ORG_A))));
+    await assertSucceeds(setDoc(doc(bureauA, 'notes_internes', 'iv_ivorgA'), {
+      organizationId: ORG_A, campaignId: `camp${ORG_A}`, interviewId: `iv${ORG_A}`, texte: 'ok',
+    }));
+  });
+
+  // Du côté de B : un test plus haut fait légitimement de A un membre de B (code d'invitation).
+  test('le bureau B ne lit ni n ecrit les notes de A', async () => {
+    await assertFails(getDoc(doc(bureauB, 'notes_internes', `c_cand${ORG_A}`)));
+    await assertFails(getDocs(query(collection(bureauB, 'notes_internes'), where('organizationId', '==', ORG_A))));
+    await assertFails(setDoc(doc(bureauB, 'notes_internes', 'c_pirate'), { organizationId: ORG_A, texte: 'x' }));
+  });
+
+  test('une note ne peut pas changer d asso', async () => {
+    await assertFails(updateDoc(doc(bureauA, 'notes_internes', `c_cand${ORG_A}`), { organizationId: ORG_B }));
+  });
+
+  test('un anonyme ne peut pas ecrire de note', async () => {
+    await assertFails(setDoc(doc(anon, 'notes_internes', 'c_x'), { organizationId: ORG_A, texte: 'x' }));
+  });
+});
+
+describe('Statistiques de connexion : lisibles par l admin seulement', () => {
+  test('chacun ecrit sa propre fiche', async () => {
+    await assertSucceeds(setDoc(doc(bureauA, 'activite', UID_A), { uid: UID_A, email: 'a@x.com', sessions: 1 }, { merge: true }));
+  });
+
+  test('personne n ecrit la fiche d un autre', async () => {
+    await assertFails(setDoc(doc(bureauA, 'activite', UID_B), { uid: UID_B, sessions: 99 }));
+    await assertFails(setDoc(doc(bureauA, 'activite', UID_A), { uid: UID_B, sessions: 1 }));
+    await assertFails(setDoc(doc(anon, 'activite', 'x'), { uid: 'x' }));
+  });
+
+  test('le bureau ne lit pas les fiches, meme la sienne ; l admin oui', async () => {
+    await assertFails(getDoc(doc(bureauA, 'activite', UID_A)));
+    await assertFails(getDocs(collection(bureauB, 'activite')));
+    await assertFails(getDocs(collection(anon, 'activite')));
+    await assertSucceeds(getDocs(collection(admin, 'activite')));
   });
 });

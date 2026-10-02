@@ -40,6 +40,14 @@ export function paramLien(nom, search = location.search) {
   return m ? m[0] : null;
 }
 
+/**
+ * Texte de recherche : minuscules, sans accents ni espaces superflus.
+ * « Céleste » et « celeste » doivent se trouver l'un l'autre.
+ */
+export function pourRecherche(s) {
+  return String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
 export function generateToken(length = 32) {
   const array = new Uint8Array(length / 2);
   crypto.getRandomValues(array);
@@ -116,6 +124,8 @@ export function getRollingDays(n = 28) {
 export const CAMPAIGN_CONFIG_DEFAULTS = {
   dureeMinutes:        30,    // durée d'un entretien
   nbJurys:             2,     // jurés requis par entretien (max 3 : jury1Id..jury3Id)
+  nbJurysMax:          null,  // jurés au plus, si d'autres sont libres (null = nbJurys) ;
+                              // voir nbJuresPourEntretien() dans jury.js
   permettreAppart:     true,  // autoriser un appart comme lieu
   modeRdv:             'creneaux', // 'creneaux' = le cooptant réserve un créneau libre
                                    // 'dispos'   = il dépose ses dispos, le bureau place
@@ -133,10 +143,21 @@ export const CAMPAIGN_CONFIG_DEFAULTS = {
   avecEntretien:       true,  // false = recrutement sur dossier, sans entretien
   entretienCollectif:  false, // autoriser un cooptant à inviter un ami sur SON créneau
   maxParGroupe:        2,     // taille max d'un groupe (le cooptant + ses invités)
+  maxEntretiensParallele: 0,  // entretiens en même temps au maximum (salles, place),
+                              // 0 = pas de limite. Voir pleinEnParallele() dans capacite.js.
   maxEntretiensAffiles: 4,    // entretiens consécutifs d'un même juré avant relève
                               // forcée (0 = pas de plafond). Voir js/jury.js.
   staffToujoursDispo:  false, // true = le staff n'a pas à déclarer ses créneaux,
                               // tout le monde est réputé libre sur la période
+  jurysAnglaisRequis:  false, // entretien en anglais : seulement des staffeurs qui ont coché
+                              // l'anglais sur la page des dispos (capacite.js, staffPourEntretien)
+  fenetreEvaluation:   'deux-heures', // lien public d'évaluation : entretiens affichés autour
+                              // de maintenant, 'deux-heures' (± 2 h) ou 'journee' (le jour même)
+  standEmail:          true,  // mode stand (postuler.html?stand=1) : demander l'email emlyon
+  standQuestions:      [],    // mode stand : ids des questions posées sur place (les autres
+                              // se complètent plus tard, depuis le lien du QR code)
+  joursSemaineExclus:  [],    // jours de la semaine sans entretien, 0 = dimanche … 6 = samedi
+  joursExclus:         [],    // dates sans entretien, 'YYYY-MM-DD'. Voir jourRetire().
 };
 
 /**
@@ -393,7 +414,24 @@ export function parseLocalDate(str) {
  * @param {number} fallbackN taille de la fenêtre glissante si pas de dates
  * @returns {Date[]} dates à minuit local (tableau vide si la période est passée)
  */
+/**
+ * Vrai si l'asso a retiré ce jour (jour de la semaine décoché, ou date retirée).
+ * @param {Date} d
+ * @param {object} cfg config de la campagne (brute ou via campaignConfig)
+ */
+export function jourRetire(d, cfg) {
+  const semaine = Array.isArray(cfg?.joursSemaineExclus) ? cfg.joursSemaineExclus : [];
+  const dates   = Array.isArray(cfg?.joursExclus) ? cfg.joursExclus : [];
+  if (semaine.includes(d.getDay())) return true;
+  const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return dates.includes(iso);
+}
+
 export function getCampaignDays(campaign, fallbackN = 28) {
+  return joursPeriode(campaign, fallbackN).filter(d => !jourRetire(d, campaign?.config));
+}
+
+function joursPeriode(campaign, fallbackN) {
   const cfg   = campaign?.config || {};
   const start = parseLocalDate(cfg.dateDebut);
   const end   = parseLocalDate(cfg.dateFin);
@@ -407,6 +445,39 @@ export function getCampaignDays(campaign, fallbackN = 28) {
   const from = start < today ? today : start;
   if (end < from) return [];          // période entièrement passée
   return getDaysBetween(from, end);
+}
+
+/**
+ * Jours d'un PLANNING (interne ou public). Contrairement à `getCampaignDays`,
+ * qui ne donne que les jours encore réservables, on garde les jours PASSÉS :
+ * sinon la grille perdait chaque matin la veille et se décalait, alors qu'on
+ * veut revoir les entretiens déjà faits.
+ * Avec une période : toute la période. Sans : les jours passés qui ont des
+ * entretiens, puis la fenêtre glissante habituelle.
+ * @param {object} campaign
+ * @param {Date[]} [datesEntretiens] débuts des entretiens de la campagne
+ * @returns {Date[]}
+ */
+export function getPlanningDays(campaign, datesEntretiens = [], fallbackN = 28) {
+  // Jours retirés masqués, sauf s'ils portent déjà un entretien (sinon il disparaîtrait).
+  const avecEntretien = new Set(datesEntretiens.filter(d => d instanceof Date && !isNaN(d))
+    .map(d => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()));
+  return joursPlanning(campaign, datesEntretiens, fallbackN)
+    .filter(d => !jourRetire(d, campaign?.config) || avecEntretien.has(d.getTime()));
+}
+
+function joursPlanning(campaign, datesEntretiens, fallbackN) {
+  const cfg   = campaign?.config || {};
+  const start = parseLocalDate(cfg.dateDebut);
+  const end   = parseLocalDate(cfg.dateFin);
+  if (start && end) return end < start ? [] : getDaysBetween(start, end);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const passes = [...new Set(datesEntretiens
+    .filter(d => d instanceof Date && !isNaN(d) && d < today)
+    .map(d => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x.getTime(); }))]
+    .sort((a, b) => a - b).map(t => new Date(t));
+  return [...passes, ...getRollingDays(fallbackN)];
 }
 
 /**

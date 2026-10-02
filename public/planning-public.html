@@ -45,7 +45,6 @@
       border-right:1px solid var(--border); border-bottom:1px solid var(--border);
       vertical-align:top; padding:4px; background:var(--surface);
     }
-    table.pp-grid.all th:not(.corner), table.pp-grid.all td:not(.time) { min-width:150px; width:150px; }
     table.pp-grid thead th { position:sticky; top:0; z-index:2; background:var(--bg); font-size:12px; padding:8px 6px; white-space:nowrap; }
     table.pp-grid th.today { color:var(--indigo-dark); box-shadow:inset 0 -2px 0 var(--indigo); }
     table.pp-grid td.time {
@@ -59,6 +58,28 @@
     table.pp-grid th[data-jour]:focus-visible { outline:2px solid var(--indigo); outline-offset:-2px; }
     table.pp-grid th[data-jour] .pp-copy-ico { opacity:0; margin-left:4px; transition:opacity .12s; }
     table.pp-grid th[data-jour]:hover .pp-copy-ico, table.pp-grid th[data-jour]:focus-visible .pp-copy-ico { opacity:.8; }
+    /* Vue « Tout » : vue d'ensemble compacte (seuls les jours et les heures
+       qui ont des entretiens), sur une page plus large. */
+    .postuler-body.pp-large { max-width:min(1500px, 96vw); }
+    table.pp-grid.all th:not(.corner), table.pp-grid.all td:not(.time) { min-width:176px; width:176px; }
+    table.pp-grid.all td { padding:3px; }
+    table.pp-grid.all .pp-iv { padding:3px 6px; margin-bottom:3px; font-size:11px; line-height:1.35; }
+    table.pp-grid.all .pp-iv .who, table.pp-grid.all .pp-iv .meta { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    table.pp-grid .pp-nb { display:block; font-weight:500; font-size:11px; color:var(--text-muted); text-transform:none; letter-spacing:0; }
+    .pp-resume { font-size:13px; color:var(--text-muted); margin:-6px 0 12px; }
+    /* Bouton agenda d'un jour, dans l'en-tête de colonne. */
+    .pp-agenda { border:1px solid var(--border); background:var(--surface); border-radius:6px; padding:1px 5px;
+      margin-left:6px; font-size:12px; cursor:pointer; line-height:1.4; }
+    .pp-agenda:hover { border-color:var(--indigo); background:var(--indigo-light); }
+    .pp-agenda:focus-visible { outline:2px solid var(--indigo); outline-offset:1px; }
+    .pp-personne { font-size:13.5px; margin:-6px 0 12px; }
+    /* Fenêtre « Ajouter à mon agenda » */
+    .ag-overlay { display:none; position:fixed; inset:0; z-index:9990; background:rgba(0,0,0,.45);
+      align-items:flex-start; justify-content:center; padding:48px 16px; overflow:auto; }
+    .ag-overlay.open { display:flex; }
+    .ag-panneau { background:var(--surface); border:1px solid var(--border); border-radius:14px; width:min(520px,100%);
+      box-shadow:0 24px 64px rgba(0,0,0,.2); padding:20px 22px; }
+    .ag-ligne { display:flex; gap:10px; align-items:center; justify-content:space-between; padding:8px 0; border-top:1px solid var(--border); font-size:13.5px; }
     .pp-iv { background:var(--indigo-light); border-left:3px solid var(--indigo); border-radius:6px; padding:5px 7px; margin-bottom:4px; font-size:11.5px; }
     .pp-iv.dimmed { opacity:.18; }
     .pp-iv .who { font-weight:700; }
@@ -83,7 +104,7 @@
   <p id="campaign-label"></p>
 </header>
 
-<div class="postuler-body">
+<div class="postuler-body pp-large" id="pp-body">
 
   <div id="loading-state" class="card" style="text-align:center;padding:48px;">
     <div class="spinner" style="margin:0 auto 16px;"></div>
@@ -111,9 +132,21 @@
         <option value="">👤 Tout le monde</option>
       </select>
       <select class="form-select" id="campaign-filter" style="max-width:200px;font-size:13px;display:none;"></select>
-      <button class="btn btn-secondary btn-sm" id="btn-print" style="margin-left:auto;">🖨 Imprimer / PDF</button>
+      <button class="btn btn-ghost btn-sm" id="btn-agenda-tout" style="margin-left:auto;" title="Tous les entretiens de la période (de la personne choisie, ou de tout le monde) dans un fichier pour votre agenda">📅 Toute la période (.ics)</button>
+      <button class="btn btn-secondary btn-sm" id="btn-print">🖨 Imprimer / PDF</button>
     </div>
 
+    <p class="pp-resume pp-noprint" id="pp-resume"></p>
+    <p class="pp-personne pp-noprint" id="pp-personne" style="display:none;"></p>
+    <div class="ag-overlay pp-noprint" id="ag-overlay" role="dialog" aria-modal="true" aria-labelledby="ag-titre">
+      <div class="ag-panneau">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+          <h2 id="ag-titre" style="margin:0;font-size:19px;">Ajouter à mon agenda</h2>
+          <button type="button" class="btn btn-ghost btn-sm" id="ag-fermer" aria-label="Fermer">✕</button>
+        </div>
+        <div id="ag-corps"></div>
+      </div>
+    </div>
     <div id="view-day" style="display:none;"></div>
     <div id="view-week" class="pp-wrap"></div>
 
@@ -126,9 +159,10 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getFirestore, collection, query, where, getDocs, getDoc, doc }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { firebaseConfig } from '/js/firebase-config.js';
-import { getCampaignDays, getTimeSlots, esc, nomCourt, paramLien, prenomInitiale, showToast, campaignConfig } from '/js/utils.js';
+import { getCampaignDays, getPlanningDays, getTimeSlots, esc, nomCourt, paramLien, prenomInitiale, showToast, campaignConfig } from '/js/utils.js';
 import { heureFinValide, pasPlanning, ligneDuPlanning } from '/js/capacite.js';
 import { resolveOrg as resolveOrgShared } from '/js/org-lookup.js';
+import { fichierIcs, lienGoogleAgenda, entretiensParStaffeur } from '/js/agenda.js';
 
 const app = initializeApp(firebaseConfig);
 const db  = getFirestore(app);
@@ -200,7 +234,11 @@ async function init() {
   $('seg-week').onclick = () => setView('week');
   $('nav-prev').onclick = () => nav(-1);
   $('nav-next').onclick = () => nav(1);
-  $('person-filter').onchange = e => { personId = e.target.value; render(); };
+  $('person-filter').onchange = e => { personId = e.target.value; render(); resumePersonne(); };
+  $('btn-agenda-tout').onclick = () => ouvrirAgenda(null);
+  $('ag-fermer').onclick = fermerAgenda;
+  $('ag-overlay').addEventListener('click', ev => { if (ev.target === ev.currentTarget) fermerAgenda(); });
+  document.addEventListener('keydown', ev => { if (ev.key === 'Escape') fermerAgenda(); });
   $('btn-print').onclick = () => window.print();
 
   await loadCampaign();
@@ -218,16 +256,6 @@ async function loadCampaign() {
   SLOTS = getTimeSlots(8, heureFinValide(cfgPlage.heureFin), pasPlanning(cfgPlage.pasCreneauxMinutes));
   PAS_LIGNES = pasPlanning(cfgPlage.pasCreneauxMinutes);
 
-  // Semaines (groupées par lundi)
-  weeks = [];
-  let cur = null;
-  days.forEach(d => {
-    const monday = new Date(d); const dow = (monday.getDay() + 6) % 7; monday.setDate(monday.getDate() - dow); monday.setHours(0,0,0,0);
-    const key = monday.toDateString();
-    if (!cur || cur.key !== key) { cur = { key, monday, days: [] }; weeks.push(cur); }
-    cur.days.push(d);
-  });
-
   // Données (tout public : interviews, candidates, rooms, staff_availabilities, roster_members)
   const [ivSnap, candSnap, roomSnap, saSnap, rosterSnap] = await Promise.all([
     getDocs(query(collection(db, 'interviews'), where('campaignId', '==', currentCampaign.id))),
@@ -240,6 +268,21 @@ async function loadCampaign() {
   interviews = ivSnap.docs.map(d => ({ id: d.id, ...d.data() }))
     .filter(iv => iv.datetimeStart?.toDate)
     .sort((a, b) => a.datetimeStart.toMillis() - b.datetimeStart.toMillis());
+
+  // Toute la période, jours passés compris : le planning ne perd plus la
+  // veille chaque matin (on revoit les entretiens déjà faits).
+  days = getPlanningDays(currentCampaign, interviews.map(iv => iv.datetimeStart.toDate()));
+  // Semaines (groupées par lundi)
+  weeks = [];
+  let cur = null;
+  days.forEach(d => {
+    const monday = new Date(d); const dow = (monday.getDay() + 6) % 7; monday.setDate(monday.getDate() - dow); monday.setHours(0,0,0,0);
+    const key = monday.toDateString();
+    if (!cur || cur.key !== key) { cur = { key, monday, days: [] }; weeks.push(cur); }
+    cur.days.push(d);
+  });
+
+
 
   candMap = {}; candSnap.docs.forEach(d => { candMap[d.id] = d.data(); });
   roomMap = {}; roomSnap.docs.forEach(d => { roomMap[d.id] = d.data().code || d.data().nom || d.data().name; });
@@ -254,11 +297,15 @@ async function loadCampaign() {
     const o = document.createElement('option'); o.value = id; o.textContent = nm; pf.appendChild(o);
   });
   personId = ''; pf.value = '';
+  resumePersonne();
 
   dayIdx = 0; weekIdx = 0;
   delete $('view-week').dataset.mode;
   // Démarrer sur le 1er jour qui a des entretiens, sinon le 1er jour
-  const firstWithIv = days.findIndex(d => interviews.some(iv => sameDay(iv.datetimeStart.toDate(), d)));
+  // Démarrer sur aujourd'hui ou le prochain jour qui a des entretiens ; les jours passés restent accessibles.
+  const auj0 = new Date(); auj0.setHours(0, 0, 0, 0);
+  const aVenir = days.findIndex(d => d >= auj0 && interviews.some(iv => sameDay(iv.datetimeStart.toDate(), d)));
+  const firstWithIv = aVenir >= 0 ? aVenir : days.findIndex(d => interviews.some(iv => sameDay(iv.datetimeStart.toDate(), d)));
   if (firstWithIv >= 0) { dayIdx = firstWithIv; weekIdx = weeks.findIndex(w => w.days.includes(days[firstWithIv])); }
   render();
 }
@@ -270,7 +317,7 @@ function ivData(iv) {
   const who = cand ? `${cand.prenom||''} ${cand.nom||''}`.trim() || cand.email : 'Cooptant';
   const room = iv.roomId ? roomMap[iv.roomId] : iv.salleNom;
   const jurors = [iv.jury1Id, iv.jury2Id, iv.jury3Id].filter(Boolean).map(id => nameMap[id] || 'Juré');
-  return { s, e, who, room, jurors, juryIds: [iv.jury1Id, iv.jury2Id, iv.jury3Id].filter(Boolean) };
+  return { s, e, who, room, jurors, anglais: cand?.langue === 'en', juryIds: [iv.jury1Id, iv.jury2Id, iv.jury3Id].filter(Boolean) };
 }
 const involves = iv => !personId || [iv.jury1Id, iv.jury2Id, iv.jury3Id].includes(personId);
 
@@ -281,6 +328,9 @@ function setView(mode) {
   $('seg-week').classList.toggle('active', mode === 'week');
   $('view-day').style.display  = mode === 'day' ? '' : 'none';
   $('view-week').style.display = mode === 'day' ? 'none' : '';
+  // Page large pour les grilles, étroite pour la liste d'un jour.
+  $('pp-body').classList.toggle('pp-large', mode !== 'day');
+  $('pp-resume').style.display = mode === 'all' ? '' : 'none';
   // Flèches inutiles quand tout est affiché.
   $('pp-nav').style.display = mode === 'all' ? 'none' : '';
   render();
@@ -305,7 +355,7 @@ function renderAll() {
   renderGrid(days, true);
   if (garderPosition) { wrap.scrollLeft = scrollLeft; wrap.scrollTop = scrollTop; return; }
   // Première ouverture : on amène le premier jour qui a des entretiens en vue.
-  const th = wrap.querySelectorAll('thead th')[dayIdx + 1];
+  const th = wrap.querySelector(`thead th[data-jour="${dayIdx}"]`);
   const coin = wrap.querySelector('th.corner');
   if (th && coin) {
     // Mesuré par rapport au cadre qui défile (offsetLeft dépend du parent
@@ -320,7 +370,8 @@ function renderDay() {
   if (!day) { $('view-day').innerHTML = '<p class="text-muted">Aucun jour.</p>'; $('nav-label').textContent=''; return; }
   $('nav-label').textContent = day.toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long' });
   const copier = `<div style="display:flex;justify-content:flex-end;margin-bottom:10px;" class="pp-noprint">
-    <button class="btn btn-ghost btn-sm" data-copier-jour="${dayIdx}">📋 Copier la liste du jour</button></div>`;
+    <button class="btn btn-ghost btn-sm" data-copier-jour="${dayIdx}">📋 Copier la liste du jour</button>
+    <button class="btn btn-ghost btn-sm" data-agenda-jour="${dayIdx}" style="margin-left:6px;">📅 Ajouter à mon agenda</button></div>`;
   const todays = interviews.filter(iv => sameDay(iv.datetimeStart.toDate(), day));
   if (!todays.length) { $('view-day').innerHTML = '<div class="card" style="text-align:center;padding:32px;color:var(--text-muted);">Aucun entretien ce jour.</div>'; return; }
   $('view-day').innerHTML = copier + todays.map(iv => {
@@ -329,7 +380,7 @@ function renderDay() {
     return `<div class="pp-day-card ${involves(iv)?'':'dimmed'}">
       <div class="pp-time">${time}</div>
       <div style="flex:1;">
-        <div style="font-weight:700;">${esc(d.who)}</div>
+        <div style="font-weight:700;">${esc(d.who)}${d.anglais ? ' 🇬🇧 <span class="text-sm text-muted" style="font-weight:500;">en anglais</span>' : ''}</div>
         <div class="text-sm text-muted" style="margin-top:2px;">
           ${d.room ? `🏫 ${esc(d.room)}` : '🏫 salle à définir'} ·
           ${d.jurors.length ? '🧑‍⚖️ ' + d.jurors.map(esc).join(', ') : 'jury à définir'}
@@ -350,14 +401,32 @@ function renderWeek() {
 /** Grille horaire pour une liste de jours (semaine, ou toute la période). */
 function renderGrid(wd, tout) {
   const auj = new Date();
+  const duJour = d => interviews.filter(iv => sameDay(iv.datetimeStart.toDate(), d));
+  let lignes = SLOTS;
+  if (tout) {
+    // Vue d'ensemble : on retire les jours et les heures sans aucun entretien,
+    // qui occupaient presque tout l'écran.
+    wd = wd.filter(d => duJour(d).length);
+    const utiles = new Set(wd.flatMap(duJour).map(iv => ligneDuPlanning(iv.datetimeStart.toDate(), PAS_LIGNES)));
+    lignes = SLOTS.filter(sl => utiles.has(sl.label));
+    const n = wd.reduce((t, d) => t + duJour(d).length, 0);
+    $('pp-resume').textContent = n
+      ? `${n} entretien${n > 1 ? 's' : ''} sur ${wd.length} jour${wd.length > 1 ? 's' : ''}. Clique sur un jour pour copier sa liste.`
+      : '';
+    if (!wd.length) {
+      $('view-week').innerHTML = '<p class="text-muted" style="padding:16px;">Aucun entretien pour le moment.</p>';
+      $('view-week').dataset.mode = 'all';
+      return;
+    }
+  }
   let html = `<table class="pp-grid${tout ? ' all' : ''}"><thead><tr><th class="corner"></th>`;
   wd.forEach(d => {
     html += `<th class="${sameDay(d, auj) ? 'today' : ''}" data-jour="${days.indexOf(d)}" tabindex="0" role="button"
-      title="Copier la liste des entretiens de ce jour">${d.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})}<span class="pp-copy-ico" aria-hidden="true">📋</span></th>`;
+      title="Copier la liste des entretiens de ce jour">${d.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})}<span class="pp-copy-ico" aria-hidden="true">📋</span><button type="button" class="pp-agenda pp-noprint" data-agenda-jour="${days.indexOf(d)}" title="Ajouter les entretiens de ce jour à mon agenda (.ics ou Google Agenda)" aria-label="Ajouter à mon agenda">📅</button>${tout ? `<span class="pp-nb">${duJour(d).length} entretien${duJour(d).length > 1 ? 's' : ''}</span>` : ''}</th>`;
   });
   html += '</tr></thead><tbody>';
 
-  SLOTS.forEach(slot => {
+  lignes.forEach(slot => {
     html += `<tr><td class="time">${slot.label}</td>`;
     wd.forEach(d => {
       const cell = interviews.filter(iv => {
@@ -367,8 +436,9 @@ function renderGrid(wd, tout) {
       });
       html += '<td>' + cell.map(iv => {
         const x = ivData(iv);
-        return `<div class="pp-iv ${involves(iv)?'':'dimmed'}">
-          <div class="who">${esc(x.who)}</div>
+        const heure = x.s.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+        return `<div class="pp-iv ${involves(iv)?'':'dimmed'}" title="${esc(`${heure} · ${x.who}${x.anglais ? ' · en anglais' : ''}${x.room ? ' · ' + x.room : ''}${x.jurors.length ? ' · ' + x.jurors.join(', ') : ''}`)}">
+          <div class="who">${esc(x.who)}${x.anglais ? ' 🇬🇧' : ''}</div>
           <div class="meta">${[x.room ? esc(x.room) : '', x.jurors.map(n => esc(nomCourt(n, Object.values(nameMap)))).join(', ')].filter(Boolean).join(' · ')}</div>
         </div>`;
       }).join('') + '</td>';
@@ -392,10 +462,10 @@ function texteDuJour(day) {
     // Juré sans nom connu : on le signale plutôt que de l'omettre.
     const jury = x.juryIds.map(id => nameMap[id] ? prenomInitiale(nameMap[id]) : 'juré ?');
     return [
-      `• ${x.who}`,
+      `• ${x.who}${x.anglais ? ' 🇬🇧 (en anglais)' : ''}`,
       `  ${hm(x.s)} - ${hm(x.e)}`,
       `  Salle : ${x.room || 'à définir'}`,
-      `  Jury : ${jury.length ? jury.join(', ') : 'à définir'}`,
+      `  Staffeurs : ${jury.length ? jury.join(', ') : 'à définir'}`,
     ].join('\n');
   });
   return { n: duJour.length, texte: `${titre.charAt(0).toUpperCase()}${titre.slice(1)}\n\n${lignes.join('\n\n')}` };
@@ -414,12 +484,109 @@ async function copierJour(idx) {
   }
 }
 
+// ─── Agenda personnel et compteur ─────────────────────────────────
+/** « Camille M. : 12 entretiens, dont 5 passés et 7 à venir. » quand une personne est choisie. */
+function resumePersonne() {
+  const el = $('pp-personne');
+  if (!personId) { el.style.display = 'none'; return; }
+  const c = entretiensParStaffeur(interviews.map(iv => ({ ...iv, debut: iv.datetimeStart.toDate(), fin: ivData(iv).e })))
+    .get(personId) || { passes: 0, aVenir: 0, total: 0 };
+  const nom = nameMap[personId] || 'Cette personne';
+  el.innerHTML = `<strong>${esc(nom)}</strong> : ${c.total} entretien${c.total > 1 ? 's' : ''}`
+    + (c.total ? `, dont ${c.passes} passé${c.passes > 1 ? 's' : ''} et ${c.aVenir} à venir.` : '.');
+  el.style.display = '';
+}
+
+/** Entretiens → événements d'agenda (seulement ceux de la personne choisie, si filtre). */
+function evenements(liste) {
+  const orgNom = org?.name || '';
+  return liste.filter(involves).map(iv => {
+    const x = ivData(iv);
+    const staff = x.juryIds.map(id => nameMap[id] ? prenomInitiale(nameMap[id]) : 'staffeur ?');
+    return {
+      id: iv.id, debut: x.s, fin: x.e,
+      titre: `Entretien ${x.who}${x.anglais ? ' 🇬🇧' : ''}${orgNom ? ' · ' + orgNom : ''}`,
+      lieu: x.room ? `Salle ${x.room}` : '',
+      description: [`Cooptant : ${x.who}`, staff.length ? `Staffeurs : ${staff.join(', ')}` : '', x.anglais ? 'Entretien en anglais' : '']
+        .filter(Boolean).join('\n'),
+    };
+  });
+}
+
+/**
+ * Un événement Google par JOUR : Google n'accepte qu'un événement par lien.
+ * Du premier au dernier entretien du jour, chaque entretien dans la description.
+ */
+function journees(evs) {
+  const heure = d => d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const parJour = new Map();
+  evs.forEach(ev => { const k = ev.debut.toDateString(); (parJour.get(k) || parJour.set(k, []).get(k)).push(ev); });
+  return [...parJour.values()].map(liste => {
+    liste.sort((a, b) => a.debut - b.debut);
+    const qui = personId ? ` · ${prenomInitiale(nameMap[personId] || '')}` : '';
+    return {
+      id: `jour-${liste[0].debut.toDateString()}`,
+      debut: liste[0].debut,
+      fin: new Date(Math.max(...liste.map(e => e.fin.getTime()))),
+      nb: liste.length,
+      libelle: liste[0].debut.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }),
+      titre: `Entretiens ${org?.name || ''}${qui} (${liste.length})`.replace(/\s+/g, ' '),
+      description: liste.map(e => `${heure(e.debut)}-${heure(e.fin)} · ${e.titre.replace(/ · .*$/, '').replace(/^Entretien /, '')}`
+        + `${e.lieu ? ' · ' + e.lieu : ''}${e.description.includes('Staffeurs') ? ' · ' + e.description.split('\n').find(l => l.startsWith('Staffeurs')) : ''}`).join('\n'),
+    };
+  });
+}
+
+let agendaDeclencheur = null;
+/** Fenêtre « Ajouter à mon agenda » : un jour (idx) ou toute la période (null). */
+function ouvrirAgenda(idx) {
+  agendaDeclencheur = document.activeElement;
+  const day = idx === null ? null : days[idx];
+  const liste = day ? interviews.filter(iv => sameDay(iv.datetimeStart.toDate(), day)) : interviews.filter(iv => iv.datetimeStart.toDate() >= new Date(new Date().setHours(0, 0, 0, 0)));
+  const evs = evenements(liste);
+  const qui = personId ? (nameMap[personId] || 'cette personne') : 'tout le monde';
+  const quand = day ? day.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) : 'toute la période (à partir d\'aujourd\'hui)';
+  const heure = d => d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  $('ag-corps').innerHTML = !evs.length
+    ? `<p class="text-muted" style="margin:14px 0 0;">Aucun entretien ${day ? 'ce jour-là' : 'à venir'} pour ${esc(qui)}.</p>`
+    : `<p class="text-sm text-muted" style="margin:6px 0 14px;">${evs.length} entretien${evs.length > 1 ? 's' : ''} · ${esc(quand)} · ${esc(qui)}${personId ? '' : ' (choisissez votre nom dans la liste pour n\'avoir que les vôtres)'}</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        ${journees(evs).map(j => `<a class="btn btn-primary btn-sm" href="${esc(lienGoogleAgenda(j))}" target="_blank" rel="noopener"
+          title="Un seul événement, du premier au dernier entretien, avec le détail de chacun">📅 Google Agenda${day ? '' : ' · ' + esc(j.libelle)} (${j.nb > 1 ? `${j.nb} entretiens en 1 événement` : '1 entretien'})</a>`).join('')}
+        <button type="button" class="btn btn-ghost btn-sm" id="ag-ics">⬇ Fichier .ics (Apple, Outlook)</button>
+      </div>
+      <p class="text-sm text-muted" style="margin:8px 0 14px;">Google Agenda n'accepte qu'un événement par lien : le bouton crée <strong>un seul événement pour la journée</strong>, avec chaque entretien dans la description. Pour des événements séparés, importez le fichier .ics (Google Agenda sur ordinateur → Paramètres → Importer).</p>
+      <details><summary class="text-sm" style="cursor:pointer;">Ou un par un dans Google Agenda</summary>
+      ${evs.map(ev => `<div class="ag-ligne"><span>${esc(heure(ev.debut))} · ${esc(ev.titre.replace(/ · .*$/, ''))}</span>
+        <a class="btn btn-ghost btn-sm" href="${esc(lienGoogleAgenda(ev))}" target="_blank" rel="noopener">Google Agenda</a></div>`).join('')}
+      </details>`;
+  $('ag-ics')?.addEventListener('click', () => {
+    const blob = new Blob([fichierIcs(evs, `Entretiens ${org?.name || ''}`.trim())], { type: 'text/calendar;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    const jour = day ? `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}` : 'periode';
+    a.download = `entretiens-${jour}${personId ? '-' + (nameMap[personId] || '').toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g, '-') : ''}.ics`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  });
+  $('ag-overlay').classList.add('open');
+  (document.querySelector('#ag-corps a.btn-primary') || $('ag-ics') || $('ag-fermer')).focus?.();
+}
+function fermerAgenda() {
+  if (!$('ag-overlay').classList.contains('open')) return;
+  $('ag-overlay').classList.remove('open');
+  agendaDeclencheur?.focus?.();
+}
+
 // Délégation : les grilles sont redessinées à chaque changement de vue.
 document.addEventListener('click', e => {
+  const agenda = e.target.closest('[data-agenda-jour]');
+  if (agenda) { e.stopPropagation(); return ouvrirAgenda(Number(agenda.dataset.agendaJour)); }
   const cible = e.target.closest('th[data-jour], [data-copier-jour]');
   if (cible) copierJour(Number(cible.dataset.jour ?? cible.dataset.copierJour));
 });
 document.addEventListener('keydown', e => {
+  if (e.target.closest?.('[data-agenda-jour]')) return;   // bouton agenda : son propre clic
   const th = e.target.closest?.('th[data-jour]');
   if (th && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); copierJour(Number(th.dataset.jour)); }
 });

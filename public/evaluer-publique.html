@@ -73,10 +73,16 @@
       <div class="form-group" style="max-width:420px;margin-top:10px;">
         <select class="form-select" id="candidate-select"><option value="">Sélectionne un cooptant</option></select>
       </div>
+      <p class="text-sm text-muted" id="fenetre-aide" style="margin-top:8px;"></p>
     </div>
 
     <!-- Formulaire d'évaluation (masqué tant qu'aucun cooptant choisi) -->
     <div id="eval-section" style="display:none;">
+      <!-- Réponses du cooptant au formulaire, pour préparer l'entretien. -->
+      <div class="card mb-16" id="reponses-card">
+        <h2 class="mb-16">Ses réponses au formulaire</h2>
+        <div id="reponses-liste" class="stack"></div>
+      </div>
       <div class="card mb-16">
         <div class="flex-between mb-16">
           <h2 style="margin:0;">Critères d'évaluation</h2>
@@ -124,7 +130,7 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getFirestore, collection, query, where, getDocs, getDoc, doc, setDoc, updateDoc, serverTimestamp }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { firebaseConfig } from '/js/firebase-config.js';
-import { showToast, paramLien } from '/js/utils.js';
+import { showToast, paramLien, esc, reponsesOrdonnees, campaignConfig } from '/js/utils.js';
 import { resolveOrg as resolveOrgShared } from '/js/org-lookup.js';
 
 const app = initializeApp(firebaseConfig);
@@ -133,6 +139,54 @@ const params = new URLSearchParams(location.search);
 const orgParam = paramLien('org');
 
 let org = null, campaign = null, criteria = [], candidates = [];
+let tousLesCooptants = [], entretiens = [];
+
+/** L'entretien est-il dans la fenêtre du lien (± 2 h autour de maintenant, ou aujourd'hui) ? */
+function dansLaFenetre(iv, maintenant = new Date()) {
+  if (campaignConfig(campaign).fenetreEvaluation === 'journee') {
+    return iv.debut.toDateString() === maintenant.toDateString();
+  }
+  const fin = iv.fin || new Date(iv.debut.getTime() + campaignConfig(campaign).dureeMinutes * 60000);
+  const marge = 2 * 3600 * 1000;
+  return iv.debut.getTime() - marge <= maintenant.getTime() && maintenant.getTime() <= fin.getTime() + marge;
+}
+
+/** Liste des cooptants à noter maintenant, par heure d'entretien. */
+function remplirListe() {
+  const maintenant = new Date();
+  const heure = d => d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const visibles = entretiens.filter(iv => dansLaFenetre(iv, maintenant)).sort((a, b) => a.debut - b.debut);
+  const parId = new Map(tousLesCooptants.map(c => [c.id, c]));
+  const vus = new Set();
+  candidates = [];
+  const lignes = [];
+  visibles.forEach(iv => {
+    const c = parId.get(iv.candidateId);
+    if (!c || vus.has(c.id)) return;
+    vus.add(c.id); candidates.push(c);
+    lignes.push({ id: c.id, texte: `${heure(iv.debut)} · ${`${c.prenom||''} ${c.nom||''}`.trim() || 'Cooptant'}${c.langue === 'en' ? ' 🇬🇧 (en anglais)' : ''}` });
+  });
+  const sel = $('candidate-select');
+  const avant = sel.value;
+  sel.innerHTML = '<option value="">Sélectionne un cooptant</option>'
+    + lignes.map(l => `<option value="${esc(l.id)}">${esc(l.texte)}</option>`).join('');
+  if (avant && lignes.some(l => l.id === avant)) sel.value = avant;
+  const aide = $('fenetre-aide');
+  const journee = campaignConfig(campaign).fenetreEvaluation === 'journee';
+  if (!lignes.length) {
+    const prochain = entretiens.filter(iv => iv.debut > maintenant).sort((a, b) => a.debut - b.debut)[0];
+    aide.textContent = (journee ? 'Aucun entretien aujourd\'hui.' : 'Aucun entretien en ce moment.')
+      + (prochain ? ` Prochain : ${prochain.debut.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })} à ${heure(prochain.debut)}.` : '');
+  } else {
+    aide.textContent = journee
+      ? 'Seuls les entretiens d\'aujourd\'hui sont proposés.'
+      : 'Seuls les entretiens qui ont lieu 2 h avant ou après maintenant sont proposés.';
+  }
+  if (avant && !lignes.some(l => l.id === avant)) {
+    $('eval-section').style.display = 'none';
+    afficherReponses(null);
+  }
+}
 
 const $ = id => document.getElementById(id);
 function showError(m){ $('loading-state').style.display='none'; $('content').style.display='none'; $('error-state').style.display=''; $('error-msg').textContent=m; }
@@ -167,13 +221,28 @@ async function init(){
   criteria = campaign.interviewCriteria || [];
   renderBrief(campaign);
 
-  // Cooptants
-  const candSnap = await getDocs(query(collection(db,'candidates'), where('campaignId','==',campaign.id)));
-  candidates = candSnap.docs.map(d=>({id:d.id,...d.data()}))
-    .sort((a,b)=>`${a.prenom} ${a.nom}`.localeCompare(`${b.prenom} ${b.nom}`));
+  // Cooptants : seulement ceux dont l'entretien a lieu autour de maintenant
+  // (± 2 h, ou le jour même selon Paramètres). Le lien circule dans tout le
+  // staff : il ne doit pas donner la liste de tous les cooptants et de leurs
+  // réponses, seulement ce qu'il faut pour noter les entretiens du moment.
+  const [candSnap, ivSnap] = await Promise.all([
+    getDocs(query(collection(db,'candidates'), where('campaignId','==',campaign.id))),
+    getDocs(query(collection(db,'interviews'), where('campaignId','==',campaign.id))),
+  ]);
+  tousLesCooptants = candSnap.docs.map(d=>({id:d.id,...d.data()}));
+  entretiens = ivSnap.docs.map(d=>d.data()).map(iv=>({
+    candidateId: iv.candidateId,
+    debut: iv.datetimeStart?.toDate ? iv.datetimeStart.toDate() : new Date(iv.datetimeStart),
+    fin:   iv.datetimeEnd?.toDate   ? iv.datetimeEnd.toDate()   : null,
+  })).filter(iv => iv.candidateId && !isNaN(iv.debut));
+  remplirListe();
+  // La page reste souvent ouverte toute une après-midi : la liste suit l'heure.
+  setInterval(remplirListe, 5 * 60 * 1000);
   const candSel = $('candidate-select');
-  candidates.forEach(c=>{ const o=document.createElement('option'); o.value=c.id; o.textContent=`${c.prenom||''} ${c.nom||''}`.trim()||c.email; candSel.appendChild(o); });
-  candSel.addEventListener('change', ()=>{ $('eval-section').style.display = candSel.value ? '' : 'none'; });
+  candSel.addEventListener('change', ()=>{
+    $('eval-section').style.display = candSel.value ? '' : 'none';
+    afficherReponses(candidates.find(c => c.id === candSel.value));
+  });
 
   buildCriteriaForm();
   $('btn-save').onclick = save;
@@ -252,6 +321,30 @@ function buildCriteriaForm(){
  * textContent (jamais innerHTML) et rendu en pre-wrap : retours a la ligne
  * conserves, aucun risque d'injection. Chaque bloc reste masque si vide.
  */
+/**
+ * Réponses du cooptant au formulaire, dans l'ordre actuel des questions.
+ * Le téléphone n'est pas affiché : inutile pendant un entretien, et ce lien
+ * circule dans tout le staff.
+ */
+function afficherReponses(c){
+  const el = $('reponses-liste');
+  if (!c) { el.innerHTML = ''; return; }
+  const questions = campaign?.formConfig?.customQuestions || [];
+  const TEL = /t[ée]l[ée]phone|\bt[ée]l\b|portable|mobile/i;
+  const libellesTel = new Set(questions.filter(q => q.type === 'tel' || TEL.test(q.label || '')).map(q => q.label));
+  const reponses = reponsesOrdonnees(c, questions)
+    .filter(r => String(r.value ?? '').trim() && !libellesTel.has(r.label) && !TEL.test(r.label || ''));
+  el.innerHTML = reponses.length
+    ? reponses.map(r => `
+        <div>
+          <div class="text-sm text-muted" style="font-weight:600;margin-bottom:2px;">${esc(r.label)}</div>
+          <div style="white-space:pre-wrap;line-height:1.55;">${esc(String(r.value))}</div>
+        </div>`).join('')
+    : `<p class="text-sm text-muted">${c.source === 'stand'
+        ? 'Inscrit·e sur un stand : pas de réponse au formulaire.'
+        : 'Aucune réponse au formulaire.'}</p>`;
+}
+
 function renderBrief(campaign){
   const consignes=(campaign?.consignesEntretien||'').trim();
   const guide=(campaign?.guideQuestions||'').trim();

@@ -22,16 +22,20 @@ Interactive, no sign-up: one click on **“Enter as the board”**, or try the p
 - Application form configured by each association (reorderable questions; text, choice, phone, date fields…).
 - Slot booking in a days × hours calendar, computed live from staff availability and the interviews already booked.
 - Personal tracking page (token link), rescheduling without re-typing anything, add-to-calendar (Google / `.ics`).
+- The form, confirmation and tracking pages in **French or English**; choosing English means the interview takes place in English, and only English-speaking interviewers are assigned.
+- Recommended slots (⭐) that keep the staff's day compact instead of scattered.
 
 **For staff, no account needed**
-- Hour-by-hour availability grid.
+- Hour-by-hour availability grid, with a second state for “only if there's no other option” (used as a last resort), and the languages they can interview in.
 - Interview evaluation through a panel link.
-- Read-only public schedule, and a one-click copy of a day's interviews to share with the team.
+- Read-only public schedule, filterable by person, with one-click export to a calendar (Google Calendar or `.ics`) and a copy of a day's interviews to share with the team.
 
 **For the board**
 - Dashboard, candidate list, evaluation form with a normalised score, ranking, and a full-screen deliberation mode (drag and drop, cut-off line).
-- Internal schedule: availability heatmap, manual placement, simultaneous interviews side by side.
-- Settings: interview period, slot length and step, break between interviews, minimum booking notice, panel size, group interviews, invite codes, staff list.
+- **Stand mode**: sign someone up in person in a few seconds (two people for the same interview if needed), with a QR code to their tracking page.
+- Internal schedule: availability heatmap, per-person availability that the board can correct, search, manual placement, simultaneous interviews side by side, interview count per staff member.
+- Private internal notes on candidates and interviews, readable by the board only.
+- Settings: interview period and days (weekends or specific dates removed), slot length and step, break between interviews, minimum booking notice, panel size (with an optional extra interviewer), maximum parallel interviews, group interviews, English form translations, invite codes, staff list.
 - Recycle bin: every deletion can be undone for 30 days.
 
 **Multi-association**: one account can belong to several boards, and each association's data is strictly isolated.
@@ -68,6 +72,7 @@ Not Scrum by the book (a solo project, no team and no ceremonies), but the same 
 | **Late August** | Features for the new school year | Two booking modes, full-screen deliberations, group interviews, one account across several boards, strict isolation between associations. |
 | **Early September** | Hardening before the campaign | First 36 security-rule tests, an audit (12 bugs fixed), cascading deletions, an algorithm audit (5 bugs fixed), interviewer continuity. |
 | **Campaign week** (21–27 Sept.) | A daily feedback loop | **37 releases in 7 days**, each one triggered by feedback from the board during the live campaign (examples below). |
+| **Late September – October** | Other associations on board | English form for international students, stand mode for in-person sign-ups, last-resort availability and recommended slots (both suggested by a board member), private notes, calendar export, interview days, availability edited by the board. |
 
 ### Feedback handled during the campaign
 | What the board reported | Root cause | Fix |
@@ -80,7 +85,7 @@ Not Scrum by the book (a solo project, no team and no ceremonies), but the same 
 | “Two interviews overlap on the schedule” | Each card took the full height of its cell. | Simultaneous interviews side by side, with a wider column for that day. |
 
 ### Continuous quality
-- **171 automated tests** in the production version (164 in this showcase), run on every push by continuous integration: security rules on the Firestore emulator, plus pure logic (interviewer assignment, slot capacity, scoring, form questions).
+- **212 automated tests** in the production version (200 in this showcase), run on every push by continuous integration: security rules on the Firestore emulator, plus pure logic (interviewer assignment, slot capacity, scoring, form questions).
 - **Every campaign bug becomes a test**: the real case is replayed so it can't come back.
 - **Safety nets in production**: a 30-day recycle bin on every deletion, and deletion protection on the database.
 
@@ -125,7 +130,7 @@ node scripts/build-demo.mjs /cooptly    # output in _site/
 
 ## Tests
 
-164 tests using `node:test`, run on every push by continuous integration:
+200 tests using `node:test`, run on every push by continuous integration:
 - **Security rules** on the Firestore emulator (`@firebase/rules-unit-testing`): isolation between associations, account-free public flows, cascading deletions, recycle bin.
 - **Pure logic**: interviewer assignment, slot capacity, scoring and ranking, question order, URL parameters.
 

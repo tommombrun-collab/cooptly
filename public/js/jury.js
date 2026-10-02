@@ -75,12 +75,15 @@ export function chaineAvant(userId, interviews, debut, battementMin = 0) {
  * @param {number}   o.nbJurys      jurés voulus (borné à 3 par le modèle)
  * @param {number}   o.maxAffiles   entretiens consécutifs avant relève forcée (0 = pas de plafond)
  * @param {number}   o.battementMin pause imposée entre deux entretiens
+ * @param {string[]} [o.secours] membres libres seulement « si vraiment pas le choix » :
+ *   pris en tout dernier, après tous les autres (continuité comprise)
  * @returns {string[]} ids retenus, au plus `nbJurys`.
  */
 export function choisirJury({
   disponibles, interviews = [], debut, fin,
-  nbJurys = 2, maxAffiles = 4, battementMin = 0,
+  nbJurys = 2, maxAffiles = 4, battementMin = 0, secours = [],
 }) {
+  const enSecours = new Set(secours);
   const voulus = Math.max(1, Math.min(3, nbJurys));
   const marge  = battementMin * 60 * 1000;
 
@@ -111,11 +114,42 @@ export function choisirJury({
   });
 
   fiches.sort((a, b) =>
-    a.rang - b.rang
+    // Dispo « si vraiment pas le choix » : en dernier recours seulement.
+    (enSecours.has(a.id) ? 1 : 0) - (enSecours.has(b.id) ? 1 : 0)
+    || a.rang - b.rang
     || (a.rang === 0 ? b.chaine - a.chaine : 0)
     || a.charge - b.charge
     || a.id.localeCompare(b.id)               // départage stable, jamais aléatoire
   );
 
   return fiches.slice(0, voulus).map(f => f.id);
+}
+
+/**
+ * Nombre de jurés à mettre sur un entretien, quand l'asso accepte des jurés
+ * en plus (`config.nbJurysMax`) : « 2 minimum, 3 si quelqu'un d'autre est libre ».
+ *
+ * Un juré en plus n'est ajouté que s'il ne coûte AUCUN entretien : avec
+ * `libres` personnes libres sur le créneau et `min` jurés requis, il reste de
+ * quoi faire `floor((libres - min) / min)` autres entretiens ; seules les
+ * personnes qui restent au-delà ne serviraient à rien d'autre. Exemples à
+ * 2 minimum, 3 maximum : 3 libres → 3 jurés ; 4 libres → 2 (on garde un
+ * binôme pour un autre cooptant) ; 5 libres → 3.
+ *
+ * @param {object} o
+ * @param {number} o.libres           personnes libres sur le créneau, avant cet entretien
+ * @param {number} o.min              jurés requis (`config.nbJurys`)
+ * @param {number} o.max              jurés au plus (`config.nbJurysMax`)
+ * @param {number} [o.autresPossibles] entretiens que le créneau peut encore accueillir
+ *   après celui-ci (limite d'entretiens en parallèle), Infinity sans limite
+ * @returns {number}
+ */
+export function nbJuresPourEntretien({ libres, min, max, autresPossibles = Infinity }) {
+  const bas  = Math.max(1, Math.min(3, parseInt(min, 10) || 1));
+  const haut = Math.max(bas, Math.min(3, parseInt(max, 10) || bas));
+  const reste = Math.max(0, (parseInt(libres, 10) || 0) - bas);
+  if (haut === bas || !reste) return bas;
+  const autres  = Math.min(Math.floor(reste / bas), Math.max(0, autresPossibles));
+  const surplus = reste - autres * bas;
+  return bas + Math.min(haut - bas, surplus);
 }

@@ -176,6 +176,15 @@ export async function initBurgerMenu(user) {
     if (current?.id) _ecrireCacheNav(current.id, identite);
   }
 
+  // Statistiques de connexion (lisibles par l'admin plateforme seulement).
+  // Chargé à la demande, sans attendre : ne ralentit pas la page.
+  {
+    const orgAct = role === 'admin' ? null : (orgs.find(o => o.id === navOrgId || o.slug === navOrgId) || orgs[0] || null);
+    import('./activite.js').then(({ noterActivite }) => noterActivite(user, {
+      nom: effectiveDisplayName, role, orgId: orgAct?.id || null, orgName: orgAct?.name || '',
+    })).catch(() => {});
+  }
+
   // Protection anti-capture pour tous les rôles sauf admin
   if (role !== 'admin') applyContentProtection();
 

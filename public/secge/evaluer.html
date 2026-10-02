@@ -185,7 +185,7 @@
       </div>
       <div id="criteria-container"></div>
       <div id="no-criteria" style="display:none;" class="text-muted text-sm">
-        Aucun critère configuré pour cette campagne. Configurez-les dans <a href="/parametres.html" style="color:var(--indigo);">Paramètres → Entretien</a>.
+        Aucun critère d'évaluation configuré. Configurez-les dans <a href="/parametres.html" style="color:var(--indigo);">Paramètres → Entretien</a>.
       </div>
     </div>
 
@@ -257,7 +257,7 @@ async function init() {
       getDoc(doc(db, 'campaigns',  campaignId )).then(d => d.exists() ? {id:d.id,...d.data()} : null),
     ]);
     if (!candidate) return showError('Candidat introuvable.');
-    if (!campaign)  return showError('Campagne introuvable.');
+    if (!campaign)  return showError('Recrutement introuvable.');
   } catch (err) { return showError(err.message); }
 
   criteria = campaign.interviewCriteria || [];
@@ -267,7 +267,7 @@ async function init() {
   const initials = `${(candidate.prenom||'?')[0]}${(candidate.nom||'?')[0]}`.toUpperCase();
   document.getElementById('cand-avatar').textContent = initials;
   document.getElementById('cand-name').textContent   = `${candidate.prenom || ''} ${candidate.nom || ''}`.trim();
-  document.getElementById('cand-meta').textContent   = `${candidate.email || ''} · Campagne : ${campaign.name || campaignId}`;
+  document.getElementById('cand-meta').textContent   = candidate.email || '';
 
   // Critères
   buildCriteriaForm();

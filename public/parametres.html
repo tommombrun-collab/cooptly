@@ -52,7 +52,7 @@
 
   <!-- Tabs -->
   <div class="tabs tabs-sticky" role="tablist" aria-label="Sections des paramètres">
-    <button class="tab-btn active" data-tab="campagne"  role="tab" aria-selected="true"  aria-controls="tab-campagne"  id="tbtn-campagne"  tabindex="0">📅 Campagne</button>
+    <button class="tab-btn active" data-tab="campagne"  role="tab" aria-selected="true"  aria-controls="tab-campagne"  id="tbtn-campagne"  tabindex="0">📅 Recrutement</button>
     <button class="tab-btn" data-tab="formulaire" role="tab" aria-selected="false" aria-controls="tab-formulaire" id="tbtn-formulaire" tabindex="-1">📝 Formulaire</button>
     <button class="tab-btn" data-tab="entretien"  role="tab" aria-selected="false" aria-controls="tab-entretien"  id="tbtn-entretien"  tabindex="-1">🎙 Entretien</button>
     <button class="tab-btn" data-tab="staff"      role="tab" aria-selected="false" aria-controls="tab-staff"      id="tbtn-staff"      tabindex="-1">👥 Staff</button>
@@ -165,6 +165,26 @@
               </div>
             </div>
 
+            <!-- Jours sans entretien -->
+            <div class="form-group">
+              <span class="form-label" id="camp-jours-label">Jours d'entretien</span>
+              <div class="jours-semaine" role="group" aria-labelledby="camp-jours-label">
+                <label><input type="checkbox" data-jour="1" checked> Lun.</label>
+                <label><input type="checkbox" data-jour="2" checked> Mar.</label>
+                <label><input type="checkbox" data-jour="3" checked> Mer.</label>
+                <label><input type="checkbox" data-jour="4" checked> Jeu.</label>
+                <label><input type="checkbox" data-jour="5" checked> Ven.</label>
+                <label><input type="checkbox" data-jour="6" checked> Sam.</label>
+                <label><input type="checkbox" data-jour="0" checked> Dim.</label>
+              </div>
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;">
+                <input class="form-input" type="date" id="camp-jour-retire" aria-label="Date à retirer" style="max-width:190px;" />
+                <button type="button" class="btn btn-secondary btn-sm" id="camp-jour-retirer">Retirer ce jour</button>
+              </div>
+              <div id="camp-jours-retires" class="jours-retires"></div>
+              <span class="form-hint">Décoche les jours sans entretien (le week-end par exemple) et retire des dates précises (jour férié, partiels). Ils disparaissent du formulaire et de la page des dispos. Un entretien déjà posé ce jour-là reste dans le planning.</span>
+            </div>
+
             <div class="form-row-3">
               <div class="form-group">
                 <label class="form-label" for="camp-duree">Durée d'un entretien</label>
@@ -177,12 +197,16 @@
                 <span class="form-hint">En minutes (0 = à la suite).</span>
               </div>
               <div class="form-group">
-                <label class="form-label" for="camp-nb-jurys">Jurys par entretien</label>
+                <label class="form-label" for="camp-nb-jurys">Jurés par entretien (minimum)</label>
                 <input class="form-input" type="number" id="camp-nb-jurys" value="2" min="1" max="3" />
-                <span class="form-hint">Entre 1 et 3.</span>
+                <span class="form-hint">Entre 1 et 3. Il en faut autant de libres pour ouvrir un créneau.</span>
               </div>
             </div>
 
+            <details class="reglages-avances" id="reglages-avances">
+              <summary>Réglages avancés <span class="text-sm text-muted" id="reglages-avances-resume"></span></summary>
+              <div class="stack" style="margin-top:14px;">
+                <div class="reglages-titre">Créneaux</div>
             <div class="form-group">
               <label class="form-label" for="camp-delai">Délai minimum avant un entretien</label>
               <select class="form-select" id="camp-delai" style="max-width:260px;">
@@ -220,6 +244,32 @@
             </div>
 
             <div class="form-group">
+              <label class="form-label" for="camp-max-parallele">Entretiens en même temps (maximum)</label>
+              <input class="form-input" type="number" id="camp-max-parallele" value="0" min="0" max="50"
+                     style="max-width:220px;" />
+              <span class="form-hint">
+                Par exemple le nombre de salles dont vous disposez. Un créneau passe « Complet » dès que
+                ce nombre d'entretiens a lieu en même temps, même s'il reste des jurés libres. Un entretien
+                à deux compte pour un. <strong>0 = pas de limite</strong> (seuls les jurés libres comptent).
+              </span>
+            </div>
+
+                <div class="reglages-titre">Staffeurs</div>
+            <div class="form-group">
+              <label class="form-label" for="camp-nb-jurys-max">Juré en plus quand quelqu'un est libre</label>
+              <select class="form-select" id="camp-nb-jurys-max" style="max-width:260px;">
+                <option value="">Non, toujours le minimum</option>
+                <option value="2">Oui, jusqu'à 2 jurés</option>
+                <option value="3">Oui, jusqu'à 3 jurés</option>
+              </select>
+              <span class="form-hint">
+                Par exemple 2 minimum et jusqu'à 3 : un 3e staffeur est ajouté à l'entretien s'il est libre,
+                <strong>seulement s'il ne manque à aucun autre cooptant</strong> (on garde toujours de quoi
+                ouvrir un autre entretien). Vaut pour les réservations et le placement automatique.
+              </span>
+            </div>
+
+            <div class="form-group">
               <label class="form-label" for="camp-max-affiles">Entretiens d'affilée par juré</label>
               <input class="form-input" type="number" id="camp-max-affiles" value="4" min="0" max="12"
                      style="max-width:220px;" />
@@ -227,6 +277,18 @@
                 Les mêmes jurés enchaînent les créneaux qui se suivent, pour mobiliser peu de monde
                 longtemps plutôt que tout le bureau par petits bouts. Au-delà de ce nombre, la relève
                 est forcée. <strong>0 = pas de limite.</strong>
+              </span>
+            </div>
+
+            <div class="form-group">
+              <label class="checkbox-wrap" style="cursor:pointer;">
+                <input type="checkbox" id="camp-jurys-anglais" />
+                <span><strong>Entretiens en anglais : seulement des staffeurs anglophones</strong></span>
+              </label>
+              <span class="form-hint">
+                Un cooptant qui remplit le formulaire en anglais (ou choisit English au stand) ne voit que les créneaux
+                où assez de staffeurs ont coché « Anglais » sur la page des dispos, et ses jurés sont choisis parmi eux.
+                <strong id="camp-jurys-anglais-compte"></strong>
               </span>
             </div>
 
@@ -241,6 +303,9 @@
                 </span>
               </span>
             </label>
+
+              </div>
+            </details>
 
             <label class="checkbox-wrap" style="cursor:pointer;">
               <input type="checkbox" id="camp-appart" />
@@ -258,7 +323,7 @@
                 avec un inconnu : seul celui qui a le lien peut rejoindre.
               </span>
               <div class="form-group" style="max-width:220px;">
-                <label class="form-label" for="camp-max-groupe">Cooptants par entretien</label>
+                <label class="form-label" for="camp-max-groupe">Cooptants max par entretien</label>
                 <input class="form-input" type="number" id="camp-max-groupe" value="2" min="2" max="4" />
                 <span class="form-hint">Le cooptant + ses invités.</span>
               </div>
@@ -292,14 +357,14 @@
           </div>
         </div>
         <div class="flex-gap">
-          <select class="form-select" id="form-campaign-select" style="width:200px;font-size:14px;">
-            <option value="">Campagne</option>
+          <select class="form-select" id="form-campaign-select" style="display:none;width:200px;font-size:14px;">
+            <option value=""></option>
           </select>
           <button class="btn btn-primary btn-sm" id="btn-add-question">+ Ajouter une question</button>
         </div>
       </div>
       <div id="questions-list" class="stack">
-        <p class="text-muted text-sm">Sélectionne une campagne pour gérer ses questions.</p>
+        <p class="text-muted text-sm">Chargement…</p>
       </div>
     </div>
 
@@ -310,6 +375,11 @@
         <div class="form-group">
           <label class="form-label" for="q-label">Libellé de la question <span class="required">*</span></label>
           <input class="form-input" type="text" id="q-label" placeholder="Ex: Pourquoi veux-tu rejoindre l'asso ?" />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="q-label-en">Version anglaise (facultative)</label>
+          <input class="form-input" type="text" id="q-label-en" lang="en" placeholder="Ex: Why do you want to join the association?" />
+          <span class="form-hint">Affichée aux cooptants qui remplissent le formulaire en anglais (bouton FR / EN du formulaire). Vide : la question reste en français.</span>
         </div>
         <div class="form-group">
           <label class="form-label">Image (optionnelle)</label>
@@ -356,6 +426,9 @@
         <div class="form-group" id="q-options-group" style="display:none;">
           <label class="form-label" for="q-options">Options (une par ligne)</label>
           <textarea class="form-textarea" id="q-options" placeholder="Option A&#10;Option B&#10;Option C"></textarea>
+          <label class="form-label" for="q-options-en" style="margin-top:10px;">Options en anglais (facultatif, dans le même ordre)</label>
+          <textarea class="form-textarea" id="q-options-en" lang="en" placeholder="Option A&#10;Option B&#10;Option C"></textarea>
+          <span class="form-hint">Seul le texte affiché change : la réponse enregistrée reste l'option française, pour comparer tout le monde.</span>
         </div>
         <div class="flex-gap">
           <button class="btn btn-primary btn-sm" id="btn-save-question">Ajouter</button>
@@ -363,10 +436,63 @@
         </div>
       </div>
     </div>
+
+    <!-- Traductions : toutes les questions en français et en anglais, côte à côte. -->
+    <div class="card mt-24" id="trad-card">
+      <div class="flex-between mb-16" style="gap:12px;flex-wrap:wrap;">
+        <div class="settings-head">
+          <div class="settings-head-icon">🇬🇧</div>
+          <div>
+            <h2>Formulaire en anglais</h2>
+            <p class="text-sm text-muted mt-4">Les textes de la plateforme sont déjà traduits. Traduisez ici vos questions : sans traduction, une question s'affiche en français aux cooptants anglophones. <strong id="trad-compte"></strong></p>
+          </div>
+        </div>
+        <a class="btn btn-ghost btn-sm" id="trad-apercu" target="_blank" rel="noopener">Voir le formulaire en anglais ↗</a>
+      </div>
+      <div class="stack" id="trad-liste"><p class="text-muted text-sm">Chargement…</p></div>
+      <div class="flex-gap mt-16"><button class="btn btn-primary btn-sm" id="btn-save-trad">Enregistrer les traductions</button></div>
+    </div>
+
+    <!-- Mode stand : champs demandés quand le bureau inscrit quelqu'un sur place. -->
+    <div class="card mt-24" id="stand-card">
+      <div class="settings-head mb-16">
+        <div class="settings-head-icon">📍</div>
+        <div>
+          <h2>Mode stand</h2>
+          <p class="text-sm text-muted mt-4">Pour inscrire quelqu'un sur place en quelques secondes, depuis le bouton <strong>📍 Mode stand</strong> du tableau de bord, ou le <strong>📍 Lien stand</strong> à envoyer à ceux qui tiennent les stands (pas besoin de compte). Prénom, nom et créneau sont toujours demandés, sans délai minimum. Choisissez ce qu'on demande en plus : l'inscription s'arrête là, la personne n'a rien à remplir ensuite (le QR code affiché à la fin lui sert à retrouver son entretien).</p>
+        </div>
+      </div>
+      <div class="stack" id="stand-champs"><p class="text-muted text-sm">Chargement…</p></div>
+      <div class="flex-gap mt-16">
+        <button class="btn btn-primary btn-sm" id="btn-save-stand">Enregistrer</button>
+      </div>
+    </div>
   </div>
 
   <!-- ── Tab: Entretien ─────────────────────────────────────────── -->
   <div class="tab-panel" id="tab-entretien" role="tabpanel" aria-labelledby="tbtn-entretien" tabindex="0">
+
+    <!-- Lien public d'évaluation : quels cooptants il laisse voir. -->
+    <div class="card mb-24">
+      <div class="settings-head mb-16">
+        <div class="settings-head-icon teal">🎙</div>
+        <div>
+          <h2>Lien d'évaluation du jury</h2>
+          <p class="text-sm text-muted mt-4">
+            Ce lien circule dans tout le staff : il ne montre que les cooptants dont l'entretien a lieu autour
+            de maintenant, avec leurs réponses au formulaire, pas toute la liste.
+          </p>
+        </div>
+      </div>
+      <div class="form-group" style="max-width:360px;">
+        <label class="form-label" for="camp-fenetre-eval">Cooptants proposés</label>
+        <select class="form-select" id="camp-fenetre-eval">
+          <option value="deux-heures">Entretiens de 2 h avant à 2 h après maintenant</option>
+          <option value="journee">Tous les entretiens du jour</option>
+        </select>
+      </div>
+      <button class="btn btn-primary btn-sm mt-16" id="btn-save-fenetre-eval">Enregistrer</button>
+    </div>
 
     <!-- Consignes & guide de questions : texte libre propre à chaque asso -->
     <div class="card mb-24">
@@ -418,14 +544,14 @@
           </div>
         </div>
         <div class="flex-gap">
-          <select class="form-select" id="crit-campaign-select" style="width:200px;font-size:14px;">
-            <option value="">Campagne</option>
+          <select class="form-select" id="crit-campaign-select" style="display:none;width:200px;font-size:14px;">
+            <option value=""></option>
           </select>
           <button class="btn btn-primary btn-sm" id="btn-add-criterion">+ Ajouter un critère</button>
         </div>
       </div>
       <div id="criteria-list" class="stack">
-        <p class="text-muted text-sm">Sélectionne une campagne pour gérer ses critères d'entretien.</p>
+        <p class="text-muted text-sm">Chargement…</p>
       </div>
     </div>
 
@@ -761,7 +887,7 @@ import { getFirestore, collection, query, where, getDocs, doc, getDoc, setDoc, u
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
-import { showToast, confirmDialog, campaignConfig, esc } from '/js/utils.js';
+import { showToast, confirmDialog, campaignConfig, esc, CAMPAIGN_CONFIG_DEFAULTS } from '/js/utils.js';
 import { heureFinValide, pasCreneauxValide } from '/js/capacite.js';
 import { initBurgerMenu } from '/js/nav.js';
 import { mettreEnCorbeille, cooptantEnCorbeille, listerCorbeille, restaurer, viderEntree, DUREE_CORBEILLE_JOURS }
@@ -905,6 +1031,31 @@ async function loadCampaigns() {
   // nbJurys était réglable jusqu'à 4 alors que seuls jury1Id..jury3Id existent
   // en base : on borne à 3 pour rester cohérent avec le planning.
   document.getElementById('camp-nb-jurys').value  = Math.min(3, cfg.nbJurys);
+  document.getElementById('camp-jurys-anglais').checked = !!cfg.jurysAnglaisRequis;
+  {
+    // Titre du bloc replié : combien de réglages avancés s'écartent du défaut.
+    const d = CAMPAIGN_CONFIG_DEFAULTS;
+    const modifies = [
+      +cfg.delaiReservationJours !== d.delaiReservationJours, +cfg.pasCreneauxMinutes !== d.pasCreneauxMinutes,
+      +cfg.heureFin !== d.heureFin, !!+cfg.maxEntretiensParallele,
+      !!cfg.nbJurysMax && +cfg.nbJurysMax > +cfg.nbJurys, +cfg.maxEntretiensAffiles !== d.maxEntretiensAffiles,
+      !!cfg.jurysAnglaisRequis, !!cfg.staffToujoursDispo,
+    ].filter(Boolean).length;
+    document.getElementById('reglages-avances-resume').textContent = modifies
+      ? `· ${modifies} réglage${modifies > 1 ? 's' : ''} modifié${modifies > 1 ? 's' : ''}` : '· tout est par défaut';
+  }
+  // Combien de staffeurs ont coché l'anglais : sans eux, activer le réglage
+  // ne laisserait aucun créneau aux cooptants anglophones.
+  getDocs(query(collection(db, 'staff_availabilities'), where('campaignId', '==', c.id)))
+    .then(snap => {
+      const n = snap.docs.filter(d => (d.data().langues || []).includes('en')).length;
+      document.getElementById('camp-jurys-anglais-compte').textContent =
+        `Aujourd'hui : ${n} staffeur${n > 1 ? 's' : ''} sur ${snap.size} ${n > 1 ? 'ont' : 'a'} coché l'anglais.`;
+    }).catch(() => {});
+  {
+    const max = parseInt(cfg.nbJurysMax, 10) || 0;
+    document.getElementById('camp-nb-jurys-max').value = max > Math.min(3, cfg.nbJurys) ? String(Math.min(3, max)) : '';
+  }
   document.getElementById('camp-nb-places').value = c.nbPlaces ?? 0;
   document.getElementById('camp-appart').checked  = cfg.permettreAppart;
   document.getElementById('camp-battement').value = cfg.battementMinutes;
@@ -916,7 +1067,13 @@ async function loadCampaigns() {
   if (![...selDelai.options].some(o => o.value === delai)) selDelai.add(new Option(`${delai} jours`, delai));
   selDelai.value = delai;
   document.getElementById('camp-max-affiles').value = cfg.maxEntretiensAffiles;
+  document.getElementById('camp-max-parallele').value = cfg.maxEntretiensParallele;
   document.getElementById('camp-staff-libre').checked = cfg.staffToujoursDispo;
+  document.querySelectorAll('.jours-semaine input[data-jour]').forEach(cb => {
+    cb.checked = !(cfg.joursSemaineExclus || []).includes(Number(cb.dataset.jour));
+  });
+  joursRetires = [...(cfg.joursExclus || [])].sort();
+  afficherJoursRetires();
   document.getElementById('camp-date-debut').value = cfg.dateDebut || '';
   document.getElementById('camp-date-fin').value   = cfg.dateFin   || '';
   document.getElementById('camp-deadline').value   = cfg.deadlineCandidature || '';
@@ -933,6 +1090,7 @@ async function loadCampaigns() {
   // l'enregistrement de l'onglet Campagne (qui remplace `config` en entier)
   // ne puisse jamais les effacer.
   document.getElementById('camp-consignes').value       = c.consignesEntretien || '';
+  document.getElementById('camp-fenetre-eval').value = campaignConfig(c).fenetreEvaluation === 'journee' ? 'journee' : 'deux-heures';
   document.getElementById('camp-guide-questions').value = c.guideQuestions     || '';
 
   selectedFormCampaignId = c.id;
@@ -987,6 +1145,28 @@ document.getElementById('camp-ouvert').addEventListener('change', async e => {
   }
 });
 
+// ── Dates retirées (jour férié, partiels…) ────────────────────────
+let joursRetires = [];
+function afficherJoursRetires() {
+  const zone = document.getElementById('camp-jours-retires');
+  zone.innerHTML = joursRetires.map(j => {
+    const d = new Date(j + 'T00:00:00');
+    const libelle = d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+    return `<span class="jour-retire">${esc(libelle)}<button type="button" data-jour="${esc(j)}" aria-label="Remettre le ${esc(libelle)}" title="Remettre ce jour">×</button></span>`;
+  }).join('');
+  zone.querySelectorAll('button[data-jour]').forEach(b => b.addEventListener('click', () => {
+    joursRetires = joursRetires.filter(j => j !== b.dataset.jour);
+    afficherJoursRetires();
+  }));
+}
+document.getElementById('camp-jour-retirer').addEventListener('click', () => {
+  const champ = document.getElementById('camp-jour-retire');
+  if (!champ.value) return showToast('Choisis une date à retirer.', 'error');
+  if (!joursRetires.includes(champ.value)) joursRetires = [...joursRetires, champ.value].sort();
+  champ.value = '';
+  afficherJoursRetires();
+});
+
 document.getElementById('campaign-form').addEventListener('submit', async e => {
   e.preventDefault();
   if (!standingCampaign) return;
@@ -1015,6 +1195,12 @@ document.getElementById('campaign-form').addEventListener('submit', async e => {
       ...campaignConfig(standingCampaign),
       dureeMinutes:    parseInt(document.getElementById('camp-duree').value) || 30,
       nbJurys:         Math.min(3, parseInt(document.getElementById('camp-nb-jurys').value) || 1),
+      // Juré en plus : au-dessus du minimum seulement, sinon « non » (null).
+      nbJurysMax: (() => {
+        const min = Math.min(3, parseInt(document.getElementById('camp-nb-jurys').value) || 1);
+        const max = parseInt(document.getElementById('camp-nb-jurys-max').value, 10) || 0;
+        return max > min ? Math.min(3, max) : null;
+      })(),
       permettreAppart: document.getElementById('camp-appart').checked,
       battementMinutes: Math.max(0, parseInt(document.getElementById('camp-battement').value) || 0),
       heureFin:        heureFinValide(document.getElementById('camp-heure-fin').value),
@@ -1022,10 +1208,16 @@ document.getElementById('campaign-form').addEventListener('submit', async e => {
       delaiReservationJours: Math.max(0, Math.min(14, parseInt(document.getElementById('camp-delai').value, 10) || 0)),
       maxEntretiensAffiles: Math.max(0, Math.min(12,
         parseInt(document.getElementById('camp-max-affiles').value) || 0)),
+      jurysAnglaisRequis: document.getElementById('camp-jurys-anglais').checked,
+      maxEntretiensParallele: Math.max(0, Math.min(50,
+        parseInt(document.getElementById('camp-max-parallele').value, 10) || 0)),
       staffToujoursDispo: document.getElementById('camp-staff-libre').checked,
       modeRdv:         document.querySelector('input[name="camp-mode-rdv"]:checked')?.value || 'creneaux',
       dateDebut,
       dateFin,
+      joursSemaineExclus: [...document.querySelectorAll('.jours-semaine input[data-jour]')]
+        .filter(cb => !cb.checked).map(cb => Number(cb.dataset.jour)),
+      joursExclus: [...joursRetires],
       deadlineCandidature: document.getElementById('camp-deadline').value || null,
       avecEntretien:   document.getElementById('camp-avec-entretien').checked,
       entretienCollectif: document.getElementById('camp-collectif').checked,
@@ -1120,6 +1312,8 @@ function _openQuestionForm(q = null, index = null) {
   document.getElementById('q-form-title').textContent = q ? 'Modifier la question' : 'Nouvelle question';
   document.getElementById('btn-save-question').textContent = q ? 'Enregistrer' : 'Ajouter';
   document.getElementById('q-label').value = q?.label || '';
+  document.getElementById('q-label-en').value = q?.labelEn || '';
+  document.getElementById('q-options-en').value = q?.optionsEn?.join('\n') || '';
   document.getElementById('q-type').value = q?.type || 'text';
   document.getElementById('q-required').checked = q?.required || false;
   document.getElementById('q-options').value = q?.options?.join('\n') || '';
@@ -1144,7 +1338,7 @@ function _openQuestionForm(q = null, index = null) {
 }
 
 document.getElementById('btn-add-question').addEventListener('click', () => {
-  if (!selectedFormCampaignId) return showToast('Sélectionne une campagne d\'abord.', 'error');
+  if (!selectedFormCampaignId) return showToast('Chargement en cours, réessaie dans un instant.', 'info');
   _openQuestionForm();
 });
 
@@ -1166,7 +1360,15 @@ document.getElementById('btn-save-question').addEventListener('click', async () 
   };
   if (q.type === 'select') {
     q.options = document.getElementById('q-options').value.split('\n').map(s => s.trim()).filter(Boolean);
+    const optionsEn = document.getElementById('q-options-en').value.split('\n').map(s => s.trim()).filter(Boolean);
+    if (optionsEn.length) q.optionsEn = optionsEn;
   }
+  const labelEn = document.getElementById('q-label-en').value.trim();
+  if (labelEn) q.labelEn = labelEn;
+  // Texte d'aide saisi ailleurs (anciennes questions) : ne pas le perdre en modifiant.
+  const avant = _editingQuestionIndex !== null ? _questions[_editingQuestionIndex] : null;
+  if (avant?.placeholder) q.placeholder = avant.placeholder;
+  if (avant?.placeholderEn) q.placeholderEn = avant.placeholderEn;
 
   // Upload image vers Firebase Storage (si nouveau fichier)
   if (_qImageFile) {
@@ -1292,16 +1494,120 @@ async function deplacerQuestion(de, vers) {
 
 async function renderQuestions() {
   const el = document.getElementById('questions-list');
-  if (!selectedFormCampaignId) { el.innerHTML = '<p class="text-muted text-sm">Sélectionne une campagne.</p>'; return; }
+  if (!selectedFormCampaignId) { el.innerHTML = '<p class="text-muted text-sm">Chargement…</p>'; return; }
   el.innerHTML = '<div class="spinner" style="margin:16px auto;display:block;"></div>';
   const campDoc = await getDoc(doc(db, 'campaigns', selectedFormCampaignId));
   _questions = campDoc.data()?.formConfig?.customQuestions || [];
+  _standCfg  = campaignConfig(campDoc.data() || {});
   dessinerQuestions();
 }
 
 let _dragQuestionIndex = null;
 
+// ─── Mode stand ───────────────────────────────────────────────────
+let _standCfg = null;   // réglages de la campagne affichée
+
+/** Cases « à demander sur le stand » : l'email, puis chaque question. */
+function dessinerStand() {
+  const el = document.getElementById('stand-champs');
+  if (!el || !_standCfg) return;
+  const choisies = new Set(_standCfg.standQuestions || []);
+  const ligne = (id, texte, coche, detail = '') => `
+    <label class="checkbox-wrap" style="cursor:pointer;">
+      <input type="checkbox" data-stand="${id}" ${coche ? 'checked' : ''} />
+      <span>${texte}${detail ? ` <span class="text-muted text-sm">· ${detail}</span>` : ''}</span>
+    </label>`;
+  el.innerHTML = ligne('__email', 'Email emlyon', _standCfg.standEmail !== false,
+      'facultatif sur le stand')
+    + (_questions.length
+      ? _questions.map(q => ligne(esc(q.id || ''), esc(q.label), q.id && choisies.has(q.id), q.required ? 'obligatoire' : '')).join('')
+      : '<p class="text-muted text-sm">Aucune question personnalisée.</p>');
+}
+
+document.getElementById('btn-save-stand').addEventListener('click', async () => {
+  if (!selectedFormCampaignId) return showToast('Chargement en cours, réessaie dans un instant.', 'info');
+  const btn = document.getElementById('btn-save-stand');
+  btn.disabled = true;
+  try {
+    // Les questions sont désignées par leur identifiant : on s'assure qu'elles en ont un.
+    if (_questions.some(q => !q.id)) await persisterQuestions(_questions);
+    const cases = [...document.querySelectorAll('#stand-champs [data-stand]')];
+    const standEmail = cases.find(c => c.dataset.stand === '__email')?.checked !== false;
+    const standQuestions = cases
+      .map((c, i) => c.dataset.stand === '__email' || !c.checked ? null : (_questions[i - 1]?.id || null))
+      .filter(Boolean);
+    // Chemins pointés : on ne touche à aucun autre réglage de la campagne.
+    await updateDoc(doc(db, 'campaigns', selectedFormCampaignId),
+      { 'config.standEmail': standEmail, 'config.standQuestions': standQuestions });
+    _standCfg = { ..._standCfg, standEmail, standQuestions };
+    showToast('Mode stand enregistré.', 'success');
+    dessinerStand();
+  } catch (err) { showToast('Erreur : ' + err.message, 'error'); }
+  finally { btn.disabled = false; }
+});
+
+// ─── Traductions (formulaire en anglais) ──────────────────────────
+/** Une question est-elle entièrement traduite (libellé, options, texte de la case) ? */
+function questionTraduite(q) {
+  if (!q.labelEn) return false;
+  if (q.type === 'select' && (q.options || []).length && (q.optionsEn || []).length < q.options.length) return false;
+  if (q.type === 'checkbox' && q.placeholder && !q.placeholderEn) return false;
+  return true;
+}
+
+function dessinerTraductions() {
+  const el = document.getElementById('trad-liste');
+  if (!el) return;
+  const apercu = document.getElementById('trad-apercu');
+  if (currentOrg) apercu.href = `/postuler.html?org=${encodeURIComponent(currentOrg.slug || currentOrg.id)}&lang=en`;
+  if (!_questions.length) { el.innerHTML = '<p class="text-muted text-sm">Aucune question personnalisée.</p>'; document.getElementById('trad-compte').textContent = ''; return; }
+  const faites = _questions.filter(questionTraduite).length;
+  document.getElementById('trad-compte').textContent = faites === _questions.length
+    ? 'Tout est traduit ✓'
+    : `${_questions.length - faites} question${_questions.length - faites > 1 ? 's' : ''} à traduire.`;
+  el.innerHTML = _questions.map((q, i) => `
+    <div class="q-row" style="display:grid;gap:8px;">
+      <div style="display:flex;gap:8px;align-items:center;">
+        <span class="badge ${questionTraduite(q) ? 'badge-green' : 'badge-orange'}" style="font-size:10px;">${questionTraduite(q) ? 'Traduite' : 'À traduire'}</span>
+        <strong style="font-size:13.5px;">${esc(q.label)}</strong>
+      </div>
+      <input class="form-input" data-trad="label" data-i="${i}" lang="en" placeholder="English version of the question" value="${esc(q.labelEn || '')}" />
+      ${q.type === 'select' && (q.options || []).length ? `
+        <div class="text-sm text-muted">Options en français : ${q.options.map(esc).join(' · ')}</div>
+        <textarea class="form-textarea" data-trad="options" data-i="${i}" lang="en" rows="${Math.min(6, q.options.length)}" placeholder="Une option par ligne, dans le même ordre">${esc((q.optionsEn || []).join('\n'))}</textarea>` : ''}
+      ${q.type === 'checkbox' && q.placeholder ? `
+        <div class="text-sm text-muted">Texte de la case : ${esc(q.placeholder)}</div>
+        <input class="form-input" data-trad="placeholder" data-i="${i}" lang="en" placeholder="Checkbox text in English" value="${esc(q.placeholderEn || '')}" />` : ''}
+    </div>`).join('');
+}
+
+document.getElementById('btn-save-trad').addEventListener('click', async () => {
+  if (!selectedFormCampaignId) return showToast('Chargement en cours, réessaie dans un instant.', 'info');
+  const qs = _questions.map(q => ({ ...q }));
+  document.querySelectorAll('#trad-liste [data-trad]').forEach(el => {
+    const q = qs[Number(el.dataset.i)];
+    if (!q) return;
+    const v = el.value.trim();
+    if (el.dataset.trad === 'label') { if (v) q.labelEn = v; else delete q.labelEn; }
+    if (el.dataset.trad === 'options') {
+      const opts = v.split('\n').map(x => x.trim()).filter(Boolean);
+      if (opts.length) q.optionsEn = opts; else delete q.optionsEn;
+    }
+    if (el.dataset.trad === 'placeholder') { if (v) q.placeholderEn = v; else delete q.placeholderEn; }
+  });
+  const btn = document.getElementById('btn-save-trad');
+  btn.disabled = true;
+  try {
+    await persisterQuestions(qs);
+    showToast('Traductions enregistrées.', 'success');
+    dessinerQuestions();
+  } catch (err) { showToast('Erreur : ' + err.message, 'error'); }
+  finally { btn.disabled = false; }
+});
+
 function dessinerQuestions() {
+  dessinerStand();
+  dessinerTraductions();
   const el = document.getElementById('questions-list');
   if (!_questions.length) { el.innerHTML = '<p class="text-muted text-sm">Aucune question personnalisée.</p>'; return; }
   el.innerHTML = '';
@@ -1318,7 +1624,7 @@ function dessinerQuestions() {
         <div class="q-num">${i + 1}</div>
         <div style="flex:1;min-width:0;">
           <div style="font-weight:600;">${esc(q.label)}</div>
-          <div class="text-sm text-muted">${Q_TYPE_LABELS[q.type] || q.type} · ${q.required ? 'Obligatoire' : 'Optionnel'}</div>
+          <div class="text-sm text-muted">${Q_TYPE_LABELS[q.type] || q.type} · ${q.required ? 'Obligatoire' : 'Optionnel'}${q.labelEn ? ' · 🇬🇧 traduite' : ''}</div>
         </div>
         <div class="q-moves">
           <button class="q-move" data-dir="-1" title="Monter" aria-label="Monter la question ${i + 1}"${i === 0 ? ' disabled' : ''}>↑</button>
@@ -1422,7 +1728,7 @@ function _openCriterionForm(cr = null, index = null) {
 }
 
 document.getElementById('btn-add-criterion').addEventListener('click', () => {
-  if (!selectedCritCampaignId) return showToast('Sélectionne une campagne d\'abord.', 'error');
+  if (!selectedCritCampaignId) return showToast('Chargement en cours, réessaie dans un instant.', 'info');
   _openCriterionForm();
 });
 
@@ -1475,7 +1781,7 @@ document.getElementById('btn-save-criterion').addEventListener('click', async ()
 
 async function renderCriteria() {
   const el = document.getElementById('criteria-list');
-  if (!selectedCritCampaignId) { el.innerHTML = '<p class="text-muted text-sm">Sélectionne une campagne.</p>'; return; }
+  if (!selectedCritCampaignId) { el.innerHTML = '<p class="text-muted text-sm">Chargement…</p>'; return; }
   el.innerHTML = '<div class="spinner" style="margin:16px auto;display:block;"></div>';
   const campDoc = await getDoc(doc(db, 'campaigns', selectedCritCampaignId));
   const criteria = campDoc.data()?.interviewCriteria || [];
@@ -2068,7 +2374,7 @@ document.getElementById('btn-gen-invite-code').addEventListener('click', async (
 });
 
 // ─── Corbeille ────────────────────────────────────────────────────
-const TYPES_CORBEILLE = { cooptant: 'Cooptant', dispos: 'Dispos', orphelins: 'Entretiens' };
+const TYPES_CORBEILLE = { cooptant: 'Cooptant', dispos: 'Dispos', orphelins: 'Entretiens', entretien: 'Entretien' };
 
 async function chargerCorbeille() {
   const liste = document.getElementById('corbeille-list');
@@ -2133,6 +2439,17 @@ async function chargerCorbeille() {
   }
 }
 
+// Lien d'évaluation : chemin pointé, pour ne toucher à aucun autre réglage.
+document.getElementById('btn-save-fenetre-eval').addEventListener('click', async () => {
+  if (!standingCampaign) return showToast('Chargement en cours, réessaie dans un instant.', 'info');
+  const v = document.getElementById('camp-fenetre-eval').value === 'journee' ? 'journee' : 'deux-heures';
+  try {
+    await updateDoc(doc(db, 'campaigns', standingCampaign.id), { 'config.fenetreEvaluation': v });
+    standingCampaign.config = { ...(standingCampaign.config || {}), fenetreEvaluation: v };
+    showToast('Lien d\'évaluation mis à jour.', 'success');
+  } catch (err) { showToast('Erreur : ' + err.message, 'error'); }
+});
+
 // ─── Zone de danger ───────────────────────────────────────────────
 document.getElementById('btn-reset-candidates').addEventListener('click', async () => {
   if (!currentOrg || !standingCampaign) return showToast('Organisation non chargée.', 'error');
@@ -2146,21 +2463,27 @@ document.getElementById('btn-reset-candidates').addEventListener('click', async 
     // Les entretiens font partie du lot : ne supprimer que les cooptants
     // laissait un entretien par personne, sans nom rattachable, qui continuait
     // d'occuper le planning et de bloquer des créneaux.
-    const [candSnap, ivSnap, evalSnap] = await Promise.all([
+    const [candSnap, ivSnap, evalSnap, notesSnap] = await Promise.all([
       getDocs(query(collection(db, 'candidates'),            where('campaignId', '==', standingCampaign.id))),
       getDocs(query(collection(db, 'interviews'),            where('campaignId', '==', standingCampaign.id))),
       getDocs(query(collection(db, 'interview_evaluations'), where('organizationId', '==', currentOrg.id))),
+      getDocs(query(collection(db, 'notes_internes'),        where('organizationId', '==', currentOrg.id))),
     ]);
 
     // Une entrée de corbeille par cooptant (avec son entretien et son
     // évaluation) : on peut ensuite en restaurer un seul.
-    const parCooptant = new Map(candSnap.docs.map(d => [d.id, { cand: d, ivs: [], evals: [] }]));
+    const parCooptant = new Map(candSnap.docs.map(d => [d.id, { cand: d, ivs: [], evals: [], notes: [] }]));
     const orphelins = [];
     ivSnap.docs.forEach(d => (parCooptant.get(d.data().candidateId)?.ivs ?? orphelins).push(d));
     evalSnap.docs.forEach(d => (parCooptant.get(d.data().candidateId)?.evals ?? orphelins).push(d));
+    // Notes internes de cette campagne : avec leur cooptant.
+    notesSnap.docs
+      .filter(d => !d.data().campaignId || d.data().campaignId === standingCampaign.id)
+      .forEach(d => (parCooptant.get(d.data().candidateId)?.notes ?? orphelins).push(d));
 
-    const taches = [...parCooptant.values()].map(({ cand, ivs, evals }) =>
-      () => cooptantEnCorbeille(db, { id: cand.id, ...cand.data() }, ivs, evals, currentOrg.id, user?.email || null));
+    const taches = [...parCooptant.values()].map(({ cand, ivs, evals, notes }) =>
+      () => cooptantEnCorbeille(db, { id: cand.id, ...cand.data() }, ivs, evals, currentOrg.id, user?.email || null,
+        notes.map(n => ({ id: n.id, data: n.data() }))));
     // Entretiens et évaluations sans cooptant : regroupés par paquets.
     for (let i = 0; i < orphelins.length; i += 400) {
       const paquet = orphelins.slice(i, i + 400);

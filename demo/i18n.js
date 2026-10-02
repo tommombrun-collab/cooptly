@@ -80,6 +80,9 @@
   }
 
   const IGNORER = 'script, style, textarea, code, [contenteditable], [data-i18n-skip], .demo-pastille, .demo-accueil';
+  // Attributs : le contenu d'une zone de texte reste tel quel, mais son
+  // placeholder (l'exemple affiché quand elle est vide) se traduit.
+  const IGNORER_ATTRS = 'script, style, code, [contenteditable], [data-i18n-skip], .demo-pastille, .demo-accueil';
   const ATTRS = ['placeholder', 'title', 'aria-label', 'alt'];
 
   function texteNoeud(t) {
@@ -89,7 +92,7 @@
     if (en != null) t.data = en;
   }
   function attributs(el) {
-    if (el.closest(IGNORER)) return;
+    if (el.closest(IGNORER_ATTRS) || el.parentElement?.closest('textarea')) return;
     for (const a of ATTRS) {
       const v = el.getAttribute(a);
       if (!v) continue;
@@ -147,7 +150,7 @@
     }
     document.querySelectorAll('[placeholder],[title],[aria-label]').forEach(el => ATTRS.forEach(a => {
       const v = el.getAttribute(a);
-      if (v && francais(v) && !el.closest(IGNORER)) reste.add(`[${a}] ${v}`);
+      if (v && francais(v) && !el.closest(IGNORER_ATTRS)) reste.add(`[${a}] ${v}`);
     }));
     return [...reste];
   };
