@@ -1,34 +1,16 @@
 /**
- * Calcul du score de classement, tel qu'il tourne vraiment dans candidats.html.
- *
- * Ce bloc vit dans une page HTML et n'est donc pas importable : on l'extrait de
- * la source entre deux ancres, on l'enveloppe dans une fonction et on l'exécute.
- * Si une ancre disparaît, le test échoue avec un message qui dit quoi faire,
- * plutôt que de passer en silence sur du code qui n'est plus testé.
+ * Calcul du score de classement (public/js/score.js), celui qu'utilisent la
+ * page Cooptants et la fiche du cooptant.
  */
 import test from 'node:test';
 import assert from 'node:assert';
-import { readFileSync, writeFileSync, mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-const ANCRE_DEBUT = "  const SCORED_TYPES = ['echelle', 'note'];";
-const ANCRE_FIN   = '    // noteGlobale average';
-
-const src = readFileSync('public/secge/candidats.html', 'utf8');
-assert.ok(src.includes(ANCRE_DEBUT) && src.includes(ANCRE_FIN),
-  `Ancres introuvables dans candidats.html. Le calcul du score a bougé : ` +
-  `remettre les ancres à jour dans ce test, sinon il ne teste plus rien.`);
-
-const bloc = src.slice(src.indexOf(ANCRE_DEBUT), src.indexOf(ANCRE_FIN)) + '  });\n';
-const utils = pathToFileURL(resolve('public/js/utils.js')).href;
-const fichier = join(mkdtempSync(join(tmpdir(), 'score-')), 'bloc.mjs');
-writeFileSync(fichier,
-  `import { normaliserNote } from ${JSON.stringify(utils)};\n` +
-  `export function calculer(criteriaConfig, allCandidates, evalsByCandidate) {\n${bloc}\n` +
-  `  return allCandidates;\n}\n`);
-const { calculer } = await import(pathToFileURL(fichier).href);
+const { calculerScores } = await import(pathToFileURL(resolve('public/js/score.js')).href);
+/** Même appel que la page : critères, cooptants, et leurs évaluations. */
+const calculer = (criteres, cands, parCooptant) =>
+  calculerScores(criteres, cands, Object.entries(parCooptant).flatMap(([id, evs]) => evs.map(e => ({ candidateId: id, ...e }))));
 
 const CRITERES = [
   { id: 'c1', type: 'echelle', max: 5,  label: 'Motivation' },

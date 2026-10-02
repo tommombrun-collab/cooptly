@@ -486,31 +486,37 @@
         <div class="aide-section-icon" style="background:var(--indigo-light);">👥</div>
         <div>
           <h2>Managing candidates</h2>
-          <div class="aide-section-subtitle">List, filters, statuses and export</div>
+          <div class="aide-section-subtitle">Table, record, filters, statuses and export</div>
         </div>
       </div>
 
-      <p>The <strong>Candidates</strong> tab lists every application received. Three views are available from the tabs at the top:</p>
+      <p>The <strong>Candidates</strong> tab has two views:</p>
       <div class="two-col" style="margin-bottom:10px;">
         <div class="mini-card">
-          <div class="mini-card-title">📋 List</div>
-          <div class="mini-card-body">Every application with its status, score, notes and availability. Expand an entry to see the full details and change the status.</div>
+          <div class="mini-card-title">👥 Candidates</div>
+          <div class="mini-card-body">A compact table, one row per candidate: interview, panel, status, number of evaluations, score, and 📝 if they have an internal note. Click a row to open their record.</div>
         </div>
         <div class="mini-card">
           <div class="mini-card-title">🏆 Ranking</div>
-          <div class="mini-card-body">Automatic sorting by score, or reorder by hand. Set the number of places to see who falls above or below the cut-off line.</div>
-        </div>
-        <div class="mini-card">
-          <div class="mini-card-title">📊 Evaluations</div>
-          <div class="mini-card-body">At a glance: who has been evaluated, how many interviewers have filled in a form, and direct access to the evaluation form.</div>
+          <div class="mini-card-body">Sorting by score or manual order, number of places and cut-off line, deliberation mode.</div>
         </div>
       </div>
 
-      <h3>Filtering and searching</h3>
+      <h3>Searching, filtering, sorting</h3>
       <ul>
-        <li><strong>Search bar</strong>: filters by first name, surname or email as you type.</li>
-        <li><strong>Status filter</strong>: shows only candidates at a given stage.</li>
+        <li><strong>Search</strong>: first name, surname or email, ignoring accents.</li>
+        <li><strong>Filter chips</strong>: Received, Scheduled, Interview over (they add up), then No interview, Not evaluated, 🇬🇧 English (they stack). The number of candidates shown is on the right.</li>
+        <li><strong>Sorting</strong>: click a column header (Candidate, Interview, Status, Eval., Score); a second click reverses the order. The sort is remembered.</li>
       </ul>
+
+      <h3 id="fiche">📄 A candidate's record</h3>
+      <p>Everything about a candidate is in <strong>a single record</strong>, the same everywhere: from the dashboard, the Candidates page, the ranking, and an interview's <strong>📋 Record</strong> button in the schedule. Three tabs:</p>
+      <ul>
+        <li><strong>Profile</strong>: email, phone, interview (✏️ to change the slot), room, panel, form answers. <strong>✏️ Edit profile</strong> corrects the name, email or an answer.</li>
+        <li><strong>Evaluations</strong>: score, average for each criterion, the panel's answers and comments, and <strong>🎙 Fill in the interview form</strong>.</li>
+        <li><strong>Internal note</strong>: visible only to the board, saved when you leave the field. The note added to the interview in the schedule shows here too.</li>
+      </ul>
+      <p>At the bottom: the <strong>Status</strong> (saved as soon as you change it) and <strong>Delete</strong> (recycle bin, recoverable for 30 days). The <strong>↑ ↓</strong> arrows, or your keyboard's, move to the next candidate in the order shown.</p>
 
       <h3 id="statuts">Candidate statuses</h3>
       <table class="status-table">
@@ -527,9 +533,9 @@
             <td>Self-booking or the schedule</td>
           </tr>
           <tr>
-            <td><span class="badge badge-green">Interviewed</span></td>
-            <td>Interview done, decision pending or made.</td>
-            <td>Secretary General / automatic after evaluation</td>
+            <td><span class="badge badge-green">Interview over</span></td>
+            <td>The interview time has passed. In the <em>Eval.</em> column, a <strong style="color:var(--red);">✗</strong> means no evaluation has been received: the candidate didn't turn up, or the evaluation was forgotten.</td>
+            <td>Automatic (time passed or evaluation received), or by hand</td>
           </tr>
         </tbody>
       </table>
@@ -540,17 +546,19 @@
 
       <div class="callout callout-indigo">
         <span class="callout-icon">💡</span>
-        <span>To change a status: expand the candidate's entry → change the Status drop-down → click <strong>Update</strong>.</span>
+        <span>To change a status: open the candidate's record, then change the <strong>Status</strong> menu at the bottom: it's saved straight away.</span>
       </div>
 
       <h3>Score and visuals</h3>
-      <p>As soon as a candidate has at least one evaluation, a <strong>score ring</strong> (0 to 100%) appears on their entry. The colour shows the level: <strong style="color:var(--green);">green ≥ 70%</strong>, <strong style="color:var(--orange);">orange ≥ 45%</strong>, <strong style="color:var(--red);">red &lt; 45%</strong>.</p>
-      <p>Expand the entry to see the breakdown by criterion (progress bars), Yes/No answers with their tallies, and interviewers' free-text comments.</p>
-      <p>In the <strong>Ranking view</strong>, candidates are sorted by score automatically. You can:</p>
+      <p>As soon as a candidate has at least one evaluation, their <strong>score</strong> (0 to 100%) appears in the table and in their record. The colour shows the level: <strong style="color:var(--green);">green ≥ 70%</strong>, <strong style="color:var(--orange);">orange ≥ 45%</strong>, <strong style="color:var(--red);">red &lt; 45%</strong>.</p>
+      <p>The record's <em>Evaluations</em> tab gives the breakdown by criterion (progress bars), Yes/No answers with their tallies, and interviewers' free-text comments.</p>
+      <p>The <strong>Ranking view</strong> shows one short row per candidate (rank, name, a mini bar for each criterion, score, number of evaluations), so you can see around twenty at once. It starts from the <strong>score</strong>; as soon as you move someone, the order becomes yours and is saved. To move someone:</p>
       <ul>
-        <li>Switch to <strong>manual sorting</strong> to reorder them as you see fit, by dragging or with the ↑↓ arrows.</li>
-        <li>Enter the number of <strong>available places</strong> to show a visual cut-off line.</li>
+        <li><strong>drag the row</strong> by its ⋮⋮ handle;</li>
+        <li>or <strong>click the row</strong> to select it, then <strong>↑ ↓</strong> (with <strong>Shift</strong>: 5 places at a time). <strong>Enter</strong> opens their record, <strong>Esc</strong> deselects it;</li>
+        <li>or <strong>type a rank</strong> in the number box, then Enter.</li>
       </ul>
+      <p>The number of <strong>available places</strong> shows a cut-off line. <strong>↺ Back to score</strong> discards the manual order.</p>
 
       <h3 id="delib">🗳 Deliberation mode</h3>
       <p>Once all interviews are done, the board meets to settle the ranking. The <strong>🗳 Deliberate</strong> button (at the top of the ranking) switches to a <strong>full-screen meeting view</strong>: the rest of the interface disappears, rows and text get bigger so everyone in the room can read them, and a banner shows at all times how many candidates are in.</p>
@@ -562,16 +570,11 @@
       </div>
       <div class="callout callout-indigo">
         <span class="callout-icon">💡</span>
-        <span><strong>↺ Reset order</strong> goes back to sorting by score if you want to start over. The final ranking is also included in the <a href="#export">CSV export</a>, in the <em>Rank</em> column.</span>
+        <span><strong>↺ Back to score</strong> re-sorts by score if you want to start over. The final ranking is also included in the <a href="#export">CSV export</a>, in the <em>Rank</em> column.</span>
       </div>
 
       <h3 id="dossier">📄 Viewing an application during deliberation</h3>
-      <p>The ranking only shows the name, score and criteria. To reread an application without leaving the meeting, click a <strong>candidate's name</strong> (or the <strong>📄</strong> button at the right of their row): a side panel opens with their <strong>form answers</strong>, the <strong>interviewers' free-text answers</strong> and their <strong>comments</strong>.</p>
-      <div class="steps">
-        <div class="step"><div class="step-num">1</div><div class="step-body">On a large screen, the panel <strong>pushes the ranking aside</strong> rather than covering it: you can keep reordering while you read.</div></div>
-        <div class="step"><div class="step-num">2</div><div class="step-body">The panel's <strong>↑ ↓</strong> arrows, or your keyboard's, move to the next candidate in the order shown. The <em>4/46</em> counter follows the current ranking.</div></div>
-        <div class="step"><div class="step-num">3</div><div class="step-body">The <strong>×</strong> button closes the panel. The same application is available from the normal list, via the <strong>📄 Application</strong> button.</div></div>
-      </div>
+      <p>To reread an application without leaving the meeting, click a <strong>candidate's name</strong> (or <strong>📄</strong> at the right of their row): their record opens over the ranking, in a larger size. The <strong>↑ ↓</strong> arrows follow the current ranking order; close it to go back to reordering.</p>
 
       <h3 id="score">How the score is calculated</h3>
       <p>Each numeric criterion is converted to <strong>0 to 100%</strong>, and the overall score is the <strong>average of those percentages</strong>. A 1-to-5 scale starts at 0% for a 1 and reaches 100% at 5; a mark out of 20 starts at 0% for a 0. The two types are therefore comparable.</p>
@@ -713,8 +716,8 @@
       </div>
 
       <h3>Viewing evaluations (Secretary General)</h3>
-      <p>In <em>Candidates → List</em>, expand the entry of an evaluated candidate: the <em>Evaluations</em> section shows the <strong>average for each criterion</strong> (coloured bars), Yes/No answers (✓/✗ tallies), free-text comments and the average overall score. Scores are aggregated across all interviewers.</p>
-      <p>The <em>📊 Evaluations</em> tab gives an overview: who has been evaluated, how many interviewers have filled in a form, and direct access to the form to add another.</p>
+      <p>Open the record of an evaluated candidate: the <em>Evaluations</em> tab shows the <strong>average for each criterion</strong> (coloured bars), Yes/No answers (✓/✗ tallies), free-text comments and the average overall score. Scores are aggregated across all interviewers.</p>
+      <p>To see at a glance who hasn't been evaluated yet: the <em>Not evaluated</em> chip in the candidates table, or sort by the <em>Eval.</em> column.</p>
     </div>
 
     <!-- ─── PARAMÈTRES ────────────────────────────────────────── -->

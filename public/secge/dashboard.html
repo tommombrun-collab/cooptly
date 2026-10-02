@@ -26,9 +26,6 @@
       font-weight:600; text-transform:none; letter-spacing:0; color:var(--indigo-dark); cursor:pointer; }
     .th-mini:hover { text-decoration:underline; }
     .th-mini:focus-visible { outline:2px solid var(--indigo); outline-offset:2px; border-radius:4px; }
-    .cp-crayon { text-decoration:none; margin-left:6px; padding:2px 6px; border-radius:6px; border:1px solid var(--border); font-size:13px; }
-    .cp-crayon:hover { border-color:var(--indigo); background:var(--indigo-light); }
-    .cp-crayon:focus-visible { outline:2px solid var(--indigo); outline-offset:2px; }
     /* ── Panneau « Partager » ─────────────────────────────────── */
     .partage-overlay { display:none; position:fixed; inset:0; z-index:9990; background:rgba(0,0,0,.45);
       backdrop-filter:blur(3px); align-items:flex-start; justify-content:center; padding:48px 16px; overflow:auto; }
@@ -45,27 +42,6 @@
     .partage-actions { display:flex; gap:6px; flex-shrink:0; }
     @media (max-width:560px) { .partage-lien { flex-direction:column; align-items:stretch; } .partage-actions { justify-content:flex-end; } }
 
-    /* ── Fenêtre « dossier » d'un cooptant récent ─────────────── */
-    #cp-overlay { display:none; position:fixed; inset:0; z-index:9990; background:rgba(0,0,0,.5);
-      backdrop-filter:blur(3px); align-items:center; justify-content:center; padding:16px; }
-    #cp-overlay.open { display:flex; }
-    #cp-modal { background:var(--surface); border:1px solid var(--border); border-radius:18px;
-      width:100%; max-width:560px; max-height:calc(100dvh - 32px); display:flex; flex-direction:column;
-      box-shadow:0 24px 64px rgba(0,0,0,.22), 0 4px 16px rgba(0,0,0,.08); animation:fadeInUp .18s ease backwards; }
-    .cp-head { display:flex; align-items:flex-start; gap:12px; padding:20px 22px 16px; border-bottom:1px solid var(--border); }
-    .cp-head h3 { margin:0; font-size:17px; font-weight:700; }
-    .cp-sub { font-size:12.5px; color:var(--text-muted); margin-top:3px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-    .cp-close { margin-left:auto; background:var(--bg); border:1px solid var(--border); width:32px; height:32px;
-      border-radius:8px; cursor:pointer; color:var(--text-muted); flex-shrink:0; font-size:14px; }
-    .cp-body { padding:18px 22px; overflow-y:auto; display:flex; flex-direction:column; gap:16px; }
-    .cp-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:8px; }
-    .cp-tile, .cp-rep { background:var(--bg); border-radius:10px; padding:9px 12px; }
-    .cp-rep + .cp-rep { margin-top:6px; }
-    .cp-k { font-size:11px; font-weight:600; color:var(--text-muted); }
-    .cp-v { font-size:13.5px; font-weight:600; margin-top:2px; overflow-wrap:anywhere; }
-    .cp-v a { color:inherit; }
-    .cp-rep .cp-v { font-weight:500; white-space:pre-wrap; }
-    .cp-section { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); margin-bottom:8px; }
     /* En-têtes de tri du tableau des cooptants */
     .th-tri { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;
       font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; }
@@ -77,7 +53,6 @@
     th[aria-sort="descending"] .tri-fleche { opacity: 1; color: var(--indigo); }
     th[aria-sort="ascending"]  .tri-fleche::after { content: '▲'; }
     th[aria-sort="descending"] .tri-fleche::after { content: '▼'; }
-    .cp-foot { display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap; padding:14px 22px; border-top:1px solid var(--border); }
   </style>
   <title>Tableau de bord · Sec-gé Cooptly</title>
 </head>
@@ -158,24 +133,6 @@
     </div>
   </div>
 
-  <!-- Dossier d'un cooptant récent (clic sur une ligne du tableau) -->
-  <div id="cp-overlay" role="dialog" aria-modal="true" aria-labelledby="cp-nom">
-    <div id="cp-modal">
-      <div class="cp-head">
-        <div style="min-width:0;">
-          <h3 id="cp-nom"></h3>
-          <div class="cp-sub" id="cp-sub"></div>
-        </div>
-        <button class="cp-close" id="cp-close" aria-label="Fermer">✕</button>
-      </div>
-      <div class="cp-body" id="cp-body"></div>
-      <div class="cp-foot">
-        <button class="btn btn-ghost btn-sm" id="cp-fermer">Fermer</button>
-        <a class="btn btn-primary btn-sm" id="cp-fiche" href="#" style="text-decoration:none;">Ouvrir la fiche complète</a>
-      </div>
-    </div>
-  </div>
-
   <!-- Génération du planning : uniquement en mode « dispos » (le cooptant donne
        ses disponibilités, le bureau place). Masqué en mode « créneaux ». -->
   <div class="card mb-24" id="placement-card" style="display:none;">
@@ -217,7 +174,7 @@
           <option value="">Tous</option>
           <option value="recu">Reçus</option>
           <option value="place">Placés</option>
-          <option value="entretien_fait">Entretien fait</option>
+          <option value="entretien_fait">Entretien passé</option>
           <option value="accepte">Acceptés</option>
           <option value="refuse">Refusés</option>
           <option value="messenger-non">Pas encore dans Messenger</option>
@@ -257,12 +214,12 @@ import { getFirestore, collection, query, where, getDocs, getDoc, doc, updateDoc
 import { getOrCreateOrgCampaign } from '/js/db.js';
 import { showToast, formatDatetime, esc, campaignConfig, confirmDialog, telephoneCooptant, reponsesOrdonnees, pourRecherche } from '/js/utils.js';
 import { runPlacementAlgorithm } from '/js/algo.js';
-import { enregistrerNote, idNoteCooptant } from '/js/notes.js';
+import { ouvrirFiche } from '/js/fiche-cooptant.js';
 
 const db = getFirestore(app);
 let user, currentOrg, currentCampaignId, currentCampaign=null, allCandidates=[];
 let affiches=[];   // cooptants actuellement affichés (après recherche et filtre)
-const BADGES={recu:['badge-orange','Reçu'],place:['badge-blue','Placé'],entretien_fait:['badge-green','Entretien fait'],accepte:['badge-green','Accepté ✓'],refuse:['badge-gray','Refusé']};
+const BADGES={recu:['badge-orange','Reçu'],place:['badge-blue','Placé'],entretien_fait:['badge-green','Entretien passé'],accepte:['badge-green','Accepté ✓'],refuse:['badge-gray','Refusé']};
 
 async function init() {
   user = await requireSecge();
@@ -460,6 +417,7 @@ function compterMessenger(){
 }
 
 function renderTable(cands) {
+  listeTableau = cands;
   compterMessenger();
   const tbody=document.getElementById('cands-body'); tbody.innerHTML='';
   if(!cands.length){document.getElementById('cands-empty').style.display='';document.getElementById('cands-wrap').style.display='none';return;}
@@ -471,7 +429,7 @@ function renderTable(cands) {
     // Toute la ligne ouvre le dossier du cooptant dans une fenêtre, sans
     // quitter le tableau de bord. Le bouton 🔗 garde son rôle : la page de suivi.
     tr.className='row-link'; tr.tabIndex=0; tr.title='Voir le dossier du cooptant';
-    tr.addEventListener('click',e=>{ if(e.target.closest('a,button,input')) return; ouvrirDossier(c, tr); });
+    tr.addEventListener('click',e=>{ if(e.target.closest('a,button,input')) return; ouvrirDossier(c); });
     // Suivi de l'ajout manuel au groupe Messenger : enregistré tout de suite.
     const caseM=tr.querySelector('.case-messenger');
     caseM.addEventListener('change',async()=>{
@@ -486,143 +444,21 @@ function renderTable(cands) {
         showToast('Non enregistré : '+err.message,'error');
       }finally{ caseM.disabled=false; }
     });
-    tr.addEventListener('keydown',e=>{ if(e.target===tr&&(e.key==='Enter'||e.key===' ')){e.preventDefault();ouvrirDossier(c, tr);} });
+    tr.addEventListener('keydown',e=>{ if(e.target===tr&&(e.key==='Enter'||e.key===' ')){e.preventDefault();ouvrirDossier(c);} });
     tbody.appendChild(tr);
   });
 }
 
-// ─── Fenêtre « dossier » d'un cooptant ────────────────────────────
-let cpDeclencheur = null;   // pour rendre le focus à la ligne à la fermeture
-const tuile = (k, v) => `<div class="cp-tile"><div class="cp-k">${k}</div><div class="cp-v">${v}</div></div>`;
-
-async function ouvrirDossier(c, declencheur) {
-  cpDeclencheur = declencheur || null;
-  const [bc, label] = BADGES[c.statut] || ['badge-gray', c.statut || ''];
-  const questions = currentCampaign?.formConfig?.customQuestions || [];
-  const tel = telephoneCooptant(c, questions);
-
-  document.getElementById('cp-nom').textContent = `${c.prenom || ''} ${c.nom || ''}`.trim() || c.email || 'Cooptant';
-  document.getElementById('cp-sub').innerHTML = `<span class="badge ${bc}">${esc(label)}</span>`
-    + (c.createdAt ? `<span>Candidature reçue le ${esc(formatDatetime(c.createdAt))}</span>` : '');
-  document.getElementById('cp-fiche').href =
-    `/secge/candidats.html?org=${encodeURIComponent(currentOrg?.id || '')}&dossier=${encodeURIComponent(c.id)}`;
-
-  // Réponses au formulaire : vides et téléphone (déjà en tuile) masqués.
-  const reps = reponsesOrdonnees(c, questions).filter(({ value }) => {
-    const v = String(value ?? '').trim();
-    return v !== '' && v !== tel;
+// ─── Fiche du cooptant (js/fiche-cooptant.js, la même que partout) ──
+let listeTableau = [];   // ordre du tableau, pour ↑/↓ dans la fiche
+function ouvrirDossier(c) {
+  ouvrirFiche(c, {
+    org: currentOrg, campaign: currentCampaign, par: user?.email || null,
+    liste: () => listeTableau,
+    onChange: () => applyFilters(),
+    onSupprime: id => { allCandidates = allCandidates.filter(x => x.id !== id); applyFilters(); },
   });
-
-  const tuiles = [];
-  if (c.email) tuiles.push(tuile('Email', `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>`));
-  if (tel)     tuiles.push(tuile('Téléphone', `<a href="tel:${esc(tel.replace(/\s+/g, ''))}">${esc(tel)}</a>`));
-
-  document.getElementById('cp-body').innerHTML = `
-    ${tuiles.length ? `<div class="cp-grid">${tuiles.join('')}</div>` : ''}
-    <div id="cp-entretien"></div>
-    ${reps.length ? `<div><div class="cp-section">Réponses au formulaire</div>${reps.map(({ label, value }) =>
-      `<div class="cp-rep"><div class="cp-k">${esc(label)}</div><div class="cp-v">${esc(value)}</div></div>`).join('')}</div>`
-      : '<p class="text-sm text-muted" style="margin:0;">Aucune réponse au formulaire.</p>'}
-    <div><label class="cp-section" for="cp-note" style="display:block;">Note interne <span id="cp-note-etat" style="text-transform:none;letter-spacing:0;font-weight:500;" aria-live="polite"></span></label>
-      <textarea class="form-textarea" id="cp-note" rows="3" placeholder="Visible uniquement par le bureau" disabled></textarea></div>`;
-  chargerNote(c);
-
-  document.getElementById('cp-overlay').classList.add('open');
-  document.getElementById('cp-close').focus();
-
-  // L'entretien se charge après l'ouverture : la fenêtre s'affiche tout de suite.
-  const zone = document.getElementById('cp-entretien');
-  try {
-    const ivSnap = await getDocs(query(collection(db, 'interviews'), where('candidateId', '==', c.id)));
-    if (!document.getElementById('cp-overlay').classList.contains('open') || !zone.isConnected) return;
-    const iv = ivSnap.docs.map(d => d.data()).filter(x => x.datetimeStart?.toDate)
-      .sort((a, b) => a.datetimeStart.toMillis() - b.datetimeStart.toMillis())[0];
-    // ✏️ : ouvre l'allocation de ce cooptant dans le planning, pour (re)caler son créneau.
-    const lienCreneau = libelle => `<a class="cp-crayon" href="/planning.html?org=${encodeURIComponent(currentOrg?.id || '')}&allouer=${encodeURIComponent(c.id)}" title="${libelle}" aria-label="${libelle}">✏️</a>`;
-    if (!iv) { zone.innerHTML = `<div class="cp-grid">${tuile('Entretien', `Pas encore planifié ${lienCreneau('Placer ce cooptant dans le planning')}`)}</div>`; return; }
-    const s = iv.datetimeStart.toDate();
-    const e = iv.datetimeEnd?.toDate?.();
-    const hm = d => d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-    const juryIds = [iv.jury1Id, iv.jury2Id, iv.jury3Id].filter(Boolean);
-    // Noms des jurés et salle : lus là où ils sont lisibles (liste du staff,
-    // dispos déposées), comme sur la page de suivi.
-    const [salle, jures] = await Promise.all([
-      iv.roomId
-        ? getDoc(doc(db, 'rooms', iv.roomId)).then(r => r.exists() ? (r.data().code || r.data().nom || r.data().name) : iv.salleNom).catch(() => iv.salleNom)
-        : Promise.resolve(iv.salleNom || ''),
-      Promise.all(juryIds.map(async id => {
-        try {
-          const r = await getDoc(doc(db, 'roster_members', id));
-          if (r.exists() && r.data().displayName) return r.data().displayName;
-          const sa = await getDocs(query(collection(db, 'staff_availabilities'), where('userId', '==', id)));
-          return sa.docs.map(d => d.data().displayName).find(Boolean) || null;
-        } catch { return null; }
-      })),
-    ]);
-    if (!zone.isConnected) return;
-    const date = s.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
-    zone.innerHTML = `<div class="cp-grid">
-      ${tuile('Entretien', `${esc(date)}, ${hm(s)}${e ? ' - ' + hm(e) : ''} ${lienCreneau('Changer le créneau')}`)}
-      ${tuile('Salle', salle ? esc(salle) : '<span style="color:var(--orange);">À définir</span>')}
-      ${tuile('Jury', juryIds.length ? esc(jures.map(n => n || 'Membre du jury').join(', ')) : '<span style="color:var(--red);">À définir</span>')}
-    </div>`;
-  } catch (err) {
-    console.warn('Entretien non chargé :', err);
-    zone.innerHTML = '';
-  }
 }
-
-// ── Note interne (notes_internes, la même que sur la page Cooptants) ──
-const notesDossier = new Map();
-let noteOuverte = null;   // { c, texte } : note affichée dans la fenêtre
-
-async function chargerNote(c) {
-  const zone = document.getElementById('cp-note');
-  noteOuverte = null;
-  try {
-    const snap = await getDoc(doc(db, 'notes_internes', idNoteCooptant(c.id)));
-    if (zone !== document.getElementById('cp-note') || !zone.isConnected) return;
-    const texte = snap.exists() ? (snap.data().texte || '') : '';
-    zone.value = texte;
-    zone.disabled = false;
-    noteOuverte = { c, texte };
-    zone.addEventListener('blur', enregistrerNoteOuverte);
-  } catch (err) {
-    console.warn('Note interne illisible :', err);
-    zone.placeholder = 'Note indisponible';
-  }
-}
-
-async function enregistrerNoteOuverte() {
-  const zone = document.getElementById('cp-note');
-  const n = noteOuverte;
-  if (!n || !zone || zone.value === n.texte) return;
-  const v = zone.value;
-  const etat = document.getElementById('cp-note-etat');
-  if (etat) etat.textContent = '· Enregistrement…';
-  try {
-    await enregistrerNote(db, notesDossier, idNoteCooptant(n.c.id),
-      { organizationId: n.c.organizationId || currentOrg?.id, campaignId: currentCampaign?.id, candidateId: n.c.id }, v);
-    n.texte = v;
-    if (etat?.isConnected) etat.textContent = '· Enregistré';
-  } catch (err) {
-    console.error(err);
-    if (etat?.isConnected) etat.textContent = '';
-    showToast("Note non enregistrée : réessaie.", 'error');
-  }
-}
-
-function fermerDossier() {
-  enregistrerNoteOuverte();
-  document.getElementById('cp-overlay').classList.remove('open');
-  cpDeclencheur?.focus?.();
-}
-document.getElementById('cp-close').addEventListener('click', fermerDossier);
-document.getElementById('cp-fermer').addEventListener('click', fermerDossier);
-document.getElementById('cp-overlay').addEventListener('click', e => { if (e.target === e.currentTarget) fermerDossier(); });
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && document.getElementById('cp-overlay').classList.contains('open')) fermerDossier();
-});
 
 // ─── Tri du tableau ───────────────────────────────────────────────
 // Par défaut les plus récents en haut. Clic sur un en-tête : trie sur cette

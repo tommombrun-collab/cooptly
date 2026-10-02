@@ -486,31 +486,37 @@
         <div class="aide-section-icon" style="background:var(--indigo-light);">👥</div>
         <div>
           <h2>Gérer les cooptants</h2>
-          <div class="aide-section-subtitle">Liste, filtres, statuts et export</div>
+          <div class="aide-section-subtitle">Tableau, fiche, filtres, statuts et export</div>
         </div>
       </div>
 
-      <p>L'onglet <strong>Cooptants</strong> liste tous les dossiers reçus. Trois vues disponibles via les onglets en haut :</p>
+      <p>L'onglet <strong>Cooptants</strong> a deux vues :</p>
       <div class="two-col" style="margin-bottom:10px;">
         <div class="mini-card">
-          <div class="mini-card-title">📋 Liste</div>
-          <div class="mini-card-body">Toutes les fiches avec statut, score, notes, disponibilités. Dépliez une fiche pour voir le détail complet et changer le statut.</div>
+          <div class="mini-card-title">👥 Cooptants</div>
+          <div class="mini-card-body">Un tableau compact, une ligne par cooptant : entretien, jury, statut, nombre d'évaluations, score, et 📝 s'il a une note interne. Cliquez sur une ligne pour ouvrir sa fiche.</div>
         </div>
         <div class="mini-card">
           <div class="mini-card-title">🏆 Classement</div>
-          <div class="mini-card-body">Tri automatique par score ou réordonnancement manuel. Définissez le nombre de places pour voir qui est retenu/refusé à la ligne de coupure.</div>
-        </div>
-        <div class="mini-card">
-          <div class="mini-card-title">📊 Évaluations</div>
-          <div class="mini-card-body">Vue rapide : qui a été évalué, combien de jurés ont rempli une fiche, accès direct au formulaire d'évaluation.</div>
+          <div class="mini-card-body">Tri par score ou ordre manuel, nombre de places et ligne de coupe, mode délibération.</div>
         </div>
       </div>
 
-      <h3>Filtrer et rechercher</h3>
+      <h3>Rechercher, filtrer, trier</h3>
       <ul>
-        <li><strong>Barre de recherche</strong> : filtre par prénom, nom ou email en temps réel.</li>
-        <li><strong>Filtre Statut</strong> : affiche uniquement les cooptants dans un état donné.</li>
+        <li><strong>Recherche</strong> : prénom, nom ou email, sans tenir compte des accents.</li>
+        <li><strong>Pastilles de filtre</strong> : Reçus, Placés, Entretien fait (elles s'additionnent), puis Sans entretien, Pas évalués, 🇬🇧 Anglais (elles se cumulent). Le nombre de cooptants affichés est à droite.</li>
+        <li><strong>Tri</strong> : cliquez sur l'en-tête d'une colonne (Cooptant, Entretien, Statut, Éval., Score), un second clic inverse le sens. Le tri est mémorisé.</li>
       </ul>
+
+      <h3 id="fiche">📄 La fiche d'un cooptant</h3>
+      <p>Tout ce qui concerne un cooptant est dans <strong>une seule fiche</strong>, la même partout : depuis le tableau de bord, la page Cooptants, le classement, et le bouton <strong>📋 Fiche</strong> d'un entretien dans le planning. Trois onglets :</p>
+      <ul>
+        <li><strong>Profil</strong> : email, téléphone, entretien (✏️ pour changer le créneau), salle, jury, réponses au formulaire. <strong>✏️ Modifier le profil</strong> corrige le nom, l'email ou une réponse.</li>
+        <li><strong>Évaluations</strong> : score, moyenne par critère, réponses et commentaires du jury, et <strong>🎙 Remplir la fiche d'entretien</strong>.</li>
+        <li><strong>Note interne</strong> : visible uniquement par le bureau, enregistrée en quittant le champ. La note posée sur l'entretien dans le planning s'y affiche aussi.</li>
+      </ul>
+      <p>En bas : le <strong>statut</strong> (enregistré dès qu'on le change) et <strong>Supprimer</strong> (corbeille, récupérable 30 jours). Les flèches <strong>↑ ↓</strong>, ou celles du clavier, passent au cooptant suivant dans l'ordre affiché.</p>
 
       <h3 id="statuts">Statuts des cooptants</h3>
       <table class="status-table">
@@ -527,9 +533,9 @@
             <td>Réservation directe ou planning</td>
           </tr>
           <tr>
-            <td><span class="badge badge-green">Entretien fait</span></td>
-            <td>Entretien réalisé, décision en attente ou prise.</td>
-            <td>Sec-gé / automatique après évaluation</td>
+            <td><span class="badge badge-green">Entretien passé</span></td>
+            <td>L'heure de l'entretien est passée. Dans la colonne <em>Éval.</em>, une <strong style="color:var(--red);">✗</strong> signale qu'aucune évaluation n'a été reçue : absence, ou évaluation oubliée.</td>
+            <td>Automatique (heure passée ou évaluation reçue), ou à la main</td>
           </tr>
         </tbody>
       </table>
@@ -540,17 +546,19 @@
 
       <div class="callout callout-indigo">
         <span class="callout-icon">💡</span>
-        <span>Pour changer le statut : dépliez la fiche du cooptant → modifiez le menu déroulant Statut → cliquez <strong>Mettre à jour</strong>.</span>
+        <span>Pour changer le statut : ouvrez la fiche du cooptant, puis changez le menu <strong>Statut</strong> en bas : c'est enregistré aussitôt.</span>
       </div>
 
       <h3>Score et visualisation</h3>
-      <p>Dès qu'un cooptant a au moins une évaluation, un <strong>anneau de score</strong> (0 à 100 %) apparaît sur sa fiche. La couleur indique le niveau : <strong style="color:var(--green);">vert ≥ 70 %</strong>, <strong style="color:var(--orange);">orange ≥ 45 %</strong>, <strong style="color:var(--red);">rouge &lt; 45 %</strong>.</p>
-      <p>En dépliant la fiche, vous voyez le détail par critère (barres de progression), les réponses Oui/Non avec comptage, et les commentaires libres des jurés.</p>
-      <p>Dans la <strong>vue Classement</strong>, les cooptants sont triés automatiquement par score. Vous pouvez :</p>
+      <p>Dès qu'un cooptant a au moins une évaluation, son <strong>score</strong> (0 à 100 %) apparaît dans le tableau et dans sa fiche. La couleur indique le niveau : <strong style="color:var(--green);">vert ≥ 70 %</strong>, <strong style="color:var(--orange);">orange ≥ 45 %</strong>, <strong style="color:var(--red);">rouge &lt; 45 %</strong>.</p>
+      <p>L'onglet <em>Évaluations</em> de la fiche donne le détail par critère (barres de progression), les réponses Oui/Non avec comptage, et les commentaires libres des jurés.</p>
+      <p>La <strong>vue Classement</strong> affiche une ligne courte par cooptant (rang, nom, une mini-barre par critère, score, nombre d'évaluations), pour en voir une vingtaine d'un coup. Elle part du <strong>score</strong> ; dès que vous déplacez quelqu'un, l'ordre devient le vôtre et il est enregistré. Pour déplacer :</p>
       <ul>
-        <li>Passer en <strong>tri manuel</strong> pour réordonner selon votre appréciation, à la souris ou avec les flèches ↑↓.</li>
-        <li>Saisir le nombre de <strong>places disponibles</strong> pour faire apparaître une ligne de coupure visuelle.</li>
+        <li><strong>glissez la ligne</strong> par sa poignée ⋮⋮ ;</li>
+        <li>ou <strong>cliquez sur la ligne</strong> pour la sélectionner, puis <strong>↑ ↓</strong> (avec <strong>Maj</strong> : de 5 rangs). <strong>Entrée</strong> ouvre sa fiche, <strong>Échap</strong> désélectionne ;</li>
+        <li>ou <strong>tapez un rang</strong> dans la case du numéro, puis Entrée.</li>
       </ul>
+      <p>Le nombre de <strong>places disponibles</strong> fait apparaître une ligne de coupure. <strong>↺ Revenir au score</strong> oublie l'ordre manuel.</p>
 
       <h3 id="delib">🗳 Mode délibération</h3>
       <p>Quand tous les entretiens sont passés, le bureau se réunit pour arrêter le classement. Le bouton <strong>🗳 Délibérer</strong> (en haut du classement) passe l'écran en <strong>plein écran de réunion</strong> : le reste de l'interface disparaît, les lignes et le texte grossissent pour être lisibles à plusieurs, et un bandeau rappelle en permanence combien de cooptants sont retenus.</p>
@@ -562,16 +570,11 @@
       </div>
       <div class="callout callout-indigo">
         <span class="callout-icon">💡</span>
-        <span><strong>↺ Réinitialiser l'ordre</strong> revient au tri par score si vous voulez repartir de zéro. Et le classement final se retrouve dans l'<a href="#export">export CSV</a>, colonne <em>Rang</em>.</span>
+        <span><strong>↺ Revenir au score</strong> reclasse par score si vous voulez repartir de zéro. Et le classement final se retrouve dans l'<a href="#export">export CSV</a>, colonne <em>Rang</em>.</span>
       </div>
 
       <h3 id="dossier">📄 Consulter un dossier pendant la délibération</h3>
-      <p>Le classement n'affiche que le nom, le score et les critères. Pour relire une candidature sans quitter la réunion, cliquez sur le <strong>nom d'un cooptant</strong> (ou sur le bouton <strong>📄</strong> à droite de sa ligne) : un panneau s'ouvre sur le côté avec ses <strong>réponses au formulaire</strong>, les <strong>réponses libres des jurés</strong> et leurs <strong>commentaires</strong>.</p>
-      <div class="steps">
-        <div class="step"><div class="step-num">1</div><div class="step-body">Sur un grand écran, le panneau <strong>pousse le classement</strong> au lieu de le recouvrir : vous continuez à réordonner tout en lisant.</div></div>
-        <div class="step"><div class="step-num">2</div><div class="step-body">Les flèches <strong>↑ ↓</strong> du panneau, ou celles du clavier, passent au cooptant suivant dans l'ordre affiché. Le compteur <em>4/46</em> suit le classement en cours.</div></div>
-        <div class="step"><div class="step-num">3</div><div class="step-body">Le bouton <strong>×</strong> referme le panneau. Le même dossier est accessible depuis la liste normale, bouton <strong>📄 Dossier</strong>.</div></div>
-      </div>
+      <p>Pour relire une candidature sans quitter la réunion, cliquez sur le <strong>nom d'un cooptant</strong> (ou sur <strong>📄</strong> à droite de sa ligne) : sa fiche s'ouvre par-dessus le classement, en plus grand. Les flèches <strong>↑ ↓</strong> suivent l'ordre du classement en cours ; fermez-la pour reprendre le réordonnancement.</p>
 
       <h3 id="score">Comment le score est calculé</h3>
       <p>Chaque critère chiffré est ramené sur <strong>0 à 100 %</strong>, et le score global est la <strong>moyenne de ces pourcentages</strong>. Une échelle de 1 à 5 part de 0 % à 1 et va à 100 % à 5 ; une note de 0 à 20 part de 0 % à 0. Les deux types sont donc comparables entre eux.</p>
@@ -713,8 +716,8 @@
       </div>
 
       <h3>Consulter les évaluations (sec-gé)</h3>
-      <p>Dans <em>Cooptants → Liste</em>, dépliez la fiche d'un cooptant évalué : la section <em>Évaluations</em> affiche la <strong>moyenne par critère</strong> (barres colorées), les réponses Oui/Non (comptage ✓/✗), les commentaires libres, et la note globale moyenne. Les scores sont agrégés sur l'ensemble des jurés.</p>
-      <p>L'onglet <em>📊 Évaluations</em> donne une vue d'ensemble : qui a été évalué, combien de jurés ont rempli une fiche, et un accès direct au formulaire pour en ajouter une.</p>
+      <p>Ouvrez la fiche d'un cooptant évalué : l'onglet <em>Évaluations</em> affiche la <strong>moyenne par critère</strong> (barres colorées), les réponses Oui/Non (comptage ✓/✗), les commentaires libres, et la note globale moyenne. Les scores sont agrégés sur l'ensemble des jurés.</p>
+      <p>Pour voir d'un coup qui n'a pas encore été évalué : pastille <em>Pas évalués</em> dans le tableau des cooptants, ou tri sur la colonne <em>Éval.</em></p>
     </div>
 
     <!-- ─── PARAMÈTRES ────────────────────────────────────────── -->

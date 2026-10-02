@@ -31,7 +31,9 @@ Interactive, no sign-up: one click on **“Enter as the board”**, or try the p
 - Read-only public schedule, filterable by person, with one-click export to a calendar (Google Calendar or `.ics`) and a copy of a day's interviews to share with the team.
 
 **For the board**
-- Dashboard, candidate list, evaluation form with a normalised score, ranking, and a full-screen deliberation mode (drag and drop, cut-off line).
+- Dashboard, a compact candidate table (filter chips, column sorting, missed interviews flagged), evaluation form with a normalised score, and a full-screen deliberation mode.
+- **One record per candidate**, the same from every page (dashboard, candidates, ranking, schedule): profile, interview and panel, evaluations, private internal note, status.
+- Compact ranking (about twenty rows on screen, a mini bar per criterion), reordered by drag and drop, arrow keys or by typing a rank, with a cut-off line.
 - **Stand mode**: sign someone up in person in a few seconds (two people for the same interview if needed), with a QR code to their tracking page.
 - Internal schedule: availability heatmap, per-person availability that the board can correct, search, manual placement, simultaneous interviews side by side, interview count per staff member.
 - Private internal notes on candidates and interviews, readable by the board only.
@@ -85,7 +87,7 @@ Not Scrum by the book (a solo project, no team and no ceremonies), but the same 
 | “Two interviews overlap on the schedule” | Each card took the full height of its cell. | Simultaneous interviews side by side, with a wider column for that day. |
 
 ### Continuous quality
-- **212 automated tests** in the production version (200 in this showcase), run on every push by continuous integration: security rules on the Firestore emulator, plus pure logic (interviewer assignment, slot capacity, scoring, form questions).
+- **213 automated tests** in the production version (200 in this showcase), run on every push by continuous integration: security rules on the Firestore emulator, plus pure logic (interviewer assignment, slot capacity, scoring, form questions).
 - **Every campaign bug becomes a test**: the real case is replayed so it can't come back.
 - **Safety nets in production**: a 30-day recycle bin on every deletion, and deletion protection on the database.
 
