@@ -398,8 +398,8 @@
         </optgroup>
       </select>
       <select class="form-select" id="tri-liste" style="width:190px;font-size:14px;" aria-label="Trier">
-        <option value="recent">Plus récents d'abord</option>
-        <option value="ancien">Plus anciens d'abord</option>
+        <option value="recent">Candidatures récentes d'abord</option>
+        <option value="ancien">Candidatures anciennes d'abord</option>
         <option value="entretien">Date d'entretien</option>
         <option value="nom">Nom (A → Z)</option>
         <option value="nom-desc">Nom (Z → A)</option>
@@ -1148,11 +1148,21 @@ function renderList(cands) {
     if (c.createdAt) tuiles.push(['Candidature reçue', formatDatetime(c.createdAt)]);
     if (entretien)   tuiles.push(['Entretien', `${entretien.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })} à ${entretien.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`]);
     if (tel)         tuiles.push(['Téléphone', `<a href="tel:${esc(tel.replace(/\s+/g, ''))}">${esc(tel)}</a>`]);
+    // Qui fait (ou a fait) l'entretien : noms complétés juste après.
+    const ivJury = ivParCooptant[c.id];
+    const juryIds = ivJury ? [ivJury.jury1Id, ivJury.jury2Id, ivJury.jury3Id].filter(Boolean) : [];
+    if (ivJury) tuiles.push(['Jury', juryIds.length ? '<span class="text-muted">…</span>' : '<span style="color:var(--red);">À définir</span>']);
     if (tuiles.length) {
       const info = document.createElement('div');
       info.className = 'cand-infos';
-      info.innerHTML = tuiles.map(([k, v]) => `<div class="cand-info"><div class="cand-info-k">${k}</div><div class="cand-info-v">${k === 'Téléphone' ? v : esc(v)}</div></div>`).join('');
+      info.innerHTML = tuiles.map(([k, v]) => `<div class="cand-info"><div class="cand-info-k">${k}</div><div class="cand-info-v"${k === 'Jury' ? ' data-jury' : ''}>${k === 'Téléphone' || k === 'Jury' ? v : esc(v)}</div></div>`).join('');
       actions.after(info);
+      if (juryIds.length) {
+        nomsJures(juryIds).then(noms => {
+          const z = info.querySelector('[data-jury]');
+          if (z) z.textContent = noms.map(n => n || 'Membre du jury').join(', ');
+        });
+      }
     }
 
     // ── Custom questions ───────────────────────────────────────────
@@ -1517,6 +1527,27 @@ function tuilesDossier(c, tel) {
   return `<div class="cp-grid">${t.join('')}</div>`;
 }
 
+/**
+ * Noms des jurés, lus là où ils sont lisibles : liste du staff, puis dispos
+ * déposées (un compte sans entrée dans la liste n'y a parfois que sa fiche de
+ * dispos). Mémorisés : la même personne revient sur des dizaines de cartes.
+ */
+const cacheNomsJures = new Map();
+function nomJure(id) {
+  if (!cacheNomsJures.has(id)) {
+    cacheNomsJures.set(id, (async () => {
+      try {
+        const r = await getDoc(doc(db, 'roster_members', id));
+        if (r.exists() && r.data().displayName) return r.data().displayName;
+        const sa = await getDocs(query(collection(db, 'staff_availabilities'), where('userId', '==', id)));
+        return sa.docs.map(d => d.data().displayName).find(Boolean) || null;
+      } catch { return null; }
+    })());
+  }
+  return cacheNomsJures.get(id);
+}
+const nomsJures = ids => Promise.all(ids.map(nomJure));
+
 /** Noms de la salle et des jurés, lus là où ils sont lisibles (comme au tableau de bord). */
 async function remplirSalleEtJury(candId) {
   const iv = ivParCooptant[candId];
@@ -1526,14 +1557,7 @@ async function remplirSalleEtJury(candId) {
     iv.roomId
       ? getDoc(doc(db, 'rooms', iv.roomId)).then(r => r.exists() ? (r.data().code || r.data().nom || r.data().name) : iv.salleNom).catch(() => iv.salleNom)
       : Promise.resolve(iv.salleNom || ''),
-    Promise.all(juryIds.map(async id => {
-      try {
-        const r = await getDoc(doc(db, 'roster_members', id));
-        if (r.exists() && r.data().displayName) return r.data().displayName;
-        const sa = await getDocs(query(collection(db, 'staff_availabilities'), where('userId', '==', id)));
-        return sa.docs.map(d => d.data().displayName).find(Boolean) || null;
-      } catch { return null; }
-    })),
+    nomsJures(juryIds),
   ]);
   if (dossierCandId !== candId) return;
   const zS = document.getElementById('dossier-salle');
