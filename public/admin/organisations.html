@@ -17,10 +17,20 @@
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js" />
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js" />
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js" />
+  <!-- modules du site préchargés (scripts/precharger-modules.mjs) -->
+  <link rel="modulepreload" href="/js/auth.js" />
+  <link rel="modulepreload" href="/js/firebase-config.js" />
+  <link rel="modulepreload" href="/js/icones.js" />
+  <link rel="modulepreload" href="/js/nav.js" />
+  <link rel="modulepreload" href="/js/org-lookup.js" />
+  <link rel="modulepreload" href="/js/recherche.js" />
+  <link rel="modulepreload" href="/js/tuto.js" />
+  <link rel="modulepreload" href="/js/utils.js" />
+  <!-- /modules -->
   <!-- Polices en <link> et non plus en @import dans main.css : l'@import
        obligeait à télécharger la feuille de style avant même de découvrir
        les polices, trois allers-retours à la suite avant le texte. -->
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Antic&family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;600;700&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" />
   <link rel="stylesheet" href="/css/main.css" />
   <style>
     .logo-upload-zone {
@@ -78,7 +88,7 @@
 
   <!-- ── Branding plateforme ──────────────────────────────── -->
   <div class="card mb-24">
-    <h2 class="mb-4">🌐 Branding de la plateforme</h2>
+    <h2 class="mb-4">Logo de la plateforme</h2>
     <p class="text-sm text-muted mb-16">Logo affiché dans la navigation et les emails.</p>
 
     <div class="logo-upload-zone" id="platform-upload-zone" style="max-width:420px;">
@@ -89,7 +99,7 @@
         <div style="font-weight:600;font-size:14px;">Logo de la plateforme</div>
         <div class="text-sm text-muted">JPG, PNG ou SVG · max 2 Mo · recommandé 256×256 px</div>
         <div style="display:flex;gap:8px;margin-top:10px;">
-          <button type="button" class="btn btn-secondary btn-sm" id="btn-platform-logo-pick">📷 Choisir une image</button>
+          <button type="button" class="btn btn-secondary btn-sm" id="btn-platform-logo-pick">Choisir une image</button>
           <button type="button" class="btn btn-ghost btn-sm" id="btn-platform-logo-remove" style="display:none;">Supprimer</button>
         </div>
       </div>
@@ -97,7 +107,7 @@
     </div>
 
     <div style="margin-top:14px;">
-      <button class="btn btn-primary btn-sm" id="btn-save-platform">💾 Enregistrer le logo</button>
+      <button class="btn btn-primary btn-sm" id="btn-save-platform">Enregistrer le logo</button>
       <span id="platform-save-info" class="text-sm text-muted" style="margin-left:10px;"></span>
     </div>
   </div>
@@ -177,7 +187,8 @@ import { requireAdmin, logout } from '/js/auth.js';
 import { app } from '/js/auth.js';
 import { getFirestore, collection, getDocs, addDoc, updateDoc, setDoc, deleteDoc, doc, getDoc, query, where, serverTimestamp, writeBatch }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-import { showToast, confirmDialog } from '/js/utils.js';
+import { showToast, confirmDialog, esc } from '/js/utils.js';
+import { icone } from '/js/icones.js';
 import { initBurgerMenu } from '/js/nav.js';
 
 const db = getFirestore(app);
@@ -200,7 +211,11 @@ function compressImage(file, maxPx = 256) {
         const canvas = document.createElement('canvas');
         canvas.width  = Math.round(img.width  * ratio);
         canvas.height = Math.round(img.height * ratio);
-        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        const ctx = canvas.getContext('2d');
+        // Fond blanc : un PNG transparent donnait des coins noirs en JPEG.
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
         resolve(canvas.toDataURL('image/jpeg', 0.78));
       };
       img.src = e.target.result;
@@ -212,7 +227,7 @@ function compressImage(file, maxPx = 256) {
 // ── Helper : rendre un avatar org ────────────────────────────
 function orgAvatarHTML(org, size = 36) {
   if (org.logoBase64) {
-    return `<img src="${org.logoBase64}" alt="${org.name}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;flex-shrink:0;" />`;
+    return `<img src="${org.logoBase64}" alt="${esc(org.name)}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;flex-shrink:0;" />`;
   }
   return `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${org.primaryColor||'var(--indigo)'};display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:${Math.round(size*0.42)}px;flex-shrink:0;">${(org.name||'?')[0]}</div>`;
 }
@@ -287,7 +302,7 @@ async function loadOrgs() {
   document.getElementById('orgs-loading').style.display='none';
   const list = document.getElementById('orgs-list');
   if (!orgs.length) {
-    list.innerHTML='<div class="empty-state"><div class="empty-state-icon">🏢</div><p>Aucune organisation.</p></div>';
+    list.innerHTML='<div class="empty-state"><div class="empty-state-icon">'+icone('personnes')+'</div><p>Aucune organisation : « + Nouvelle organisation » pour en créer une.</p></div>';
     return;
   }
   list.innerHTML='';
@@ -301,14 +316,14 @@ async function loadOrgs() {
     row.innerHTML = `
       <div style="display:flex;align-items:center;gap:12px;">
         ${orgAvatarHTML(org, 36)}
-        <div><div style="font-weight:600;">${org.name}</div><div class="text-sm text-muted">/${org.slug}${
-          org.slugHistory?.length ? ` <span title="Anciens liens toujours valides">(aussi ${org.slugHistory.map(x => '/' + x).join(', ')})</span>` : ''
+        <div><div style="font-weight:600;">${esc(org.name)}</div><div class="text-sm text-muted">/${esc(org.slug)}${
+          org.slugHistory?.length ? ` <span title="Anciens liens toujours valides">(aussi ${org.slugHistory.map(x => '/' + esc(x)).join(', ')})</span>` : ''
         }</div></div>
       </div>
       <div style="display:flex;gap:8px;">
-        <button class="btn btn-ghost btn-sm btn-codes">🔑 Codes</button>
-        <button class="btn btn-ghost btn-sm btn-edit">✏️ Modifier</button>
-        <button class="btn btn-danger btn-sm btn-delete">🗑</button>
+        <button class="btn btn-ghost btn-sm btn-codes">${icone('cle')}Codes</button>
+        <button class="btn btn-ghost btn-sm btn-edit">${icone('crayon')}Modifier</button>
+        <button class="btn btn-danger btn-sm btn-icone btn-delete" title="Supprimer l'asso" aria-label="Supprimer l'asso">${icone('corbeille')}</button>
       </div>`;
     row.querySelector('.btn-edit').addEventListener('click', () => openEdit(org));
     row.querySelector('.btn-delete').addEventListener('click', () => confirmDelete(org));
@@ -317,7 +332,7 @@ async function loadOrgs() {
     const codesPanel = document.createElement('div');
     codesPanel.style.cssText = 'display:none;padding:0 0 16px 48px;';
     codesPanel.innerHTML = `
-      <div style="font-size:13px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;">🔑 Codes d'invitation</div>
+      <div style="font-size:13px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;">Codes d'invitation</div>
       <div class="codes-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px;">
         <div class="spinner" style="margin:8px 0;"></div>
       </div>
@@ -386,9 +401,9 @@ function renderCodeRow(code, data, container) {
   row.innerHTML = `
     <span style="font-family:monospace;font-size:14px;font-weight:800;letter-spacing:.12em;color:var(--indigo);min-width:90px;">${code}</span>
     <span class="badge ${data.role === 'secge' ? 'badge-orange' : 'badge-indigo'}" style="font-size:11px;">${ROLE_LABELS[data.role] || data.role}</span>
-    ${data.label ? `<span class="text-sm text-muted" style="flex:1;">${data.label}</span>` : '<span style="flex:1;"></span>'}
-    <button class="btn btn-ghost btn-sm btn-copy-code" title="Copier">📋</button>
-    <button class="btn btn-danger btn-sm btn-del-code" title="Supprimer">🗑</button>`;
+    ${data.label ? `<span class="text-sm text-muted" style="flex:1;">${esc(data.label)}</span>` : '<span style="flex:1;"></span>'}
+    <button class="btn btn-ghost btn-sm btn-icone btn-copy-code" title="Copier" aria-label="Copier le code">${icone('copier')}</button>
+    <button class="btn btn-danger btn-sm btn-icone btn-del-code" title="Supprimer" aria-label="Supprimer le code">${icone('corbeille')}</button>`;
   row.querySelector('.btn-copy-code').addEventListener('click', async () => {
     await navigator.clipboard.writeText(code);
     showToast(`Code ${code} copié !`, 'success');
@@ -567,12 +582,13 @@ const COLLECTIONS_CAMPAGNE = [
   'candidates', 'interviews', 'interview_evaluations', 'staff_availabilities',
 ];
 
+// [singulier, pluriel] : ajouter un « s » au bout donnait « 8 nom dans la liste du staffs ».
 const LIBELLES = {
-  candidates: 'candidature', interviews: 'entretien',
-  interview_evaluations: 'évaluation', staff_availabilities: 'fiche de dispos',
-  roster_members: 'nom dans la liste du staff', rooms: 'salle',
-  room_bookings: 'réservation de salle', invite_codes: "code d'invitation",
-  memberships: 'membre', campaigns: 'espace de recrutement',
+  candidates: ['candidature', 'candidatures'], interviews: ['entretien', 'entretiens'],
+  interview_evaluations: ['évaluation', 'évaluations'], staff_availabilities: ['fiche de dispos', 'fiches de dispos'],
+  roster_members: ['nom dans la liste du staff', 'noms dans la liste du staff'], rooms: ['salle', 'salles'],
+  room_bookings: ['réservation de salle', 'réservations de salle'], invite_codes: ["code d'invitation", "codes d'invitation"],
+  memberships: ['membre', 'membres'], campaigns: ['espace de recrutement', 'espaces de recrutement'],
 };
 
 /**
@@ -635,15 +651,16 @@ async function confirmDelete(org) {
   const detail = [...inventaire.entries()]
     .filter(([, refs]) => refs.length)
     .map(([nom, refs]) => {
-      const l = LIBELLES[nom] || nom;
-      return `${refs.length} ${l}${refs.length > 1 && !l.endsWith('s') ? 's' : ''}`;
+      const [un, plusieurs] = LIBELLES[nom] || [nom, nom];
+      return `${refs.length} ${refs.length > 1 ? plusieurs : un}`;
     });
 
   const ok = await confirmDialog(
     `Supprimer « ${org.name} » et tout ce qui lui appartient ? `
     + (detail.length ? `Seront effacés : ${detail.join(', ')}. ` : '')
     + 'Les candidatures contiennent des données personnelles. Cette action est irréversible.',
-    { title: `Supprimer ${org.name}`, confirmLabel: `Supprimer (${total} documents)`, danger: true }
+    // Irréversible et sans corbeille : on fait recopier le nom de l'asso.
+    { title: `Supprimer ${org.name}`, confirmLabel: `Supprimer (${total} documents)`, danger: true, taper: org.name }
   );
   if (!ok) return;
 
@@ -710,7 +727,7 @@ async function savePlatformLogo() {
     document.getElementById('platform-save-info').textContent = `Sauvegardé à ${new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}`;
     platformLogoBase64 = null;
   } catch(err) { showToast('Erreur : '+err.message, 'error'); }
-  finally { btn.disabled = false; btn.textContent = '💾 Enregistrer le logo'; }
+  finally { btn.disabled = false; btn.textContent = 'Enregistrer le logo'; }
 }
 
 function applyNavLogo() {

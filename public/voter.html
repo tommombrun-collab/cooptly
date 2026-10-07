@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vote · Cooptly</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin />
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js" />
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js" />
+  <!-- modules du site préchargés (scripts/precharger-modules.mjs) -->
+  <link rel="modulepreload" href="/js/firebase-config.js" />
+  <link rel="modulepreload" href="/js/icones.js" />
+  <link rel="modulepreload" href="/js/utils.js" />
+  <link rel="modulepreload" href="/js/vote.js" />
+  <!-- /modules -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" />
+  <link rel="stylesheet" href="/css/main.css" />
+  <style>
+    .vote-liste { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+    .vote-ligne { all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 12px; width: 100%;
+      padding: 11px 14px; border: 1.5px solid var(--border); border-radius: 10px; background: var(--surface); cursor: pointer;
+      min-height: 48px; transition: border-color .12s, background .12s; }
+    .vote-ligne:hover { border-color: var(--indigo); }
+    .vote-ligne:focus-visible { outline: 2px solid var(--indigo); outline-offset: 2px; }
+    .vote-ligne.a-coeur { border-color: var(--red); background: var(--red-light); }
+    .vote-ligne.abstenu { border-style: dashed; background: var(--bg); }
+    .vote-ligne.abstenu .vote-nom { color: var(--text-muted); }
+    .vote-abst-tag { flex-shrink: 0; font-size: 12px; font-weight: 700; color: var(--text-muted); padding: 3px 10px;
+      border-radius: 999px; border: 1px solid var(--border); background: var(--surface); }
+    .vote-nom { flex: 1; font-weight: 600; font-size: 15px; color: var(--text); }
+    .vote-parcours { font-size: 12px; color: var(--text-muted); font-weight: 500; }
+    .vote-coeur { width: 24px; height: 24px; color: var(--text-light); flex-shrink: 0; }
+    .vote-coeur svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+    .vote-coeur.plein { color: var(--red); }
+    .vote-coeur.plein svg { fill: currentColor; }
+    .vote-modes { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
+    .vote-mode { all: unset; box-sizing: border-box; display: inline-flex; align-items: center; gap: 8px; min-height: 44px;
+      padding: 8px 14px; border-radius: 999px; border: 1.5px solid var(--border); background: var(--surface);
+      font-size: 14px; font-weight: 600; color: var(--text-muted); cursor: pointer; }
+    .vote-mode svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+    .vote-mode b { font-family: var(--font-mono); font-weight: 700; font-variant-numeric: tabular-nums; }
+    .vote-mode[aria-pressed="true"] { border-color: var(--indigo); background: var(--indigo-light); color: var(--text); }
+    .vote-mode:focus-visible { outline: 2px solid var(--indigo); outline-offset: 2px; }
+    .vote-mode-aide { font-size: 13px; color: var(--text-muted); margin: 8px 0 0; line-height: 1.5; }
+    .vote-ligne:disabled { opacity: .45; cursor: not-allowed; }
+    .vote-pied { position: sticky; bottom: 0; z-index: 5; display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+      padding: 12px 16px; margin: 0 -16px; background: var(--surface); border-top: 1px solid var(--border); }
+    .vote-compteur { font-family: var(--font-mono); font-weight: 700; font-size: 15px; color: var(--text); }
+    .vote-compteur.plein { color: var(--red); }
+    .vote-pied .btn { margin-left: auto; }
+    .vote-etat { width: 100%; font-size: 13.5px; padding: 10px 12px; border-radius: 10px; background: var(--red-light); color: var(--red); }
+    .vote-etat[hidden] { display: none; }
+    .vote-deja { margin-top: 10px; font-size: 13.5px; padding: 10px 12px; border-radius: 10px; background: var(--orange-light); color: var(--text); }
+    .vote-deja[hidden] { display: none; }
+    .vote-vide { padding: 18px; text-align: center; color: var(--text-muted); font-size: 14px; }
+    .vote-merci { text-align: center; padding: 40px 24px; }
+    .vote-merci .vote-coeur { width: 44px; height: 44px; color: var(--red); margin: 0 auto 12px; }
+    .vote-merci .vote-coeur svg { width: 44px; height: 44px; fill: currentColor; }
+  </style>
+</head>
+<body>
+
+<header class="postuler-header" id="page-header">
+  <div id="org-logo-wrap" style="margin-bottom:12px;"></div>
+  <div style="font-size:13px;font-weight:600;opacity:.85;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px;" id="org-name">Chargement…</div>
+  <h1>Vote des cooptés</h1>
+  <p>Coche les cooptants que tu veux absolument voir rejoindre l'asso.</p>
+</header>
+
+<div class="postuler-body">
+  <div id="loading-state" class="card" style="text-align:center;padding:48px;">
+    <div class="spinner" style="margin:0 auto 16px;"></div><p>Chargement…</p>
+  </div>
+  <div id="info-state" class="card" style="display:none;text-align:center;padding:48px;">
+    <p id="info-msg" style="font-size:15px;"></p>
+  </div>
+
+  <div id="content" style="display:none;">
+    <div class="card mb-16" id="etape-nom">
+      <h2 style="margin-bottom:4px;">Qui es-tu&nbsp;?</h2>
+      <div class="form-group" style="max-width:420px;margin-top:10px;">
+        <select class="form-select" id="votant" aria-label="Ton nom"><option value="">Choisis ton nom</option></select>
+      </div>
+      <p class="vote-deja" id="deja-vote" hidden></p>
+      <p class="text-sm text-muted" style="margin-top:10px;">Ton vote reste secret jusqu'à la fin du vote. Si tu votes à nouveau, ton nouveau vote remplace l'ancien.</p>
+    </div>
+
+    <div id="bulletin" hidden>
+      <div class="card mb-16">
+        <h2 style="margin-bottom:4px;">Ton vote</h2>
+        <p class="text-sm text-muted" id="consigne"></p>
+        <div class="vote-modes" role="group" aria-label="Ce que tu coches dans la liste">
+          <button type="button" class="vote-mode" data-mode="coeur" aria-pressed="true"><span data-ico="coeur"></span>Coups de cœur <b id="nb-coeurs"></b></button>
+          <button type="button" class="vote-mode" data-mode="abst" aria-pressed="false"><span data-ico="interdit"></span>Abstentions <b id="nb-abst"></b></button>
+        </div>
+        <p class="vote-mode-aide" id="mode-aide"></p>
+        <input class="form-input" type="search" id="recherche" placeholder="Chercher un nom…" autocomplete="off" style="margin-top:12px;" />
+        <div id="liste" class="vote-liste"></div>
+      </div>
+      <div class="vote-pied">
+        <span class="vote-compteur" id="compteur" aria-live="polite"></span>
+        <button class="btn btn-primary btn-lg" id="btn-envoyer" type="button">Envoyer mon vote</button>
+        <p class="vote-etat" id="envoi-etat" role="alert" hidden></p>
+      </div>
+    </div>
+
+    <div id="merci" class="card vote-merci" hidden>
+      <div class="vote-coeur" data-coeur></div>
+      <h2 style="margin-bottom:8px;">Vote enregistré, merci&nbsp;!</h2>
+      <p class="text-muted" style="margin-bottom:20px;">Tu peux revoter tant que le vote est ouvert : ton dernier vote est le seul qui compte.</p>
+      <button class="btn btn-secondary" id="btn-autre" type="button">Un autre membre vote sur ce téléphone</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getFirestore, doc, getDoc, collection, writeBatch, serverTimestamp }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { firebaseConfig } from '/js/firebase-config.js';
+import { paramLien, esc, colorerBandeau, confirmDialog, showToast } from '/js/utils.js';
+import { icone, installerIcones } from '/js/icones.js';
+import { MAX_ABSTENTIONS } from '/js/vote.js';
+installerIcones();
+
+const db = getFirestore(initializeApp(firebaseConfig));
+const $ = id => document.getElementById(id);
+const sid = paramLien('s');
+
+// Rien n'est gardé sur l'appareil (ni nom ni choix) : plusieurs membres
+// peuvent voter à la suite sur le même téléphone sans voir le vote d'avant.
+// La page ne relit JAMAIS les bulletins : choisir un nom donne toujours un
+// bulletin vierge, même si cette personne a déjà voté.
+let scrutin = null, votantId = '', envoisAvant = 0;
+let choix = new Set();
+// Abstentions (ami, coloc) : ni pour ni contre. `mode` : ce qu'un clic coche.
+let abst = new Set(), mode = 'coeur';
+
+function info(message) {
+  $('loading-state').style.display = 'none';
+  $('content').style.display = 'none';
+  $('info-state').style.display = '';
+  $('info-msg').textContent = message;
+}
+
+async function init() {
+  if (!sid) return info('Lien de vote incomplet. Demande le lien au bureau de ton asso.');
+  const s = await getDoc(doc(db, 'scrutins', sid));
+  if (!s.exists()) return info('Ce vote n\'existe pas ou a été supprimé. Demande le lien au bureau de ton asso.');
+  scrutin = s.data();
+  const o = await getDoc(doc(db, 'organizations', scrutin.organizationId));
+  const org = o.exists() ? o.data() : {};
+  $('org-name').textContent = org.name || 'Cooptly';
+  if (/^data:image\//.test(org.logoBase64 || '')) {
+    $('org-logo-wrap').innerHTML = `<img src="${esc(org.logoBase64)}" alt="" style="width:52px;height:52px;border-radius:50%;object-fit:cover;background:#fff;border:2px solid rgba(255,255,255,.6);" />`;
+  }
+  if (org.primaryColor) colorerBandeau($('page-header'), org.primaryColor);
+  if (scrutin.ouvert !== true) return info('Le vote est terminé. Merci à tous ceux qui ont voté !');
+
+  const sel = $('votant');
+  (scrutin.votants || []).slice().sort((a, b) => (a.nom || '').localeCompare(b.nom || '', 'fr'))
+    .forEach(v => { const op = document.createElement('option'); op.value = v.id; op.textContent = v.nom; sel.appendChild(op); });
+  const max = scrutin.maxCoeurs || 0;
+  $('consigne').textContent = `Jusqu'à ${max} cooptant${max > 1 ? 's' : ''} que tu veux absolument dans l'asso. Tu n'es pas obligé·e d'aller jusqu'à ${max}.`;
+  $('merci').querySelector('[data-coeur]').innerHTML = icone('coeur');
+  document.querySelectorAll('[data-ico]').forEach(el => { el.outerHTML = icone(el.dataset.ico); });
+  document.querySelectorAll('.vote-mode').forEach(b => b.addEventListener('click', () => changerMode(b.dataset.mode)));
+
+  sel.addEventListener('change', choisirVotant);
+  $('recherche').addEventListener('input', dessinerListe);
+  $('btn-envoyer').addEventListener('click', envoyer);
+
+  $('loading-state').style.display = 'none';
+  $('content').style.display = '';
+}
+
+/** Un nom choisi : bulletin vierge, et prévenir s'il a déjà voté (sans montrer comment). */
+async function choisirVotant() {
+  votantId = $('votant').value;
+  choix = new Set();
+  abst = new Set();
+  envoisAvant = 0;
+  changerMode('coeur', false);
+  $('envoi-etat').hidden = true;
+  $('deja-vote').hidden = true;
+  $('recherche').value = '';
+  $('bulletin').hidden = !votantId;
+  if (!votantId) return;
+  dessinerListe();
+  const pour = votantId;
+  try {
+    const p = await getDoc(doc(db, 'participations', `${sid}_${pour}`));
+    if (pour !== votantId) return;   // un autre nom a été choisi entre-temps
+    if (p.exists()) {
+      envoisAvant = p.data().envois || 0;
+      const d = p.data().dernierEnvoi?.toDate?.();
+      $('deja-vote').textContent = `Tu as déjà voté${d ? ` (${d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })} à ${d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })})` : ''}. Ton nouveau vote remplacera l'ancien.`;
+      $('deja-vote').hidden = false;
+    }
+  } catch (e) { console.warn(e); }
+}
+
+/** Ce qu'un clic dans la liste coche : un coup de cœur, ou une abstention. */
+function changerMode(m, redessiner = true) {
+  mode = m;
+  document.querySelectorAll('.vote-mode').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === mode)));
+  $('mode-aide').textContent = mode === 'abst'
+    ? `Touche les personnes sur qui tu t'abstiens, ${MAX_ABSTENTIONS} au plus : ton vote ne comptera ni pour ni contre elles.`
+    : 'Un ami proche, un coloc parmi eux ? Passe sur « Abstentions » : ton vote ne comptera ni pour ni contre lui.';
+  if (redessiner) dessinerListe();
+}
+
+function dessinerListe() {
+  const max = scrutin.maxCoeurs || 0;
+  const enAbst = mode === 'abst';
+  const plein = enAbst ? abst.size >= MAX_ABSTENTIONS : choix.size >= max;
+  const q = $('recherche').value.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const norm = s => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const tous = (scrutin.cooptants || []).slice().sort((a, b) => `${a.prenom} ${a.nom}`.localeCompare(`${b.prenom} ${b.nom}`, 'fr'));
+  const visibles = q ? tous.filter(c => norm(`${c.prenom} ${c.nom}`).includes(q)) : tous;
+  $('liste').innerHTML = visibles.length ? visibles.map(c => {
+    const coeur = choix.has(c.id), abstenu = abst.has(c.id);
+    const coche = enAbst ? abstenu : coeur;
+    const marque = abstenu ? '<span class="vote-abst-tag">Abstention</span>'
+      : `<span class="vote-coeur${coeur ? ' plein' : ''}" aria-hidden="true">${icone(enAbst && !coeur ? 'interdit' : 'coeur')}</span>`;
+    return `<button type="button" class="vote-ligne${coeur ? ' a-coeur' : ''}${abstenu ? ' abstenu' : ''}" data-id="${esc(c.id)}" aria-pressed="${coche}" ${!coche && plein ? 'disabled' : ''}>
+      <span class="vote-nom">${esc(`${c.prenom} ${c.nom}`.trim())}${c.parcours ? ` <span class="vote-parcours">· ${esc(c.parcours)}</span>` : ''}</span>
+      ${marque}</button>`;
+  }).join('') : '<p class="vote-vide">Aucun nom ne correspond.</p>';
+  $('liste').querySelectorAll('[data-id]').forEach(b => b.addEventListener('click', () => basculer(b.dataset.id)));
+  $('nb-coeurs').textContent = `${choix.size}/${max}`;
+  $('nb-abst').textContent = `${abst.size}/${MAX_ABSTENTIONS}`;
+  $('compteur').textContent = `${choix.size} / ${max} coup${max > 1 ? 's' : ''} de cœur`
+    + (abst.size ? ` · ${abst.size} abstention${abst.size > 1 ? 's' : ''}` : '');
+  $('compteur').classList.toggle('plein', choix.size >= max);
+}
+
+function basculer(id) {
+  const max = scrutin.maxCoeurs || 0;
+  if (mode === 'abst') {
+    if (abst.has(id)) abst.delete(id);
+    else if (abst.size >= MAX_ABSTENTIONS) return showToast(`Tu t'abstiens déjà sur ${MAX_ABSTENTIONS} personnes : retire une abstention pour en choisir une autre.`, 'info');
+    else {
+      abst.add(id);
+      if (choix.delete(id)) showToast('Coup de cœur retiré : tu t\'abstiens sur cette personne.', 'info');
+    }
+  } else if (abst.has(id)) {
+    return showToast('Tu t\'abstiens sur cette personne : retire l\'abstention (bouton « Abstentions ») pour lui donner un cœur.', 'info');
+  } else if (choix.has(id)) choix.delete(id);
+  else if (choix.size >= max) return showToast(`Tu as déjà ${max} coups de cœur : retire-en un pour en choisir un autre.`, 'info');
+  else choix.add(id);
+  dessinerListe();
+}
+
+async function envoyer() {
+  if (!votantId) return;
+  const btn = $('btn-envoyer');
+  const etat = $('envoi-etat');
+  etat.hidden = true;
+  if (!choix.size && !await confirmDialog('Tu n\'as coché personne. Envoyer quand même un vote sans coup de cœur ?',
+    { title: 'Aucun coup de cœur', confirmLabel: 'Envoyer quand même', danger: false })) return;
+  if (!navigator.onLine) { etat.textContent = 'Pas de connexion : ton vote n\'est pas parti. Réessaie quand tu as du réseau.'; etat.hidden = false; return; }
+  btn.disabled = true; btn.textContent = 'Envoi…';
+  const ecrire = () => {
+    const lot = writeBatch(db);
+    lot.set(doc(collection(db, 'bulletins')), {
+      scrutinId: sid, organizationId: scrutin.organizationId, campaignId: scrutin.campaignId,
+      votantId, coeurs: [...choix], ...(abst.size ? { abstentions: [...abst] } : {}), envoyeLe: serverTimestamp(),
+    });
+    lot.set(doc(db, 'participations', `${sid}_${votantId}`), {
+      scrutinId: sid, organizationId: scrutin.organizationId, campaignId: scrutin.campaignId,
+      votantId, envois: envoisAvant + 1, dernierEnvoi: serverTimestamp(),
+    });
+    return lot.commit();
+  };
+  try {
+    try {
+      await ecrire();
+    } catch (e) {
+      if (e.code !== 'permission-denied') throw e;
+      // Refus : vote clos entre-temps, ou un autre envoi sous ce nom depuis
+      // qu'on l'a choisi (le compteur d'envois a bougé). On relit et on retente une fois.
+      const [s, p] = await Promise.all([getDoc(doc(db, 'scrutins', sid)), getDoc(doc(db, 'participations', `${sid}_${votantId}`))]);
+      if (!s.exists() || s.data().ouvert !== true) {
+        etat.textContent = 'Le vote vient d\'être clos : ton vote n\'a pas été pris en compte.';
+        etat.hidden = false;
+        return;
+      }
+      envoisAvant = p.exists() ? (p.data().envois || 0) : 0;
+      await ecrire();
+    }
+    recommencer(true);
+  } catch (e) {
+    console.error(e);
+    etat.textContent = `Ton vote n'est pas parti (${e.code || e.message}). Réessaie dans un instant.`;
+    etat.hidden = false;
+  } finally {
+    btn.disabled = false; btn.textContent = 'Envoyer mon vote';
+  }
+}
+
+/** Retour au choix du nom, sans rien garder du vote précédent. */
+function recommencer(apresEnvoi = false) {
+  votantId = ''; envoisAvant = 0; choix = new Set(); abst = new Set();
+  $('votant').value = '';
+  $('recherche').value = '';
+  $('liste').innerHTML = '';
+  $('deja-vote').hidden = true;
+  $('bulletin').hidden = true;
+  $('envoi-etat').hidden = true;
+  $('merci').hidden = apresEnvoi !== true;
+  $('etape-nom').hidden = apresEnvoi === true;
+  window.scrollTo({ top: 0 });
+}
+$('btn-autre').addEventListener('click', () => { $('merci').hidden = true; $('etape-nom').hidden = false; });
+
+init().catch(e => { console.error(e); info('Le vote n\'a pas pu se charger. Vérifie ta connexion et recharge la page.'); });
+</script>
+</body>
+</html>

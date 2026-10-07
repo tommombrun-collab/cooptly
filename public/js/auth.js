@@ -19,7 +19,7 @@ export { app, auth, db };
 let _membershipCache = null; // { uid, snap }
 let _adminCache      = null; // { uid, isAdmin }
 
-/** Crée un compte (tout email accepté en bêta) */
+/** Crée un compte (tout email accepté) */
 export async function createAccount(email, password, displayName) {
   const result = await createUserWithEmailAndPassword(auth, email, password);
   if (displayName) await updateProfile(result.user, { displayName });

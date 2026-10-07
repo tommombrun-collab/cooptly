@@ -16,10 +16,18 @@
        découvre qu'en arrivant au script, tout en bas de la page. -->
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js" />
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js" />
+  <!-- modules du site préchargés (scripts/precharger-modules.mjs) -->
+  <link rel="modulepreload" href="/js/capacite.js" />
+  <link rel="modulepreload" href="/js/firebase-config.js" />
+  <link rel="modulepreload" href="/js/jury.js" />
+  <link rel="modulepreload" href="/js/langue.js" />
+  <link rel="modulepreload" href="/js/org-lookup.js" />
+  <link rel="modulepreload" href="/js/utils.js" />
+  <!-- /modules -->
   <!-- Polices en <link> et non plus en @import dans main.css : l'@import
        obligeait à télécharger la feuille de style avant même de découvrir
        les polices, trois allers-retours à la suite avant le texte. -->
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Antic&family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;600;700&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" />
   <link rel="stylesheet" href="/css/main.css" />
   <style>
     /* ── Calendrier de réservation ───────────────────────────────
@@ -162,6 +170,12 @@
           <span class="form-hint" id="email-hint" data-en="Your emlyon address only. It identifies your application and is used to get back to you.">Ton adresse emlyon uniquement. Elle identifie ta candidature et sert à te recontacter.</span>
           <span class="form-error" id="err-email"></span>
         </div>
+        <!-- Parcours : question commune à toutes les assos (ratios du bureau). -->
+        <div class="form-group" id="parcours-group">
+          <label class="form-label" for="parcours"><span data-en="Background">Parcours</span> <span class="required">*</span></label>
+          <select class="form-select" id="parcours" data-parcours></select>
+          <span class="form-error" id="err-parcours"></span>
+        </div>
         <!-- Stand : la personne dit sa langue, l'écran reste dans celle du staff. -->
         <div class="form-group" id="stand-langue-group" style="display:none;">
           <span class="form-label">Langue de l'entretien</span>
@@ -182,7 +196,7 @@
     <!-- Mode stand : une 2e personne passe l'entretien sur le même créneau. -->
     <div class="card mb-24" id="duo-section" style="display:none;">
       <div class="section-title" data-en="👥 Interview for two">👥 Entretien à deux</div>
-      <p class="text-sm text-muted" id="duo-intro" data-en="Two people who want to take their interview together: same slot, same interviewers.">Deux personnes qui veulent passer leur entretien ensemble : même créneau, mêmes jurés.</p>
+      <p class="text-sm text-muted" id="duo-intro" data-en="Two people who want to take their interview together: same slot, same interviewers.">Deux personnes qui veulent passer leur entretien ensemble : même créneau, mêmes staffeurs.</p>
       <button type="button" class="btn btn-ghost btn-sm" id="duo-toggle" aria-expanded="false" style="margin-top:12px;" data-en="+ Add a second person">+ Ajouter une 2ᵉ personne</button>
       <div id="duo-champs" class="stack" style="display:none;margin-top:16px;">
         <div class="form-row">
@@ -201,6 +215,11 @@
           <label class="form-label" for="email2"><span data-en="emlyon email">Email emlyon</span> <span class="required">*</span></label>
           <input class="form-input" type="email" id="email2" inputmode="email" autocomplete="off" placeholder="prenom.nom" />
           <span class="form-error" id="err-email2"></span>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="parcours2"><span data-en="Background">Parcours</span> <span class="required">*</span></label>
+          <select class="form-select" id="parcours2" data-parcours></select>
+          <span class="form-error" id="err-parcours2"></span>
         </div>
         <div class="form-group">
           <span class="form-label">Langue de l'entretien</span>
@@ -272,6 +291,9 @@
       <span class="form-error" id="err-dispos" style="display:block;"></span>
     </div>
 
+    <!-- Échec ou lenteur de l'envoi : reste affiché (un message qui disparaît
+         laissait croire que la candidature était partie). -->
+    <div id="envoi-etat" class="envoi-etat" role="alert" hidden></div>
     <button type="submit" class="btn btn-primary btn-full btn-lg" id="submit-btn" style="margin-bottom:48px;">
       <span id="submit-text" data-en="Submit my application ✉️">Envoyer mon dossier ✉️</span>
       <span id="submit-spinner" class="spinner" style="display:none;border-top-color:#fff;width:18px;height:18px;border-width:2px;"></span>
@@ -287,7 +309,8 @@ import { getFirestore, collection, query, where, getDocs, getDoc, doc,
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { firebaseConfig } from '/js/firebase-config.js';
 import { generateToken, showToast, getDaysBetween, getCampaignDays,
-  campaignConfig, parseLocalDate, localDateStr, esc, paramLien, premierJourReservable, confirmDialog } from '/js/utils.js';
+  campaignConfig, parseLocalDate, localDateStr, esc, paramLien, premierJourReservable, confirmDialog,
+  PARCOURS, PARCOURS_EN, estQuestionParcours, parcoursCooptant, colorerBandeau } from '/js/utils.js';
 import { resolveOrg } from '/js/org-lookup.js';
 import { choisirJury, nbJuresPourEntretien } from '/js/jury.js';
 import { heuresGrille, heureFinValide, juresEncoreLibres, pasCreneauxValide, pleinEnParallele, picEnParallele, staffPourEntretien,
@@ -323,6 +346,8 @@ let existingIv     = null; // doc complet (pour conserver groupId/groupToken)
 // Réponses d'une candidature existante, conservées SANS être réaffichées
 // (retour par la simple adresse email). null = on lit les champs du formulaire.
 let reponsesConservees = null;
+// Parcours déjà connu d'un cooptant retrouvé par son email : gardé sans être réaffiché.
+let parcoursConserve = null;
 // Vrai quand on affiche la grille de dispos faute de créneaux staff, alors que
 // l'asso est réglée en mode « créneaux ». Sert à alerter le bureau.
 let disposEnRepli  = false;
@@ -415,6 +440,7 @@ function lireDuo() {
     prenom: document.getElementById('prenom2').value.trim(),
     nom:    document.getElementById('nom2').value.trim(),
     email:  document.getElementById('email2').value.trim().toLowerCase(),
+    parcours: document.getElementById('parcours2').value || null,
     answers,
   };
 }
@@ -442,6 +468,7 @@ async function preparerSecondCooptant(p) {
       campaignId, organizationId: campaign.organizationId,
       prenom: p.prenom, nom: p.nom, email: p.email || avant?.email || '',
       customAnswers: { ...(avant?.customAnswers || {}), ...p.answers },
+      parcours: p.parcours || avant?.parcours || null,
       disponibilites: [], langue: langueDe('stand-langue2'), updatedAt: serverTimestamp(),
       resultToken,
       createdAt: avant?.createdAt || serverTimestamp(),
@@ -681,16 +708,9 @@ async function init() {
       preparerModeStand(campaignConfig(campaign));
     }
 
-    // Couleur de l'asso : fond sombre = texte blanc
-    if (org?.primaryColor) {
-      const hdr = document.getElementById('page-header');
-      hdr.style.background = `linear-gradient(135deg,${org.primaryColor} 0%,${darken(org.primaryColor,.2)} 100%)`;
-      hdr.style.color = '#fff';
-      const h1 = hdr.querySelector('h1');
-      if (h1) h1.style.color = '#fff';
-      const p = hdr.querySelector('p');
-      if (p) p.style.color = 'rgba(255,255,255,.78)';
-    }
+    // Couleur de l'asso : texte blanc ou sombre selon le contraste (un jaune
+    // vif avec du texte blanc était illisible).
+    if (org?.primaryColor) colorerBandeau(document.getElementById('page-header'), org.primaryColor);
 
     document.getElementById('org-name').textContent     = org?.name || 'Cooptly';
     document.getElementById('campaign-name').textContent = org?.name || campaign.name || tr('cette association', 'this association');
@@ -726,8 +746,13 @@ async function init() {
     // Custom questions
     afficherRappelLangue();
     const questions = campaign.formConfig?.customQuestions || [];
+    document.querySelectorAll('select[data-parcours]').forEach(sel => {
+      sel.innerHTML = `<option value="">${tr('Sélectionne', 'Choose')}</option>`
+        + PARCOURS.map(p => `<option value="${esc(p)}">${esc(EN ? (PARCOURS_EN[p] || p) : p)}</option>`).join('');
+    });
     if (questions.length) renderCustomQuestions(questions);
     if (modeStand) preparerDuo(campaignConfig(campaign));
+    reprendreBrouillon();
 
     // Le formulaire s'affiche TOUT DE SUITE, les créneaux arrivent ensuite
     // dans leur section, qui a son propre indicateur de chargement. Avant, la
@@ -766,15 +791,6 @@ async function init() {
   }
 }
 
-function darken(hex, amt) {
-  try {
-    const n = parseInt(hex.slice(1), 16);
-    const r = Math.max(0, ((n>>16)&255) - Math.round(amt*255));
-    const g = Math.max(0, ((n>>8)&255)  - Math.round(amt*255));
-    const b = Math.max(0, (n&255)       - Math.round(amt*255));
-    return `rgb(${r},${g},${b})`;
-  } catch { return hex; }
-}
 
 function showError(msg) {
   document.getElementById('loading-state').style.display = 'none';
@@ -907,7 +923,12 @@ async function loadAvailableSlots() {
     // mettait plus de deux secondes à proposer ses créneaux.
     const [saSnap, ivSnapInitial, juresLibres] = await Promise.all([
       getDocs(query(collection(db, 'staff_availabilities'), where('campaignId', '==', campaignId))),
-      getDocs(query(collection(db, 'interviews'),           where('campaignId', '==', campaignId))),
+      // Seulement à partir d'aujourd'hui : un entretien passé n'occupe aucun
+      // créneau proposable, et chaque visiteur relisait toute la période
+      // (quota gratuit de 50 000 lectures par jour). L'envoi, lui, relit tout
+      // pour répartir la charge des staffeurs passé compris.
+      getDocs(query(collection(db, 'interviews'), where('campaignId', '==', campaignId),
+        where('datetimeStart', '>=', debutAujourdhui()))),
       cfg.staffToujoursDispo ? juresDeLOrg(campaign.organizationId) : Promise.resolve(null),
     ]);
     staffAvails = saSnap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -1104,7 +1125,7 @@ async function loadAvailableSlots() {
           ? '😔 Aucun créneau avec des staffeurs anglophones pour le moment.'
           : `😔 No interview slot in English yet. The association will contact you. <a href="${esc(versFr)}" lang="fr">Passer l'entretien en français</a>`)
       : staffAvails.length < reqJurys
-      ? tr(`😔 Aucun créneau disponible pour le moment.<br><span class="text-muted">Il faut au moins <strong>${reqJurys} jurés</strong> disponibles en même temps (seuls ${staffAvails.length} membre·s ont renseigné leurs dispos). L'association te contactera pour fixer un entretien.</span>`,
+      ? tr(`😔 Aucun créneau disponible pour le moment.<br><span class="text-muted">Il faut au moins <strong>${reqJurys} membres du staff</strong> disponibles en même temps (seuls ${staffAvails.length} membre·s ont renseigné leurs dispos). L'association te contactera pour fixer un entretien.</span>`,
            `😔 No slot available at the moment.<br><span class="text-muted">At least <strong>${reqJurys} interviewers</strong> need to be free at the same time (only ${staffAvails.length} have shared their availability). The association will contact you to set up an interview.</span>`)
       : tr(`😔 Aucun créneau disponible pour le moment. L'association te contactera pour fixer un entretien.`,
            `😔 No slot available at the moment. The association will contact you to set up an interview.`);
@@ -1169,12 +1190,14 @@ async function juresDeLOrg(orgId) {
  * @param {Date}   end
  * @returns {Promise<string[]>} ids des jurés, au plus `cfg.nbJurys`
  */
-async function attribuerJury(campaignId, cfg, start, end, excludeIvId = null) {
+async function attribuerJury(campaignId, cfg, start, end, excludeIvId = null, entretiensLus = null) {
   try {
-    const snap = await getDocs(query(
+    // `entretiensLus` : la lecture lancée au début de l'envoi, partagée avec
+    // creneauEncoreLibre (avant, chacun retéléchargeait tous les entretiens).
+    const snap = await (entretiensLus || getDocs(query(
       collection(db, 'interviews'),
       where('campaignId', '==', campaignId)
-    ));
+    )));
     // Son propre entretien (changement de créneau) ne doit pas bloquer ses jurés.
     const interviews = snap.docs.filter(d => d.id !== excludeIvId).map(d => {
       const iv = d.data();
@@ -1250,7 +1273,7 @@ async function attribuerJury(campaignId, cfg, start, end, excludeIvId = null) {
  * @returns {Promise<boolean>} true si on peut réserver. True aussi en cas
  *   d'erreur réseau : mieux vaut un doublon rare qu'un cooptant bloqué.
  */
-async function creneauEncoreLibre(campaignId, cfg, start, end, excludeIvId) {
+async function creneauEncoreLibre(campaignId, cfg, start, end, excludeIvId, entretiensLus = null) {
   try {
     const nbJurys   = Math.min(3, cfg.nbJurys);
     const battement = cfg.battementMinutes || 0;
@@ -1258,10 +1281,10 @@ async function creneauEncoreLibre(campaignId, cfg, start, end, excludeIvId) {
     const startMin  = start.getHours() * 60 + start.getMinutes();
     const endMin    = end.getHours() * 60 + end.getMinutes();
 
-    const snap = await getDocs(query(
+    const snap = await (entretiensLus || getDocs(query(
       collection(db, 'interviews'),
       where('campaignId', '==', campaignId)
-    ));
+    )));
 
     const vus = new Set();
     const occupations = [];
@@ -1310,7 +1333,13 @@ async function creneauEncoreLibre(campaignId, cfg, start, end, excludeIvId) {
 // colonnes, les heures en lignes, on voit d'un coup où il reste de la place.
 function renderDayTabs() {
   const wrap = document.getElementById('rdv-wrap');
-  const utile = s => !s.booked || s.key === selectedSlot?.key;
+  // « Remplir d'abord » (Paramètres → Comment ?) : tant qu'il reste des
+  // créneaux conseillés, seuls eux sont proposés, pour que les entretiens
+  // s'enchaînent. Pas au stand, où l'on prend la personne quand elle est là.
+  const restreint = campaignConfig(campaign).remplirConseillesDabord && !modeStand
+    && availableSlots.some(s => s.conseille && !s.booked);
+  const garde = s => s.key === selectedSlot?.key || (!!existingIvId && s.key === creneauActuelCle);
+  const utile = s => (!s.booked || garde(s)) && (!restreint || s.conseille || garde(s));
 
   // Jours qui ont au moins un créneau libre (ou le créneau déjà choisi).
   const jours = [...new Set(availableSlots.filter(utile).map(s => s.dateStr))].sort();
@@ -1320,13 +1349,13 @@ function renderDayTabs() {
     return;
   }
   const parCle = new Map(availableSlots.map(s => [s.key, s]));
-  const heures = [...new Set(availableSlots.filter(s => jours.includes(s.dateStr)).map(s => s.startTime))].sort();
+  const heures = [...new Set(availableSlots.filter(s => jours.includes(s.dateStr) && (!restreint || utile(s))).map(s => s.startTime))].sort();
   const scroll = { left: wrap.scrollLeft, top: wrap.scrollTop };
 
   let html = `<table class="rdv-cal"><thead><tr><th class="rdv-coin" scope="col"><span class="sr-only">${tr('Heure', 'Time')}</span></th>`;
   jours.forEach(j => {
     const d = new Date(j + 'T00:00:00');
-    const libres = availableSlots.filter(s => s.dateStr === j && !s.booked).length;
+    const libres = availableSlots.filter(s => s.dateStr === j && !s.booked && (!restreint || s.conseille)).length;
     const wd = d.toLocaleDateString(LOCALE, { weekday: 'short' });
     html += `<th scope="col" data-jour="${j}">${wd.charAt(0).toUpperCase() + wd.slice(1)}
       <span class="rdv-jour-date">${d.toLocaleDateString(LOCALE, { day: 'numeric', month: 'short' })}</span>
@@ -1337,14 +1366,15 @@ function renderDayTabs() {
     html += `<tr><th class="rdv-heure" scope="row">${h}</th>`;
     jours.forEach(j => {
       const s = parCle.get(`${j}T${h}`);
-      if (!s) { html += '<td class="rdv-vide"></td>'; return; }
+      if (!s || (restreint && !utile(s))) { html += '<td class="rdv-vide"></td>'; return; }
       const actuel = !!existingIvId && s.key === creneauActuelCle;
       const choisi = selectedSlot?.key === s.key;
       const libre  = !s.booked || choisi || actuel;
       const jourLong = new Date(j + 'T00:00:00').toLocaleDateString(LOCALE, { weekday: 'long', day: 'numeric', month: 'long' });
       const etat = choisi ? 'choisi' : (libre ? 'libre' : 'complet');
       const ETATS = { choisi: tr('choisi', 'selected'), libre: tr('libre', 'available'), complet: tr('complet', 'full') };
-      const conseille = !!s.conseille && !s.booked && !choisi && !actuel;
+      // Tout ce qui reste affiché est conseillé : l'étoile ne distinguerait plus rien.
+      const conseille = !restreint && !!s.conseille && !s.booked && !choisi && !actuel;
       html += `<td><button type="button" class="rdv-cell${choisi ? ' choisi' : ''}${actuel ? ' actuel' : ''}${conseille ? ' conseille' : ''}"
         data-cle="${s.key}" ${libre ? '' : 'disabled'} aria-pressed="${choisi}"
         aria-label="${jourLong}, ${s.startTime} ${tr('à', 'to')} ${s.endTime}, ${actuel && !choisi ? tr('ton créneau actuel', 'your current slot') : ETATS[etat]}${conseille ? tr(', conseillé', ', recommended') : ''}">${choisi ? '✓' : (actuel ? tr('Actuel', 'Current') : (libre ? `${conseille ? '⭐ ' : ''}${s.startTime}` : tr('Complet', 'Full')))}</button></td>`;
@@ -1477,6 +1507,14 @@ async function chargerCandidatureExistante(cand, { depuisLien }) {
     if (!document.getElementById('nom').value.trim())
       document.getElementById('nom').value = cand.nom || '';
     if (depuisLien && cand.email) document.getElementById('email').value = cand.email;
+    // Parcours : réaffiché par le lien personnel ; par l'email, gardé sans
+    // être montré (comme les réponses), sauf s'il manque.
+    const parcoursConnu = parcoursCooptant(cand);
+    if (depuisLien) { if (parcoursConnu) document.getElementById('parcours').value = parcoursConnu; }
+    else if (parcoursConnu) {
+      parcoursConserve = parcoursConnu;
+      document.getElementById('parcours-group').style.display = 'none';
+    }
 
     // Réponses aux questions de l'asso
     const questions = campaign?.formConfig?.customQuestions || [];
@@ -1488,7 +1526,8 @@ async function chargerCandidatureExistante(cand, { depuisLien }) {
         // On ne garde les réponses que si elles couvrent toutes les questions
         // obligatoires : une question ajoutée depuis la candidature doit
         // pouvoir être remplie.
-        const complet = questions.every((q, i) => !q.required || reponseDe(cand.customAnswers, q, i));
+        // Les anciennes questions « Parcours » ne sont plus posées : elles ne comptent pas.
+        const complet = questions.every((q, i) => !q.required || estQuestionParcours(q) || reponseDe(cand.customAnswers, q, i));
         if (complet) {
           reponsesConservees = cand.customAnswers || {};
           afficherReponsesConservees();
@@ -1609,6 +1648,9 @@ function renderCustomQuestions(questions) {
     // Stand : seulement les questions choisies. L'index d'origine est gardé,
     // c'est lui qui relie un champ `cq_i` à sa question.
     if (modeStand && !standQuestionIds.has(q.id)) return;
+    // Remplacée par la question commune (plus haut, dans « Tes informations ») :
+    // la poser deux fois n'aurait pas de sens.
+    if (estQuestionParcours(q)) return;
     affichees++;
     const group = document.createElement('div'); group.className = 'form-group';
     if (q.imageUrl || q.imageDataUrl) {
@@ -1753,8 +1795,9 @@ function getSelectedDispos() {
 
 // ── Progress bar ──────────────────────────────────────────────
 function updateProgress() {
-  let filled = 0, total = 3;
+  let filled = 0, total = 4;
   ['prenom','nom','email'].forEach(id => { if (document.getElementById(id)?.value.trim()) filled++; });
+  if (parcoursConserve || document.getElementById('parcours')?.value) filled++;
   if (useSlotPicker && selectedSlot) filled++;
   if (useSlotPicker) total++;
   if (joinGroup) { filled++; total++; }   // créneau déjà fixé par l'invitation
@@ -1766,6 +1809,7 @@ function updateProgress() {
   });
   document.getElementById('progress-fill').style.width = `${Math.round((filled/total)*100)}%`;
 }
+document.getElementById('parcours').addEventListener('change', updateProgress);
 ['prenom','nom','email'].forEach(id => {
   document.getElementById(id).addEventListener('input', updateProgress);
 });
@@ -1793,6 +1837,10 @@ function validate() {
     document.getElementById('email').classList.add('error');
     valid = false;
   }
+  if (!parcoursConserve && !document.getElementById('parcours').value) {
+    setError('err-parcours', tr('Indique ton parcours.', 'Tell us your background.'));
+    document.getElementById('parcours').classList.add('error'); valid = false;
+  }
   // En rejoignant un groupe le créneau est imposé : rien à sélectionner.
   // Grille de dispos affichée : au moins un créneau. Une grille vide donnait
   // une candidature sans entretien ni disponibilité, donc impossible à placer.
@@ -1818,6 +1866,7 @@ function validate() {
     const champ = id => document.getElementById(id);
     if (!p2.prenom) { setError('err-prenom2', tr('Le prénom est requis.', 'First name is required.')); champ('prenom2').classList.add('error'); valid = false; }
     if (!p2.nom)    { setError('err-nom2', tr('Le nom est requis.', 'Last name is required.'));       champ('nom2').classList.add('error');    valid = false; }
+    if (!p2.parcours) { setError('err-parcours2', tr('Indique son parcours.', 'Tell us their background.')); champ('parcours2').classList.add('error'); valid = false; }
     if (!p2.email) {
       if (emailRequis) { setError('err-email2', tr("L'email est requis.", 'Email is required.')); champ('email2').classList.add('error'); valid = false; }
     } else if (!estEmailEmlyon(p2.email)) {
@@ -1834,8 +1883,101 @@ function validate() {
 }
 
 // ── Submit ────────────────────────────────────────────────────
+// ── Brouillon : les réponses restent sur l'appareil jusqu'à l'envoi réussi ──
+// Une coupure réseau ou une page fermée pendant l'envoi faisait tout perdre :
+// la personne devait tout retaper, ou croyait que c'était parti. Pas au stand
+// (appareil partagé), ni par le lien de modification (tout est déjà en base).
+const BROUILLON_JOURS = 14;
+const cleBrouillon = () => `_brouillon_${campaignId}`;
+const champsBrouillon = () => [...document.querySelectorAll('#candidature-form #prenom, #candidature-form #nom, #candidature-form #email, #candidature-form #parcours, #candidature-form [id^="cq_"]')];
+const brouillonActif = () => !modeStand && !paramLien('modif') && !!campaignId;
+let minuterieBrouillon = null;
+function enregistrerBrouillon() {
+  if (!brouillonActif()) return;
+  clearTimeout(minuterieBrouillon);
+  minuterieBrouillon = setTimeout(() => {
+    const v = {};
+    champsBrouillon().forEach(el => { v[el.id] = el.type === 'checkbox' ? el.checked : el.value; });
+    try { localStorage.setItem(cleBrouillon(), JSON.stringify({ t: Date.now(), v })); } catch { /* navigation privée */ }
+  }, 400);
+}
+function effacerBrouillon() {
+  clearTimeout(minuterieBrouillon);
+  try { localStorage.removeItem(cleBrouillon()); } catch { /* sans importance */ }
+}
+function reprendreBrouillon() {
+  if (!brouillonActif()) return;
+  let b = null;
+  try { b = JSON.parse(localStorage.getItem(cleBrouillon()) || 'null'); } catch { b = null; }
+  if (!b?.v || Date.now() - b.t > BROUILLON_JOURS * 86400000) return effacerBrouillon();
+  let remis = 0;
+  champsBrouillon().forEach(el => {
+    if (!(el.id in b.v)) return;
+    if (el.type === 'checkbox') { if (b.v[el.id] && !el.checked) { el.checked = true; remis++; } }
+    else if (!el.value && b.v[el.id]) { el.value = b.v[el.id]; remis++; }
+  });
+  if (!remis) return;
+  const note = document.createElement('div');
+  note.className = 'envoi-etat brouillon';
+  note.innerHTML = `<div>${tr('On a remis ce que tu avais déjà rempli sur cet appareil.', 'We restored what you had already filled in on this device.')}</div>
+    <button type="button" class="btn btn-ghost btn-sm">${tr('Tout effacer', 'Clear all')}</button>`;
+  note.querySelector('button').addEventListener('click', () => {
+    champsBrouillon().forEach(el => { if (el.type === 'checkbox') el.checked = false; else el.value = ''; });
+    effacerBrouillon(); note.remove(); updateProgress();
+  });
+  document.getElementById('candidature-form').prepend(note);
+  updateProgress();
+}
+document.getElementById('candidature-form').addEventListener('input', enregistrerBrouillon);
+document.getElementById('candidature-form').addEventListener('change', enregistrerBrouillon);
+
+/** Message d'envoi qui RESTE affiché : hors ligne, très lent, ou refusé. */
+function etatEnvoi(genre, code = '') {
+  const el = document.getElementById('envoi-etat');
+  if (!genre) { el.hidden = true; el.innerHTML = ''; return; }
+  const textes = {
+    horsligne: [tr('Pas de connexion internet', 'No internet connection'),
+      tr("Ta candidature n'est PAS encore enregistrée. Reconnecte-toi (wifi ou 4G), puis appuie sur « Réessayer ». Tes réponses sont gardées sur cet appareil.",
+         'Your application is NOT saved yet. Reconnect (wifi or mobile data), then tap "Try again". Your answers are kept on this device.')],
+    lent: [tr('Connexion très lente', 'Very slow connection'),
+      tr("Ta candidature n'est pas encore partie. Garde cette page ouverte : elle partira dès que la connexion revient, et tu verras la page de confirmation.",
+         "Your application hasn't been sent yet. Keep this page open: it will go through as soon as the connection is back, and you'll see the confirmation page.")],
+    erreur: [tr("Ta candidature n'est PAS enregistrée", 'Your application is NOT saved'),
+      tr('Réessaie. Si ça recommence, envoie une capture de ce message au bureau.', 'Try again. If it happens again, send a screenshot of this message to the board.')],
+  };
+  const [titre, texte] = textes[genre];
+  el.className = `envoi-etat ${genre}`;
+  el.innerHTML = `<strong>${titre}</strong><div>${texte}${code ? ` <span class="envoi-code">(${esc(code)})</span>` : ''}</div>`
+    + (genre === 'lent' ? '' : `<button type="button" class="btn btn-primary btn-sm">${tr('Réessayer', 'Try again')}</button>`);
+  el.querySelector('button')?.addEventListener('click', () => document.getElementById('candidature-form').requestSubmit());
+  el.hidden = false;
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+/**
+ * Relevé ANONYME d'un envoi raté (collection `echecs_envoi`, lisible par
+ * l'admin seulement) : code d'erreur, étape, en ligne ou non, navigateur.
+ * Aucune donnée personnelle. Hors ligne, il part au retour du réseau si la
+ * page est encore ouverte.
+ */
+function noterEchec(err, etape) {
+  try {
+    addDoc(collection(db, 'echecs_envoi'), {
+      organizationId: campaign?.organizationId || null,
+      campaignId: campaignId || null,
+      etape,
+      code: String(err?.code || err?.name || 'inconnu').slice(0, 60),
+      message: String(err?.message || '').slice(0, 300),
+      enLigne: navigator.onLine,
+      navigateur: navigator.userAgent.slice(0, 200),
+      createdAt: serverTimestamp(),
+    }).catch(() => {});
+  } catch { /* le relevé ne doit jamais gêner l'envoi */ }
+}
+
 document.getElementById('candidature-form').addEventListener('submit', async e => {
   e.preventDefault();
+  etatEnvoi(null);
   if (!creneauxPrets) {
     showToast(tr('Les créneaux finissent de charger, un instant…', 'Slots are still loading, one moment…'), 'info');
     return;
@@ -1851,10 +1993,13 @@ document.getElementById('candidature-form').addEventListener('submit', async e =
   const duo = duoActif && useSlotPicker ? lireDuo() : null;
   if (duo && !duo.email && !(await homonymeAccepte(duo.prenom, duo.nom))) return;
 
+  if (!navigator.onLine) { etatEnvoi('horsligne'); return; }
+
   const btn = document.getElementById('submit-btn');
   btn.disabled = true;
   document.getElementById('submit-text').style.display = 'none';
   document.getElementById('submit-spinner').style.display = 'inline-block';
+  let etape = 'verification';
 
   try {
     const email = document.getElementById('email').value.trim().toLowerCase();
@@ -1875,6 +2020,7 @@ document.getElementById('candidature-form').addEventListener('submit', async e =
 
     const payload = {
       prenom, nom, email, customAnswers,
+      parcours: parcoursConserve || document.getElementById('parcours').value || null,
       disponibilites: (useSlotPicker || joinGroup) ? [] : getSelectedDispos(),
       // Langue de l'entretien : celle du formulaire, ou le choix fait au stand.
       langue: langueDe('stand-langue'),
@@ -1898,6 +2044,14 @@ document.getElementById('candidature-form').addEventListener('submit', async e =
       candidateId = email ? await hashDocId(`${email}::${campaignId}`) : generateToken(20);
     }
     const candRef  = doc(db, 'candidates', candidateId);
+    // La candidature et les entretiens sont lus EN MÊME TEMPS, et les
+    // entretiens une seule fois pour la revérification du créneau et le choix
+    // des staffeurs. Avant : quatre attentes à la suite avant d'écrire, au
+    // moment où une connexion faible pèse le plus.
+    const entretiensLus = (avecEntretienAReserver && !joinGroup)
+      ? getDocs(query(collection(db, 'interviews'), where('campaignId', '==', campaignId)))
+      : null;
+    entretiensLus?.catch(() => {});   // l'erreur est traitée là où on s'en sert
     const candSnap = await getDoc(candRef);
     const candAvant = candSnap.exists() ? candSnap.data() : null;
     const resultToken = candAvant?.resultToken || generateToken(40);
@@ -1943,7 +2097,7 @@ document.getElementById('candidature-form').addEventListener('submit', async e =
           ? tr('Ce créneau est déjà passé. Choisis-en un autre.', 'This slot has already passed. Pick another one.')
           : tr('Ce créneau est trop proche. Choisis-en un plus tard.', 'This slot is too soon. Pick a later one.'));
       }
-      if (!joinGroup && !(await creneauEncoreLibre(campaignId, cfg, start, end, existingIvId))) {
+      if (!joinGroup && !(await creneauEncoreLibre(campaignId, cfg, start, end, existingIvId, entretiensLus))) {
         return refus(tr('Ce créneau vient d\'être réservé. Choisis-en un autre.', 'This slot was just booked. Pick another one.'));
       }
 
@@ -1956,7 +2110,7 @@ document.getElementById('candidature-form').addEventListener('submit', async e =
       const memeHoraire = !!debutAvant && debutAvant.getTime() === start.getTime();
       const jures = joinGroup ? []
         : memeHoraire ? [existingIv.jury1Id, existingIv.jury2Id, existingIv.jury3Id]
-        : await attribuerJury(campaignId, cfg, start, end, existingIvId);
+        : await attribuerJury(campaignId, cfg, start, end, existingIvId, entretiensLus);
 
       ivData = {
         campaignId,
@@ -2024,9 +2178,13 @@ document.getElementById('candidature-form').addEventListener('submit', async e =
         personnes.push({ prenom: duo.prenom, token: p2.resultToken, langue: p2.donnees.langue });
       }
     }
-    // Réseau lent : on prévient au lieu de laisser croire que c'est bloqué.
-    const lent = setTimeout(() => showToast(tr('Connexion lente, ne ferme pas la page…', 'Slow connection, please keep this page open…'), 'info'), 8000);
+    // Réseau lent : un message qui reste, au lieu de laisser croire que c'est
+    // bloqué (ou parti). Le SDK garde l'écriture et l'envoie au retour du réseau.
+    etape = 'envoi';
+    const lent = setTimeout(() => etatEnvoi('lent'), 10000);
     try { await lot.commit(); } finally { clearTimeout(lent); }
+    etatEnvoi(null);
+    effacerBrouillon();
 
     if (avecEntretienAReserver) {
       if (modeStand) return afficherFinStand({ personnes, start, end });
@@ -2048,7 +2206,9 @@ document.getElementById('candidature-form').addEventListener('submit', async e =
 
   } catch (err) {
     console.error(err);
-    showToast(tr('Erreur : ', 'Error: ') + err.message, 'error');
+    const horsLigne = !navigator.onLine || err?.code === 'unavailable';
+    etatEnvoi(horsLigne ? 'horsligne' : 'erreur', err?.code || '');
+    noterEchec(err, etape);
     btn.disabled = false;
     document.getElementById('submit-text').style.display = '';
     document.getElementById('submit-spinner').style.display = 'none';

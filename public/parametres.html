@@ -17,10 +17,31 @@
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js" />
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js" />
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js" />
+  <!-- modules du site préchargés (scripts/precharger-modules.mjs) -->
+  <link rel="modulepreload" href="/js/absences.js" />
+  <link rel="modulepreload" href="/js/auth.js" />
+  <link rel="modulepreload" href="/js/capacite.js" />
+  <link rel="modulepreload" href="/js/cloture.js" />
+  <link rel="modulepreload" href="/js/coherence.js" />
+  <link rel="modulepreload" href="/js/corbeille.js" />
+  <link rel="modulepreload" href="/js/db.js" />
+  <link rel="modulepreload" href="/js/deplacer.js" />
+  <link rel="modulepreload" href="/js/fiche-cooptant.js" />
+  <link rel="modulepreload" href="/js/firebase-config.js" />
+  <link rel="modulepreload" href="/js/icones.js" />
+  <link rel="modulepreload" href="/js/jury.js" />
+  <link rel="modulepreload" href="/js/nav.js" />
+  <link rel="modulepreload" href="/js/notes.js" />
+  <link rel="modulepreload" href="/js/org-lookup.js" />
+  <link rel="modulepreload" href="/js/recherche.js" />
+  <link rel="modulepreload" href="/js/score.js" />
+  <link rel="modulepreload" href="/js/tuto.js" />
+  <link rel="modulepreload" href="/js/utils.js" />
+  <!-- /modules -->
   <!-- Polices en <link> et non plus en @import dans main.css : l'@import
        obligeait à télécharger la feuille de style avant même de découvrir
        les polices, trois allers-retours à la suite avant le texte. -->
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Antic&family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;600;700&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" />
   <link rel="stylesheet" href="/css/main.css" />
 </head>
 <body>
@@ -43,27 +64,38 @@
 
 <main class="page">
 
-  <div class="flex-between mb-24">
+  <div class="param-entete mb-24">
     <div>
       <h1>Paramètres</h1>
       <p id="org-label">Chargement…</p>
     </div>
+    <div class="param-outils">
+      <span id="reglages-etat" class="reglages-etat" aria-live="polite"></span>
+      <div class="param-cherche">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+        <input class="form-input" id="reglages-q" type="search" placeholder="Chercher un réglage…" autocomplete="off"
+               aria-label="Chercher un réglage" aria-controls="reglages-resultats" />
+        <div class="param-resultats" id="reglages-resultats" role="listbox" hidden></div>
+      </div>
+    </div>
   </div>
 
-  <!-- Tabs -->
+  <!-- Réglages illogiques (js/coherence.js) : recalculé à chaque changement. -->
+  <div id="reglages-alertes" class="param-alertes" role="status" hidden></div>
+
+  <!-- Onglets : une question chacun. Les réglages du recrutement s'enregistrent
+       tout seuls (enregistrerReglages), où qu'ils soient rangés. -->
   <div class="tabs tabs-sticky" role="tablist" aria-label="Sections des paramètres">
-    <button class="tab-btn active" data-tab="campagne"  role="tab" aria-selected="true"  aria-controls="tab-campagne"  id="tbtn-campagne"  tabindex="0">📅 Recrutement</button>
-    <button class="tab-btn" data-tab="formulaire" role="tab" aria-selected="false" aria-controls="tab-formulaire" id="tbtn-formulaire" tabindex="-1">📝 Formulaire</button>
-    <button class="tab-btn" data-tab="entretien"  role="tab" aria-selected="false" aria-controls="tab-entretien"  id="tbtn-entretien"  tabindex="-1">🎙 Entretien</button>
-    <button class="tab-btn" data-tab="staff"      role="tab" aria-selected="false" aria-controls="tab-staff"      id="tbtn-staff"      tabindex="-1">👥 Staff</button>
-    <button class="tab-btn" data-tab="salles"     role="tab" aria-selected="false" aria-controls="tab-salles"     id="tbtn-salles"     tabindex="-1">🏫 Salles</button>
-    <button class="tab-btn" data-tab="codes"      role="tab" aria-selected="false" aria-controls="tab-codes"      id="tbtn-codes"      tabindex="-1">🔑 Codes d'accès</button>
-    <button class="tab-btn" data-tab="corbeille"  role="tab" aria-selected="false" aria-controls="tab-corbeille"  id="tbtn-corbeille"  tabindex="-1">🗑 Corbeille</button>
-    <button class="tab-btn" data-tab="danger"     role="tab" aria-selected="false" aria-controls="tab-danger"     id="tbtn-danger"     tabindex="-1" style="color:var(--red);">⚠️ Danger</button>
+    <button class="tab-btn active" data-tab="quand"      role="tab" aria-selected="true"  aria-controls="tab-quand"      id="tbtn-quand"      tabindex="0">Quand&nbsp;?</button>
+    <button class="tab-btn" data-tab="comment"    role="tab" aria-selected="false" aria-controls="tab-comment"    id="tbtn-comment"    tabindex="-1">Comment&nbsp;?</button>
+    <button class="tab-btn" data-tab="qui"        role="tab" aria-selected="false" aria-controls="tab-qui"        id="tbtn-qui"        tabindex="-1">Qui&nbsp;?</button>
+    <button class="tab-btn" data-tab="formulaire" role="tab" aria-selected="false" aria-controls="tab-formulaire" id="tbtn-formulaire" tabindex="-1">Formulaire</button>
+    <button class="tab-btn" data-tab="evaluation" role="tab" aria-selected="false" aria-controls="tab-evaluation" id="tbtn-evaluation" tabindex="-1">Évaluation</button>
+    <button class="tab-btn" data-tab="acces"      role="tab" aria-selected="false" aria-controls="tab-acces"      id="tbtn-acces"      tabindex="-1">Accès et sécurité</button>
   </div>
 
-  <!-- ── Tab: Campagne ──────────────────────────────────────────── -->
-  <div class="tab-panel active" id="tab-campagne" role="tabpanel" aria-labelledby="tbtn-campagne" tabindex="0">
+  <!-- ── Quand ? ─────────────────────────────────────────────────── -->
+  <div class="tab-panel active" id="tab-quand" role="tabpanel" aria-labelledby="tbtn-quand" tabindex="0">
     <div id="campaigns-loading" style="padding:8px 0 16px;">
       <div class="skel-list">
         <div class="skel skel-h" style="width:35%;margin-bottom:4px;"></div>
@@ -73,617 +105,238 @@
       </div>
     </div>
 
-    <div id="campagne-content" style="display:none;">
-      <!-- Recrutement ouvert / fermé -->
-      <div class="card mb-24">
-        <div class="settings-head mb-16">
-          <div class="settings-head-icon">📣</div>
-          <div>
-            <h2>Recrutement</h2>
-            <p class="text-sm text-muted mt-4">Active ou mets en pause les candidatures. Quand c'est fermé, le formulaire de cooptation affiche un message d'attente.</p>
-          </div>
-        </div>
-        <label class="toggle-row" id="camp-ouvert-row" style="cursor:pointer;">
-          <div>
-            <div style="font-weight:700;font-size:15px;" id="camp-ouvert-title">Recrutement en pause</div>
-            <div class="text-sm text-muted" id="camp-ouvert-desc">Les cooptants ne peuvent pas postuler pour le moment.</div>
-          </div>
-          <span class="switch">
-            <input type="checkbox" id="camp-ouvert" />
-            <span class="switch-track"></span>
-          </span>
-        </label>
-      </div>
-
-      <!-- Règles des entretiens -->
-      <div class="card">
-        <div class="settings-head mb-16">
-          <div class="settings-head-icon teal">🎙</div>
-          <div>
-            <h2>Règles des entretiens</h2>
-            <p class="text-sm text-muted mt-4">Ces réglages s'appliquent à tous tes entretiens.</p>
-          </div>
-        </div>
-        <form id="campaign-form" class="stack">
-
-          <!-- Y a-t-il des entretiens ? -->
-          <label class="checkbox-wrap" style="cursor:pointer;">
-            <input type="checkbox" id="camp-avec-entretien" checked />
-            <span>Organiser des entretiens</span>
-          </label>
-          <span class="form-hint" style="margin-top:-6px;">
-            Décoche si ton asso recrute uniquement sur dossier : le formulaire ne demandera
-            alors ni créneau ni disponibilité.
-          </span>
-
-          <!-- Tout ce qui suit ne concerne que le cas "avec entretiens" -->
-          <div id="entretien-settings" class="stack">
-
-            <!-- Mode de prise de rendez-vous -->
-            <div class="form-group">
-              <label class="form-label">Comment les entretiens sont-ils calés&nbsp;?</label>
-              <div class="mode-choice-grid">
-                <label class="mode-choice">
-                  <input type="radio" name="camp-mode-rdv" value="creneaux" checked />
-                  <span class="mode-choice-body">
-                    <span class="mode-choice-title">Le cooptant choisit son créneau</span>
-                    <span class="mode-choice-desc">
-                      Le staff dépose ses disponibilités <em>avant</em> l'ouverture, et le cooptant
-                      réserve directement un créneau libre. Rien à replacer ensuite.
-                    </span>
-                  </span>
-                </label>
-                <label class="mode-choice">
-                  <input type="radio" name="camp-mode-rdv" value="dispos" />
-                  <span class="mode-choice-body">
-                    <span class="mode-choice-title">Le cooptant donne ses disponibilités</span>
-                    <span class="mode-choice-desc">
-                      Le cooptant coche quand il est libre, puis tu génères tout le planning
-                      d'un coup depuis le tableau de bord.
-                    </span>
-                  </span>
-                </label>
-              </div>
-            </div>
-
-            <!-- Période des entretiens -->
-            <div class="form-row-3">
-              <div class="form-group">
-                <label class="form-label" for="camp-date-debut">Début des entretiens</label>
-                <input class="form-input" type="date" id="camp-date-debut" />
-                <span class="form-hint">Vide = 4 prochaines semaines.</span>
-              </div>
-              <div class="form-group">
-                <label class="form-label" for="camp-date-fin">Fin des entretiens</label>
-                <input class="form-input" type="date" id="camp-date-fin" />
-                <span class="form-hint">Vide = 4 prochaines semaines.</span>
-              </div>
-              <div class="form-group">
-                <label class="form-label" for="camp-deadline">Clôture des candidatures</label>
-                <input class="form-input" type="date" id="camp-deadline" />
-                <span class="form-hint">Optionnel : vide = pas de date limite.</span>
-              </div>
-            </div>
-
-            <!-- Jours sans entretien -->
-            <div class="form-group">
-              <span class="form-label" id="camp-jours-label">Jours d'entretien</span>
-              <div class="jours-semaine" role="group" aria-labelledby="camp-jours-label">
-                <label><input type="checkbox" data-jour="1" checked> Lun.</label>
-                <label><input type="checkbox" data-jour="2" checked> Mar.</label>
-                <label><input type="checkbox" data-jour="3" checked> Mer.</label>
-                <label><input type="checkbox" data-jour="4" checked> Jeu.</label>
-                <label><input type="checkbox" data-jour="5" checked> Ven.</label>
-                <label><input type="checkbox" data-jour="6" checked> Sam.</label>
-                <label><input type="checkbox" data-jour="0" checked> Dim.</label>
-              </div>
-              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;">
-                <input class="form-input" type="date" id="camp-jour-retire" aria-label="Date à retirer" style="max-width:190px;" />
-                <button type="button" class="btn btn-secondary btn-sm" id="camp-jour-retirer">Retirer ce jour</button>
-              </div>
-              <div id="camp-jours-retires" class="jours-retires"></div>
-              <span class="form-hint">Décoche les jours sans entretien (le week-end par exemple) et retire des dates précises (jour férié, partiels). Ils disparaissent du formulaire et de la page des dispos. Un entretien déjà posé ce jour-là reste dans le planning.</span>
-            </div>
-
-            <div class="form-row-3">
-              <div class="form-group">
-                <label class="form-label" for="camp-duree">Durée d'un entretien</label>
-                <input class="form-input" type="number" id="camp-duree" value="30" min="15" step="15" />
-                <span class="form-hint">En minutes.</span>
-              </div>
-              <div class="form-group">
-                <label class="form-label" for="camp-battement">Battement entre entretiens</label>
-                <input class="form-input" type="number" id="camp-battement" value="0" min="0" step="5" />
-                <span class="form-hint">En minutes (0 = à la suite).</span>
-              </div>
-              <div class="form-group">
-                <label class="form-label" for="camp-nb-jurys">Jurés par entretien (minimum)</label>
-                <input class="form-input" type="number" id="camp-nb-jurys" value="2" min="1" max="3" />
-                <span class="form-hint">Entre 1 et 3. Il en faut autant de libres pour ouvrir un créneau.</span>
-              </div>
-            </div>
-
-            <details class="reglages-avances" id="reglages-avances">
-              <summary>Réglages avancés <span class="text-sm text-muted" id="reglages-avances-resume"></span></summary>
-              <div class="stack" style="margin-top:14px;">
-                <div class="reglages-titre">Créneaux</div>
-            <div class="form-group">
-              <label class="form-label" for="camp-delai">Délai minimum avant un entretien</label>
-              <select class="form-select" id="camp-delai" style="max-width:260px;">
-                <option value="0">Aucun (dès aujourd'hui)</option>
-                <option value="1">1 jour (dès demain)</option>
-                <option value="2">2 jours (pas avant après-demain, par défaut)</option>
-                <option value="3">3 jours</option>
-                <option value="7">1 semaine</option>
-              </select>
-              <span class="form-hint">Un cooptant ne peut pas réserver un créneau plus proche. Laisse au bureau le temps de s'organiser.</span>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label" for="camp-pas">Créneaux proposés</label>
-              <select class="form-select" id="camp-pas" style="max-width:260px;">
-                <option value="15">Tous les quarts d'heure (10h00, 10h15…)</option>
-                <option value="30">Toutes les demi-heures (10h00, 10h30, par défaut)</option>
-                <option value="60">Toutes les heures (10h00, 11h00…)</option>
-              </select>
-              <span class="form-hint">Heures de début que le cooptant peut choisir. Indépendant de la durée d'un entretien.</span>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label" for="camp-heure-fin">Fin des créneaux</label>
-              <select class="form-select" id="camp-heure-fin" style="max-width:220px;">
-                <option value="17">17 h</option>
-                <option value="18">18 h</option>
-                <option value="19">19 h (par défaut)</option>
-                <option value="20">20 h</option>
-                <option value="21">21 h</option>
-                <option value="22">22 h</option>
-                <option value="23">23 h</option>
-              </select>
-              <span class="form-hint">Heure à laquelle le dernier entretien doit être fini. Les créneaux commencent à 8 h. Plus tard, pour des entretiens en visio le soir.</span>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label" for="camp-max-parallele">Entretiens en même temps (maximum)</label>
-              <input class="form-input" type="number" id="camp-max-parallele" value="0" min="0" max="50"
-                     style="max-width:220px;" />
-              <span class="form-hint">
-                Par exemple le nombre de salles dont vous disposez. Un créneau passe « Complet » dès que
-                ce nombre d'entretiens a lieu en même temps, même s'il reste des jurés libres. Un entretien
-                à deux compte pour un. <strong>0 = pas de limite</strong> (seuls les jurés libres comptent).
-              </span>
-            </div>
-
-                <div class="reglages-titre">Staffeurs</div>
-            <div class="form-group">
-              <label class="form-label" for="camp-nb-jurys-max">Juré en plus quand quelqu'un est libre</label>
-              <select class="form-select" id="camp-nb-jurys-max" style="max-width:260px;">
-                <option value="">Non, toujours le minimum</option>
-                <option value="2">Oui, jusqu'à 2 jurés</option>
-                <option value="3">Oui, jusqu'à 3 jurés</option>
-              </select>
-              <span class="form-hint">
-                Par exemple 2 minimum et jusqu'à 3 : un 3e staffeur est ajouté à l'entretien s'il est libre,
-                <strong>seulement s'il ne manque à aucun autre cooptant</strong> (on garde toujours de quoi
-                ouvrir un autre entretien). Vaut pour les réservations et le placement automatique.
-              </span>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label" for="camp-max-affiles">Entretiens d'affilée par juré</label>
-              <input class="form-input" type="number" id="camp-max-affiles" value="4" min="0" max="12"
-                     style="max-width:220px;" />
-              <span class="form-hint">
-                Les mêmes jurés enchaînent les créneaux qui se suivent, pour mobiliser peu de monde
-                longtemps plutôt que tout le bureau par petits bouts. Au-delà de ce nombre, la relève
-                est forcée. <strong>0 = pas de limite.</strong>
-              </span>
-            </div>
-
-            <div class="form-group">
-              <label class="checkbox-wrap" style="cursor:pointer;">
-                <input type="checkbox" id="camp-jurys-anglais" />
-                <span><strong>Entretiens en anglais : seulement des staffeurs anglophones</strong></span>
-              </label>
-              <span class="form-hint">
-                Un cooptant qui remplit le formulaire en anglais (ou choisit English au stand) ne voit que les créneaux
-                où assez de staffeurs ont coché « Anglais » sur la page des dispos, et ses jurés sont choisis parmi eux.
-                <strong id="camp-jurys-anglais-compte"></strong>
-              </span>
-            </div>
-
-            <label class="checkbox-wrap" style="cursor:pointer;">
-              <input type="checkbox" id="camp-staff-libre" />
-              <span>
-                <strong>Le staff n'a pas à déclarer ses disponibilités</strong><br />
-                <span class="text-sm text-muted">
-                  Tout le bureau est réputé libre sur toute la période, de 8 h à 18 h. Les cooptants
-                  peuvent alors proposer n'importe quel créneau, et non plus seulement ceux où
-                  assez de monde s'est déclaré. Vous vous arrangez ensuite entre vous.
-                </span>
-              </span>
-            </label>
-
-              </div>
-            </details>
-
-            <label class="checkbox-wrap" style="cursor:pointer;">
-              <input type="checkbox" id="camp-appart" />
-              <span>Permettre les appartements comme lieu d'entretien</span>
-            </label>
-
-            <label class="checkbox-wrap" style="cursor:pointer;">
-              <input type="checkbox" id="camp-collectif" />
-              <span>Autoriser les entretiens à plusieurs</span>
-            </label>
-            <div id="collectif-detail" style="display:none;">
-              <span class="form-hint" style="display:block;margin:-6px 0 10px;">
-                Après avoir réservé, le cooptant reçoit un lien à transmettre pour qu'un ami
-                passe l'entretien <strong>sur son créneau</strong>. Personne ne se retrouve
-                avec un inconnu : seul celui qui a le lien peut rejoindre.
-              </span>
-              <div class="form-group" style="max-width:220px;">
-                <label class="form-label" for="camp-max-groupe">Cooptants max par entretien</label>
-                <input class="form-input" type="number" id="camp-max-groupe" value="2" min="2" max="4" />
-                <span class="form-hint">Le cooptant + ses invités.</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="form-group" style="max-width:220px;">
-            <label class="form-label" for="camp-nb-places">Places disponibles</label>
-            <input class="form-input" type="number" id="camp-nb-places" value="0" min="0" placeholder="0 = illimité" />
-            <span class="form-hint">Seuil de sélection (0 = illimité).</span>
-          </div>
-
-          <div class="flex-gap">
-            <button type="submit" class="btn btn-primary" id="camp-save-btn">Enregistrer</button>
-            <span id="camp-saved" class="text-sm text-muted" style="align-self:center;"></span>
-          </div>
-        </form>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── Tab: Formulaire ────────────────────────────────────────── -->
-  <div class="tab-panel" id="tab-formulaire" role="tabpanel" aria-labelledby="tbtn-formulaire" tabindex="0">
+    <div class="attend-campagne">
+    <div id="etat-recrutement" class="etat-recrutement" hidden></div>
     <div class="card mb-24">
-      <div class="flex-between mb-16">
-        <div class="settings-head">
-          <div class="settings-head-icon">📝</div>
-          <div>
-            <h2>Formulaire de candidature</h2>
-            <p class="text-sm text-muted mt-4">Le formulaire contient toujours <strong>Prénom, Nom et Email emlyon</strong>. Ajoutez ici vos questions complémentaires (motivations, téléphone, disponibilités…).</p>
-          </div>
-        </div>
-        <div class="flex-gap">
-          <select class="form-select" id="form-campaign-select" style="display:none;width:200px;font-size:14px;">
-            <option value=""></option>
-          </select>
-          <button class="btn btn-primary btn-sm" id="btn-add-question">+ Ajouter une question</button>
+      <div class="settings-head mb-16">
+        <div class="settings-head-icon"><i data-icone="annonce"></i></div>
+        <div>
+          <h2>Recrutement</h2>
+          <p class="text-sm text-muted mt-4">Active ou mets en pause les candidatures. Quand c'est fermé, le formulaire de cooptation affiche un message d'attente.</p>
         </div>
       </div>
-      <div id="questions-list" class="stack">
-        <p class="text-muted text-sm">Chargement…</p>
-      </div>
+      <label class="toggle-row" id="camp-ouvert-row" style="cursor:pointer;">
+        <div>
+          <div style="font-weight:700;font-size:15px;" id="camp-ouvert-title">Recrutement en pause</div>
+          <div class="text-sm text-muted" id="camp-ouvert-desc">Les cooptants ne peuvent pas postuler pour le moment.</div>
+        </div>
+        <span class="switch">
+          <input type="checkbox" id="camp-ouvert" />
+          <span class="switch-track"></span>
+        </span>
+      </label>
     </div>
 
-    <!-- Add/edit question form -->
-    <div class="card" id="question-form-card" style="display:none;">
-      <h2 class="mb-16" id="q-form-title">Nouvelle question</h2>
+    <div class="card mb-24" data-auto>
+      <div class="settings-head mb-16">
+        <div>
+          <h2>La période</h2>
+          <p class="text-sm text-muted mt-4">Quand les entretiens ont lieu, et jusqu'à quand on peut postuler.</p>
+        </div>
+      </div>
+      <div class="apercu" id="apercu-quand" aria-live="polite"></div>
       <div class="stack">
+      <div class="form-row-3">
         <div class="form-group">
-          <label class="form-label" for="q-label">Libellé de la question <span class="required">*</span></label>
-          <input class="form-input" type="text" id="q-label" placeholder="Ex: Pourquoi veux-tu rejoindre l'asso ?" />
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="q-label-en">Version anglaise (facultative)</label>
-          <input class="form-input" type="text" id="q-label-en" lang="en" placeholder="Ex: Why do you want to join the association?" />
-          <span class="form-hint">Affichée aux cooptants qui remplissent le formulaire en anglais (bouton FR / EN du formulaire). Vide : la question reste en français.</span>
+          <label class="form-label" for="camp-date-debut">Début des entretiens</label>
+          <input class="form-input" type="date" id="camp-date-debut" />
+          <span class="form-hint">Vide = 4 prochaines semaines.</span>
         </div>
         <div class="form-group">
-          <label class="form-label">Image (optionnelle)</label>
-          <input type="file" id="q-image-input" accept="image/*" style="display:none;" />
-          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-            <button type="button" class="btn btn-ghost btn-sm" id="btn-pick-image">📎 Choisir une image</button>
-            <button type="button" class="btn btn-ghost btn-sm" id="btn-clear-image" style="display:none;color:#dc2626;">✕ Retirer l'image</button>
-          </div>
-          <div id="q-image-preview" style="margin-top:8px;display:none;">
-            <img id="q-image-thumb" src="" alt="aperçu" style="max-height:120px;max-width:100%;border-radius:6px;border:1px solid var(--border);" />
-          </div>
-          <span class="form-hint">Affichée au-dessus de la question dans le formulaire. Max 2 Mo. Stockée sur Firebase Storage.</span>
+          <label class="form-label" for="camp-date-fin">Fin des entretiens</label>
+          <input class="form-input" type="date" id="camp-date-fin" />
+          <span class="form-hint">Vide = 4 prochaines semaines.</span>
         </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label" for="q-type">Type de réponse</label>
-            <select class="form-select" id="q-type">
-              <optgroup label="Texte">
-                <option value="text">Texte court</option>
-                <option value="longtext">Texte long</option>
-              </optgroup>
-              <optgroup label="Champs guidés">
-                <option value="tel">📞 Téléphone</option>
-                <option value="email">✉️ Email</option>
-                <option value="nombre">🔢 Nombre</option>
-                <option value="date">📅 Date</option>
-                <option value="url">🔗 Lien</option>
-              </optgroup>
-              <optgroup label="Choix">
-                <option value="select">📋 Liste de choix</option>
-                <option value="checkbox">✔️ Case à cocher</option>
-              </optgroup>
-            </select>
-            <span class="form-hint">Les champs guidés ouvrent le bon clavier sur téléphone.</span>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Obligatoire ?</label>
-            <label class="checkbox-wrap" style="cursor:pointer;">
-              <input type="checkbox" id="q-required" />
-              <span>Réponse obligatoire</span>
-            </label>
-          </div>
+        <div class="form-group">
+          <label class="form-label" for="camp-deadline">Clôture des candidatures</label>
+          <input class="form-input" type="date" id="camp-deadline" />
+          <span class="form-hint">Optionnel : vide = pas de date limite.</span>
         </div>
-        <div class="form-group" id="q-options-group" style="display:none;">
-          <label class="form-label" for="q-options">Options (une par ligne)</label>
-          <textarea class="form-textarea" id="q-options" placeholder="Option A&#10;Option B&#10;Option C"></textarea>
-          <label class="form-label" for="q-options-en" style="margin-top:10px;">Options en anglais (facultatif, dans le même ordre)</label>
-          <textarea class="form-textarea" id="q-options-en" lang="en" placeholder="Option A&#10;Option B&#10;Option C"></textarea>
-          <span class="form-hint">Seul le texte affiché change : la réponse enregistrée reste l'option française, pour comparer tout le monde.</span>
+      </div>
+
+      <div class="form-group">
+        <span class="form-label" id="camp-jours-label">Jours d'entretien</span>
+        <div class="jours-semaine" role="group" aria-labelledby="camp-jours-label">
+          <label><input type="checkbox" data-jour="1" checked> Lun.</label>
+          <label><input type="checkbox" data-jour="2" checked> Mar.</label>
+          <label><input type="checkbox" data-jour="3" checked> Mer.</label>
+          <label><input type="checkbox" data-jour="4" checked> Jeu.</label>
+          <label><input type="checkbox" data-jour="5" checked> Ven.</label>
+          <label><input type="checkbox" data-jour="6" checked> Sam.</label>
+          <label><input type="checkbox" data-jour="0" checked> Dim.</label>
         </div>
-        <div class="flex-gap">
-          <button class="btn btn-primary btn-sm" id="btn-save-question">Ajouter</button>
-          <button class="btn btn-ghost btn-sm" id="btn-cancel-question">Annuler</button>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;">
+          <input class="form-input" type="date" id="camp-jour-retire" aria-label="Date à retirer" style="max-width:190px;" />
+          <button type="button" class="btn btn-secondary btn-sm" id="camp-jour-retirer">Retirer ce jour</button>
         </div>
+        <div id="camp-jours-retires" class="jours-retires"></div>
+        <span class="form-hint">Décoche les jours sans entretien (le week-end par exemple) et retire des dates précises (jour férié, partiels). Ils disparaissent du formulaire et de la page des dispos. Un entretien déjà posé ce jour-là reste dans le planning.</span>
+      </div>
       </div>
     </div>
 
-    <!-- Traductions : toutes les questions en français et en anglais, côte à côte. -->
-    <div class="card mt-24" id="trad-card">
-      <div class="flex-between mb-16" style="gap:12px;flex-wrap:wrap;">
-        <div class="settings-head">
-          <div class="settings-head-icon">🇬🇧</div>
-          <div>
-            <h2>Formulaire en anglais</h2>
-            <p class="text-sm text-muted mt-4">Les textes de la plateforme sont déjà traduits. Traduisez ici vos questions : sans traduction, une question s'affiche en français aux cooptants anglophones. <strong id="trad-compte"></strong></p>
-          </div>
-        </div>
-        <a class="btn btn-ghost btn-sm" id="trad-apercu" target="_blank" rel="noopener">Voir le formulaire en anglais ↗</a>
-      </div>
-      <div class="stack" id="trad-liste"><p class="text-muted text-sm">Chargement…</p></div>
-      <div class="flex-gap mt-16"><button class="btn btn-primary btn-sm" id="btn-save-trad">Enregistrer les traductions</button></div>
-    </div>
-
-    <!-- Mode stand : champs demandés quand le bureau inscrit quelqu'un sur place. -->
-    <div class="card mt-24" id="stand-card">
+    <div class="card mb-24 si-entretien" data-auto>
       <div class="settings-head mb-16">
-        <div class="settings-head-icon">📍</div>
         <div>
-          <h2>Mode stand</h2>
-          <p class="text-sm text-muted mt-4">Pour inscrire quelqu'un sur place en quelques secondes, depuis le bouton <strong>📍 Mode stand</strong> du tableau de bord, ou le <strong>📍 Lien stand</strong> à envoyer à ceux qui tiennent les stands (pas besoin de compte). Prénom, nom et créneau sont toujours demandés, sans délai minimum. Choisissez ce qu'on demande en plus : l'inscription s'arrête là, la personne n'a rien à remplir ensuite (le QR code affiché à la fin lui sert à retrouver son entretien).</p>
+          <h2>Les créneaux</h2>
+          <p class="text-sm text-muted mt-4">La durée des entretiens et les heures que le cooptant peut choisir.</p>
         </div>
       </div>
-      <div class="stack" id="stand-champs"><p class="text-muted text-sm">Chargement…</p></div>
-      <div class="flex-gap mt-16">
-        <button class="btn btn-primary btn-sm" id="btn-save-stand">Enregistrer</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── Tab: Entretien ─────────────────────────────────────────── -->
-  <div class="tab-panel" id="tab-entretien" role="tabpanel" aria-labelledby="tbtn-entretien" tabindex="0">
-
-    <!-- Lien public d'évaluation : quels cooptants il laisse voir. -->
-    <div class="card mb-24">
-      <div class="settings-head mb-16">
-        <div class="settings-head-icon teal">🎙</div>
-        <div>
-          <h2>Lien d'évaluation du jury</h2>
-          <p class="text-sm text-muted mt-4">
-            Ce lien circule dans tout le staff : il ne montre que les cooptants dont l'entretien a lieu autour
-            de maintenant, avec leurs réponses au formulaire, pas toute la liste.
-          </p>
+      <div class="apercu" id="apercu-creneaux" aria-live="polite"></div>
+      <div class="stack">
+      <div class="form-row-3">
+        <div class="form-group">
+          <label class="form-label" for="camp-duree">Durée d'un entretien</label>
+          <input class="form-input" type="number" id="camp-duree" value="30" min="15" step="15" />
+          <span class="form-hint">En minutes.</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="camp-battement">Battement entre entretiens</label>
+          <input class="form-input" type="number" id="camp-battement" value="0" min="0" step="5" />
+          <span class="form-hint">En minutes (0 = à la suite).</span>
         </div>
       </div>
-      <div class="form-group" style="max-width:360px;">
-        <label class="form-label" for="camp-fenetre-eval">Cooptants proposés</label>
-        <select class="form-select" id="camp-fenetre-eval">
-          <option value="deux-heures">Entretiens de 2 h avant à 2 h après maintenant</option>
-          <option value="journee">Tous les entretiens du jour</option>
+      <div class="form-group">
+        <label class="form-label" for="camp-heure-fin">Fin des créneaux</label>
+        <select class="form-select" id="camp-heure-fin" style="max-width:220px;">
+          <option value="17">17 h</option>
+          <option value="18">18 h</option>
+          <option value="19">19 h (par défaut)</option>
+          <option value="20">20 h</option>
+          <option value="21">21 h</option>
+          <option value="22">22 h</option>
+          <option value="23">23 h</option>
         </select>
+        <span class="form-hint">Heure à laquelle le dernier entretien doit être fini. Les créneaux commencent à 8 h. Plus tard, pour des entretiens en visio le soir.</span>
       </div>
-      <button class="btn btn-primary btn-sm mt-16" id="btn-save-fenetre-eval">Enregistrer</button>
+
+      <div class="form-group">
+        <label class="form-label" for="camp-pas">Créneaux proposés</label>
+        <select class="form-select" id="camp-pas" style="max-width:260px;">
+          <option value="15">Tous les quarts d'heure (10h00, 10h15…)</option>
+          <option value="30">Toutes les demi-heures (10h00, 10h30, par défaut)</option>
+          <option value="60">Toutes les heures (10h00, 11h00…)</option>
+        </select>
+        <span class="form-hint">Heures de début que le cooptant peut choisir. Indépendant de la durée d'un entretien.</span>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="camp-delai">Délai minimum avant un entretien</label>
+        <select class="form-select" id="camp-delai" style="max-width:260px;">
+          <option value="0">Aucun (dès aujourd'hui)</option>
+          <option value="1">1 jour (dès demain)</option>
+          <option value="2">2 jours (pas avant après-demain, par défaut)</option>
+          <option value="3">3 jours</option>
+          <option value="7">1 semaine</option>
+        </select>
+        <span class="form-hint">Un cooptant ne peut pas réserver un créneau plus proche. Laisse au bureau le temps de s'organiser.</span>
+      </div>
+      </div>
     </div>
 
-    <!-- Consignes & guide de questions : texte libre propre à chaque asso -->
-    <div class="card mb-24">
+    <!-- Fin du recrutement (js/cloture.js) -->
+    <div class="card mb-24" id="fin-recrutement">
       <div class="settings-head mb-16">
-        <div class="settings-head-icon teal">📌</div>
         <div>
-          <h2>Consignes & guide de questions</h2>
-          <p class="text-sm text-muted mt-4">
-            Affichés en haut de la fiche d'entretien, pour le bureau comme pour le jury.
-            Laissez vide pour ne rien afficher.
-          </p>
+          <h2>Fin du recrutement</h2>
+          <p class="text-sm text-muted mt-4">Le prochain bureau est souvent recruté parmi les cooptants de cette année : à la clôture, toutes leurs données (réponses, entretiens, évaluations, notes, absences) sont effacées, retenus compris. Seuls des chiffres anonymes restent.</p>
         </div>
       </div>
-
-      <div class="stack">
-        <div class="form-group">
-          <label class="form-label" for="camp-consignes">Consignes aux jurés</label>
-          <textarea class="form-textarea" id="camp-consignes" rows="8"
-            placeholder="Ce qu'il faut faire, ce qu'il ne faut surtout pas demander, les infos à avoir sous la main…"></textarea>
-          <span class="form-hint">
-            Toujours visible en haut de la fiche. C'est l'endroit pour les interdits
-            et ce que chaque juré doit avoir en tête avant de commencer.
-          </span>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" for="camp-guide-questions">Guide de questions</label>
-          <textarea class="form-textarea" id="camp-guide-questions" rows="10"
-            placeholder="Une question par ligne : de quoi relancer quand on ne sait plus quoi demander…"></textarea>
-          <span class="form-hint">
-            Replié par défaut dans la fiche : consultable d'un clic, sans encombrer l'écran.
-          </span>
-        </div>
-
-        <div class="flex-gap">
-          <button class="btn btn-primary" id="btn-save-consignes">Enregistrer</button>
-          <span id="consignes-saved" class="text-sm text-muted" style="align-self:center;"></span>
-        </div>
-      </div>
+      <div id="fin-contenu"></div>
+      <div id="historique" class="historique" hidden></div>
     </div>
-
-    <div class="card mb-24">
-      <div class="flex-between mb-16">
-        <div class="settings-head">
-          <div class="settings-head-icon teal">🎙</div>
-          <div>
-            <h2>Critères d'évaluation</h2>
-            <p class="text-sm text-muted mt-4">Ces critères s'affichent dans la fiche d'entretien que le jury remplit pour chaque candidat.</p>
-          </div>
-        </div>
-        <div class="flex-gap">
-          <select class="form-select" id="crit-campaign-select" style="display:none;width:200px;font-size:14px;">
-            <option value=""></option>
-          </select>
-          <button class="btn btn-primary btn-sm" id="btn-add-criterion">+ Ajouter un critère</button>
-        </div>
-      </div>
-      <div id="criteria-list" class="stack">
-        <p class="text-muted text-sm">Chargement…</p>
-      </div>
-    </div>
-
-    <!-- Add/edit criterion form -->
-    <div class="card" id="criterion-form-card" style="display:none;">
-      <h2 class="mb-16" id="crit-form-title">Nouveau critère d'évaluation</h2>
-      <div class="stack">
-        <div class="form-group">
-          <label class="form-label" for="crit-label">Libellé du critère <span class="required">*</span></label>
-          <input class="form-input" type="text" id="crit-label" placeholder="Ex: Motivation, Communication, Leadership…" />
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label" for="crit-type">Type d'évaluation</label>
-            <select class="form-select" id="crit-type">
-              <optgroup label="Compte dans le score">
-                <option value="echelle">⭐ Échelle : boutons 1 → max</option>
-                <option value="note">🔢 Note : saisie 0 → max (demi-points)</option>
-              </optgroup>
-              <optgroup label="Ne compte pas dans le score">
-                <option value="yesno">✅ Oui / Non : deux boutons</option>
-                <option value="select">📋 Liste de choix : une seule réponse</option>
-                <option value="multi">☑️ Cases à cocher : plusieurs réponses</option>
-                <option value="check">✔️ Case à cocher simple : vrai / non renseigné</option>
-                <option value="texte">💬 Texte libre</option>
-              </optgroup>
-            </select>
-          </div>
-          <div class="form-group" id="crit-max-group">
-            <label class="form-label" for="crit-max">Valeur maximum</label>
-            <input class="form-input" type="number" id="crit-max" value="5" min="2" max="20" />
-          </div>
-        </div>
-        <div class="form-group" id="crit-options-group" style="display:none;">
-          <label class="form-label" for="crit-options">Options (une par ligne)</label>
-          <textarea class="form-textarea" id="crit-options" rows="4"
-            placeholder="Communication&#10;Événementiel&#10;Trésorerie"></textarea>
-          <span class="form-hint">Au moins deux options. Les jurés choisiront parmi cette liste.</span>
-        </div>
-        <label class="checkbox-wrap" style="cursor:pointer;">
-          <input type="checkbox" id="crit-required" checked />
-          <span>Critère obligatoire</span>
-        </label>
-        <div class="flex-gap">
-          <button class="btn btn-primary btn-sm" id="btn-save-criterion">Ajouter</button>
-          <button class="btn btn-ghost btn-sm" id="btn-cancel-criterion">Annuler</button>
-        </div>
-      </div>
     </div>
   </div>
 
-  <!-- ── Tab: Staff ─────────────────────────────────────────────── -->
-  <div class="tab-panel" id="tab-staff" role="tabpanel" aria-labelledby="tbtn-staff" tabindex="0">
-    <div class="card mb-24">
-      <div class="flex-between mb-16">
-        <div class="settings-head">
-          <div class="settings-head-icon">👥</div>
-          <div>
-            <h2>Membres du staff</h2>
-            <p class="text-sm text-muted mt-4">Les personnes avec un compte et accès à cet espace.</p>
-          </div>
-        </div>
-        <button class="btn btn-primary btn-sm" id="btn-add-member">+ Ajouter un membre</button>
-      </div>
-
-      <div id="add-member-form" class="card mb-16" style="display:none;background:var(--bg);">
-        <div class="form-row" style="align-items:flex-end;">
-          <div class="form-group">
-            <label class="form-label" for="member-email">Email emlyon</label>
-            <input class="form-input" type="email" id="member-email" placeholder="prenom.nom@edu.em-lyon.com" />
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="member-role">Rôle</label>
-            <select class="form-select" id="member-role">
-              <option value="secge">Sec-gé / Bureau</option>
-            </select>
-          </div>
-          <div class="flex-gap" style="padding-bottom:1px;">
-            <button class="btn btn-primary btn-sm" id="btn-save-member">Ajouter</button>
-            <button class="btn btn-ghost btn-sm" id="btn-cancel-member">Annuler</button>
-          </div>
+  <!-- ── Comment ? ───────────────────────────────────────────────── -->
+  <div class="tab-panel" id="tab-comment" role="tabpanel" aria-labelledby="tbtn-comment" tabindex="0">
+    <div class="card mb-24 attend-campagne" data-auto>
+      <div class="settings-head mb-16">
+        <div>
+          <h2>Les entretiens</h2>
+          <p class="text-sm text-muted mt-4">Comment un cooptant obtient son entretien, et où il a lieu.</p>
         </div>
       </div>
+      <div class="apercu" id="apercu-comment" aria-live="polite"></div>
+      <div class="stack">
+      <label class="checkbox-wrap" style="cursor:pointer;">
+        <input type="checkbox" id="camp-avec-entretien" checked />
+        <span>Organiser des entretiens</span>
+      </label>
+      <span class="form-hint" style="margin-top:-6px;">
+        Décoche si ton asso recrute uniquement sur dossier : le formulaire ne demandera
+        alors ni créneau ni disponibilité.
+      </span>
 
-      <div id="members-list">
-        <div class="spinner" style="margin:24px auto;display:block;"></div>
+      <div class="si-entretien stack">
+      <div class="form-group">
+        <label class="form-label">Comment les entretiens sont-ils calés&nbsp;?</label>
+        <div class="mode-choice-grid">
+          <label class="mode-choice">
+            <input type="radio" name="camp-mode-rdv" value="creneaux" checked />
+            <span class="mode-choice-body">
+              <span class="mode-choice-title">Le cooptant choisit son créneau</span>
+              <span class="mode-choice-desc">
+                Le staff dépose ses disponibilités <em>avant</em> l'ouverture, et le cooptant
+                réserve directement un créneau libre. Rien à replacer ensuite.
+              </span>
+            </span>
+          </label>
+          <label class="mode-choice">
+            <input type="radio" name="camp-mode-rdv" value="dispos" />
+            <span class="mode-choice-body">
+              <span class="mode-choice-title">Le cooptant donne ses disponibilités</span>
+              <span class="mode-choice-desc">
+                Le cooptant coche quand il est libre, puis tu génères tout le planning
+                d'un coup depuis le tableau de bord.
+              </span>
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <label class="checkbox-wrap" style="cursor:pointer;">
+        <input type="checkbox" id="camp-collectif" />
+        <span>Autoriser les entretiens à plusieurs</span>
+      </label>
+      <div id="collectif-detail" style="display:none;">
+        <span class="form-hint" style="display:block;margin:-6px 0 10px;">
+          Après avoir réservé, le cooptant reçoit un lien à transmettre pour qu'un ami
+          passe l'entretien <strong>sur son créneau</strong>. Personne ne se retrouve
+          avec un inconnu : seul celui qui a le lien peut rejoindre.
+        </span>
+        <div class="form-group" style="max-width:220px;">
+          <label class="form-label" for="camp-max-groupe">Cooptants max par entretien</label>
+          <input class="form-input" type="number" id="camp-max-groupe" value="2" min="2" max="4" />
+          <span class="form-hint">Le cooptant + ses invités.</span>
+        </div>
+      </div>
+
+      <label class="checkbox-wrap" style="cursor:pointer;">
+        <input type="checkbox" id="camp-dabord" />
+        <span><strong>Remplir d'abord les créneaux conseillés</strong><br />
+          <span class="text-sm text-muted">Le formulaire ne propose que les créneaux qui collent à un entretien déjà pris (ou le premier d'un jour vide), au plus 3 par jour : les journées se remplissent dans l'ordre, sans trous pour le staff. Pas au stand.</span></span>
+      </label>
+
+      <label class="checkbox-wrap" style="cursor:pointer;">
+        <input type="checkbox" id="camp-appart" />
+        <span>Permettre les appartements comme lieu d'entretien</span>
+      </label>
+
+      <div class="form-group">
+        <label class="form-label" for="camp-max-parallele">Entretiens en même temps (maximum)</label>
+        <input class="form-input" type="number" id="camp-max-parallele" value="0" min="0" max="50"
+               style="max-width:220px;" />
+        <span class="form-hint">
+          Par exemple le nombre de salles dont vous disposez. Un créneau passe « Complet » dès que
+          ce nombre d'entretiens a lieu en même temps, même s'il reste des staffeurs libres. Un entretien
+          à deux compte pour un. <strong>0 = pas de limite</strong> (seuls les staffeurs libres comptent).
+        </span>
+      </div>
+      </div>
       </div>
     </div>
 
-    <!-- Disponibilités sans compte -->
-    <div class="card mb-24">
-      <div class="flex-between mb-8">
-        <div class="settings-head">
-          <div class="settings-head-icon teal">📅</div>
-          <div>
-            <h2>Disponibilités sans compte</h2>
-          </div>
-        </div>
-        <button class="btn btn-ghost btn-sm" id="btn-copy-dispo-link">🔗 Copier le lien</button>
-      </div>
-      <div id="dispo-slug-warning" style="display:none;margin-bottom:12px;padding:10px 14px;background:var(--orange-light);border:1px solid var(--orange-mid);border-radius:var(--radius-sm);">
-        <span style="font-size:13px;color:#C2410C;">⚠️ Votre organisation n'a pas de slug configuré. L'URL partagée expose l'identifiant Firestore interne. Configurez un slug dans les paramètres de votre organisation.</span>
-      </div>
-      <p class="text-sm text-muted mb-16">
-        Partage ce lien à ton équipe : chacun choisit son nom (ou l'ajoute) et dépose ses
-        disponibilités <strong>sans créer de compte</strong>. Pré-remplis les noms ci-dessous
-        pour leur faciliter la tâche, ils pourront aussi s'ajouter eux-mêmes.
-      </p>
-
-      <div class="form-row" style="align-items:flex-end;max-width:520px;">
-        <div class="form-group" style="flex:1;">
-          <label class="form-label" for="roster-firstname">Prénom</label>
-          <input class="form-input" type="text" id="roster-firstname" placeholder="Ex : Camille" />
-        </div>
-        <div class="form-group" style="flex:1;">
-          <label class="form-label" for="roster-lastname">Nom</label>
-          <input class="form-input" type="text" id="roster-lastname" placeholder="Ex : Martin" />
-        </div>
-        <div style="padding-bottom:1px;">
-          <button class="btn btn-primary btn-sm" id="btn-add-roster">Ajouter</button>
-        </div>
-      </div>
-
-      <div id="roster-list" style="margin-top:16px;">
-        <div class="spinner" style="margin:24px auto;display:block;"></div>
-      </div>
-    </div>
-
-  </div>
-
-  <!-- ── Tab: Salles ────────────────────────────────────────────── -->
-  <div class="tab-panel" id="tab-salles" role="tabpanel" aria-labelledby="tbtn-salles" tabindex="0">
     <div class="card mb-24">
       <div class="flex-between mb-16">
         <div class="settings-head">
@@ -735,7 +388,7 @@
     <div class="card">
       <div class="flex-between mb-16">
         <div class="settings-head">
-          <div class="settings-head-icon teal">📅</div>
+          <div class="settings-head-icon teal"><i data-icone="calendrier"></i></div>
           <div>
             <h2>Réservations de salles</h2>
             <p class="text-sm text-muted mt-4">Indiquer quand chaque salle est disponible pour le planning des entretiens.</p>
@@ -781,11 +434,473 @@
     </div>
   </div>
 
-  <!-- ── Tab: Codes d'accès ──────────────────────────────────── -->
-  <div class="tab-panel" id="tab-codes" role="tabpanel" aria-labelledby="tbtn-codes" tabindex="0">
+  <!-- ── Qui ? ───────────────────────────────────────────────────── -->
+  <div class="tab-panel" id="tab-qui" role="tabpanel" aria-labelledby="tbtn-qui" tabindex="0">
+    <div class="card mb-24 attend-campagne si-entretien" data-auto>
+      <div class="settings-head mb-16">
+        <div>
+          <h2>Les staffeurs</h2>
+          <p class="text-sm text-muted mt-4">Combien de staffeurs par entretien, et comment ils se relaient.</p>
+        </div>
+      </div>
+      <div class="apercu" id="apercu-qui" aria-live="polite"></div>
+      <div class="stack">
+      <div class="form-group">
+        <label class="form-label" for="camp-nb-jurys">Staffeurs par entretien (minimum)</label>
+        <input class="form-input" type="number" id="camp-nb-jurys" value="2" min="1" max="3" />
+        <span class="form-hint">Entre 1 et 3. Il en faut autant de libres pour ouvrir un créneau.</span>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="camp-nb-jurys-max">Un staffeur en plus quand quelqu'un est libre</label>
+        <select class="form-select" id="camp-nb-jurys-max" style="max-width:260px;">
+          <option value="">Non, toujours le minimum</option>
+          <option value="2">Oui, jusqu'à 2 staffeurs</option>
+          <option value="3">Oui, jusqu'à 3 staffeurs</option>
+        </select>
+        <span class="form-hint">
+          Par exemple 2 minimum et jusqu'à 3 : un 3e staffeur est ajouté à l'entretien s'il est libre,
+          <strong>seulement s'il ne manque à aucun autre cooptant</strong> (on garde toujours de quoi
+          ouvrir un autre entretien). Vaut pour les réservations et le placement automatique.
+        </span>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="camp-max-affiles">Entretiens d'affilée par staffeur</label>
+        <input class="form-input" type="number" id="camp-max-affiles" value="4" min="0" max="12"
+               style="max-width:220px;" />
+        <span class="form-hint">
+          Les mêmes staffeurs enchaînent les créneaux qui se suivent, pour mobiliser peu de monde
+          longtemps plutôt que tout le bureau par petits bouts. Au-delà de ce nombre, la relève
+          est forcée. <strong>0 = pas de limite.</strong>
+        </span>
+      </div>
+
+      <div class="form-group">
+        <label class="checkbox-wrap" style="cursor:pointer;">
+          <input type="checkbox" id="camp-jurys-anglais" />
+          <span><strong>Entretiens en anglais : seulement des staffeurs anglophones</strong></span>
+        </label>
+        <span class="form-hint">
+          Un cooptant qui remplit le formulaire en anglais (ou choisit English au stand) ne voit que les créneaux
+          où assez de staffeurs ont coché « Anglais » sur la page des dispos, et ses staffeurs sont choisis parmi eux.
+          <strong id="camp-jurys-anglais-compte"></strong>
+        </span>
+      </div>
+
+      <label class="checkbox-wrap" style="cursor:pointer;">
+        <input type="checkbox" id="camp-staff-libre" />
+        <span>
+          <strong>Le staff n'a pas à déclarer ses disponibilités</strong><br />
+          <span class="text-sm text-muted">
+            Tout le bureau est réputé libre sur toute la période, de 8 h à 18 h. Les cooptants
+            peuvent alors proposer n'importe quel créneau, et non plus seulement ceux où
+            assez de monde s'est déclaré. Vous vous arrangez ensuite entre vous.
+          </span>
+        </span>
+      </label>
+      </div>
+    </div>
+
+    <div class="card mb-24">
+      <div class="flex-between mb-16">
+        <div class="settings-head">
+          <div class="settings-head-icon"><i data-icone="personnes"></i></div>
+          <div>
+            <h2>Membres du staff</h2>
+            <p class="text-sm text-muted mt-4">Les personnes avec un compte et accès à cet espace.</p>
+          </div>
+        </div>
+        <button class="btn btn-primary btn-sm" id="btn-add-member">+ Ajouter un membre</button>
+      </div>
+
+      <div id="add-member-form" class="card mb-16" style="display:none;background:var(--bg);">
+        <div class="form-row" style="align-items:flex-end;">
+          <div class="form-group">
+            <label class="form-label" for="member-email">Email emlyon</label>
+            <input class="form-input" type="email" id="member-email" placeholder="prenom.nom@edu.em-lyon.com" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="member-role">Rôle</label>
+            <select class="form-select" id="member-role">
+              <option value="secge">Sec-gé / Bureau</option>
+            </select>
+          </div>
+          <div class="flex-gap" style="padding-bottom:1px;">
+            <button class="btn btn-primary btn-sm" id="btn-save-member">Ajouter</button>
+            <button class="btn btn-ghost btn-sm" id="btn-cancel-member">Annuler</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="members-list">
+        <div class="spinner" style="margin:24px auto;display:block;"></div>
+      </div>
+    </div>
+
+    <!-- Disponibilités sans compte -->
+    <div class="card mb-24">
+      <div class="flex-between mb-8">
+        <div class="settings-head">
+          <div class="settings-head-icon teal"><i data-icone="calendrier"></i></div>
+          <div>
+            <h2>Disponibilités sans compte</h2>
+          </div>
+        </div>
+        <button class="btn btn-ghost btn-sm" id="btn-copy-dispo-link"><i data-icone="lien"></i>Copier le lien</button>
+      </div>
+      <div id="dispo-slug-warning" style="display:none;margin-bottom:12px;padding:10px 14px;background:var(--orange-light);border:1px solid var(--orange-mid);border-radius:var(--radius-sm);">
+        <span style="font-size:13px;color:var(--orange);"><i data-icone="attention"></i> Votre organisation n'a pas de slug configuré. L'URL partagée expose l'identifiant Firestore interne. Configurez un slug dans les paramètres de votre organisation.</span>
+      </div>
+      <p class="text-sm text-muted mb-16">
+        Partage ce lien à ton équipe : chacun choisit son nom (ou l'ajoute) et dépose ses
+        disponibilités <strong>sans créer de compte</strong>. Pré-remplis les noms ci-dessous
+        pour leur faciliter la tâche, ils pourront aussi s'ajouter eux-mêmes.
+      </p>
+
+      <div class="form-row" style="align-items:flex-end;max-width:520px;">
+        <div class="form-group" style="flex:1;">
+          <label class="form-label" for="roster-firstname">Prénom</label>
+          <input class="form-input" type="text" id="roster-firstname" placeholder="Ex : Camille" />
+        </div>
+        <div class="form-group" style="flex:1;">
+          <label class="form-label" for="roster-lastname">Nom</label>
+          <input class="form-input" type="text" id="roster-lastname" placeholder="Ex : Martin" />
+        </div>
+        <div style="padding-bottom:1px;">
+          <button class="btn btn-primary btn-sm" id="btn-add-roster">Ajouter</button>
+        </div>
+      </div>
+
+      <div id="roster-list" style="margin-top:16px;">
+        <div class="spinner" style="margin:24px auto;display:block;"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── Formulaire ──────────────────────────────────────────────── -->
+  <div class="tab-panel" id="tab-formulaire" role="tabpanel" aria-labelledby="tbtn-formulaire" tabindex="0">
+    <!-- Logo de l'asso : posé par le bureau lui-même (règle organizations). -->
+    <div class="card mb-24" id="logo-asso-card">
+      <div class="settings-head">
+        <div class="settings-head-icon"><i data-icone="photo"></i></div>
+        <div style="flex:1;min-width:0;">
+          <h2>Logo de l'asso</h2>
+          <p class="text-sm text-muted mt-4">Affiché en haut du menu, sur le formulaire de cooptation et les pages publiques. Il est découpé en rond : une image carrée, le logo bien centré, marche le mieux.</p>
+          <div class="logo-asso">
+            <span class="logo-asso-apercu" id="logo-asso-apercu"></span>
+            <button type="button" class="btn btn-secondary btn-sm" id="logo-asso-choisir">Choisir une image</button>
+            <button type="button" class="btn btn-ghost btn-sm" id="logo-asso-retirer" hidden>Retirer</button>
+            <input type="file" id="logo-asso-input" accept="image/png,image/jpeg,image/webp" hidden />
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card mb-24">
+      <div class="flex-between mb-16">
+        <div class="settings-head">
+          <div class="settings-head-icon"><i data-icone="note"></i></div>
+          <div>
+            <h2>Formulaire de candidature</h2>
+            <p class="text-sm text-muted mt-4">Le formulaire contient toujours <strong>Prénom, Nom, Email emlyon et Parcours</strong> (Prépa, AST, ASTi, MSc, MS, Autre : la même liste pour toutes les assos, au stand aussi, pour les ratios du tableau de bord et de la délibération). Ajoutez ici vos questions complémentaires (motivations, téléphone, disponibilités…).</p>
+          </div>
+        </div>
+        <div class="flex-gap">
+          <select class="form-select" id="form-campaign-select" style="display:none;width:200px;font-size:14px;">
+            <option value=""></option>
+          </select>
+          <button class="btn btn-primary btn-sm" id="btn-add-question">+ Ajouter une question</button>
+        </div>
+      </div>
+      <div id="questions-list" class="stack">
+        <p class="text-muted text-sm">Chargement…</p>
+      </div>
+    </div>
+
+    <!-- Add/edit question form -->
+    <div class="card" id="question-form-card" style="display:none;">
+      <h2 class="mb-16" id="q-form-title">Nouvelle question</h2>
+      <div class="stack">
+        <div class="form-group">
+          <label class="form-label" for="q-label">Libellé de la question <span class="required">*</span></label>
+          <input class="form-input" type="text" id="q-label" placeholder="Ex: Pourquoi veux-tu rejoindre l'asso ?" />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="q-label-en">Version anglaise (facultative)</label>
+          <input class="form-input" type="text" id="q-label-en" lang="en" placeholder="Ex: Why do you want to join the association?" />
+          <span class="form-hint">Affichée aux cooptants qui remplissent le formulaire en anglais (bouton FR / EN du formulaire). Vide : la question reste en français.</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Image (optionnelle)</label>
+          <input type="file" id="q-image-input" accept="image/*" style="display:none;" />
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <button type="button" class="btn btn-ghost btn-sm" id="btn-pick-image">📎 Choisir une image</button>
+            <button type="button" class="btn btn-ghost btn-sm" id="btn-clear-image" style="display:none;color:#dc2626;">✕ Retirer l'image</button>
+          </div>
+          <div id="q-image-preview" style="margin-top:8px;display:none;">
+            <img id="q-image-thumb" src="" alt="aperçu" style="max-height:120px;max-width:100%;border-radius:6px;border:1px solid var(--border);" />
+          </div>
+          <span class="form-hint">Affichée au-dessus de la question dans le formulaire. Max 2 Mo. Stockée sur Firebase Storage.</span>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="q-type">Type de réponse</label>
+            <select class="form-select" id="q-type">
+              <optgroup label="Texte">
+                <option value="text">Texte court</option>
+                <option value="longtext">Texte long</option>
+              </optgroup>
+              <optgroup label="Champs guidés">
+                <option value="tel">Téléphone</option>
+                <option value="email">Email</option>
+                <option value="nombre">Nombre</option>
+                <option value="date">Date</option>
+                <option value="url">Lien</option>
+              </optgroup>
+              <optgroup label="Choix">
+                <option value="select">Liste de choix</option>
+                <option value="checkbox">Case à cocher</option>
+              </optgroup>
+            </select>
+            <span class="form-hint">Les champs guidés ouvrent le bon clavier sur téléphone.</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Obligatoire ?</label>
+            <label class="checkbox-wrap" style="cursor:pointer;">
+              <input type="checkbox" id="q-required" />
+              <span>Réponse obligatoire</span>
+            </label>
+          </div>
+        </div>
+        <div class="form-group" id="q-options-group" style="display:none;">
+          <label class="form-label" for="q-options">Options (une par ligne)</label>
+          <textarea class="form-textarea" id="q-options" placeholder="Option A&#10;Option B&#10;Option C"></textarea>
+          <label class="form-label" for="q-options-en" style="margin-top:10px;">Options en anglais (facultatif, dans le même ordre)</label>
+          <textarea class="form-textarea" id="q-options-en" lang="en" placeholder="Option A&#10;Option B&#10;Option C"></textarea>
+          <span class="form-hint">Seul le texte affiché change : la réponse enregistrée reste l'option française, pour comparer tout le monde.</span>
+        </div>
+        <div class="flex-gap">
+          <button class="btn btn-primary btn-sm" id="btn-save-question">Ajouter</button>
+          <button class="btn btn-ghost btn-sm" id="btn-cancel-question">Annuler</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Traductions : toutes les questions en français et en anglais, côte à côte. -->
+    <div class="card mt-24" id="trad-card">
+      <div class="flex-between mb-16" style="gap:12px;flex-wrap:wrap;">
+        <div class="settings-head">
+          <div class="settings-head-icon">🇬🇧</div>
+          <div>
+            <h2>Formulaire en anglais</h2>
+            <p class="text-sm text-muted mt-4">Les textes de la plateforme sont déjà traduits. Traduisez ici vos questions : sans traduction, une question s'affiche en français aux cooptants anglophones. <strong id="trad-compte"></strong></p>
+          </div>
+        </div>
+        <a class="btn btn-ghost btn-sm" id="trad-apercu" target="_blank" rel="noopener">Voir le formulaire en anglais ↗</a>
+      </div>
+      <div class="stack" id="trad-liste"><p class="text-muted text-sm">Chargement…</p></div>
+      <div class="flex-gap mt-16"><button class="btn btn-primary btn-sm" id="btn-save-trad">Enregistrer les traductions</button></div>
+    </div>
+
+    <!-- Mode stand : champs demandés quand le bureau inscrit quelqu'un sur place. -->
+    <div class="card mt-24" id="stand-card">
+      <div class="settings-head mb-16">
+        <div class="settings-head-icon"><i data-icone="stand"></i></div>
+        <div>
+          <h2>Mode stand</h2>
+          <p class="text-sm text-muted mt-4">Pour inscrire quelqu'un sur place en quelques secondes, depuis le bouton <strong>Mode stand</strong> du tableau de bord, ou son lien (panneau <strong>Partager</strong> du tableau de bord) à envoyer à ceux qui tiennent les stands (pas besoin de compte). Prénom, nom et créneau sont toujours demandés, sans délai minimum. Choisissez ce qu'on demande en plus : l'inscription s'arrête là, la personne n'a rien à remplir ensuite (le QR code affiché à la fin lui sert à retrouver son entretien).</p>
+        </div>
+      </div>
+      <div class="stack" id="stand-champs"><p class="text-muted text-sm">Chargement…</p></div>
+      <div class="flex-gap mt-16">
+        <button class="btn btn-primary btn-sm" id="btn-save-stand">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Évaluation ──────────────────────────────────────────────── -->
+  <div class="tab-panel" id="tab-evaluation" role="tabpanel" aria-labelledby="tbtn-evaluation" tabindex="0">
+
+    <!-- Lien public d'évaluation : quels cooptants il laisse voir. -->
+    <div class="card mb-24 attend-campagne" data-auto>
+      <div class="settings-head mb-16">
+        <div class="settings-head-icon teal"><i data-icone="micro"></i></div>
+        <div>
+          <h2>Lien d'évaluation du staff</h2>
+          <p class="text-sm text-muted mt-4">
+            Ce lien circule dans tout le staff : il ne montre que les cooptants dont l'entretien a lieu autour
+            de maintenant, avec leurs réponses au formulaire, pas toute la liste.
+          </p>
+        </div>
+      </div>
+      <div class="form-group" style="max-width:360px;">
+        <label class="form-label" for="camp-fenetre-eval">Cooptants proposés</label>
+        <select class="form-select" id="camp-fenetre-eval">
+          <option value="deux-heures">Entretiens de 2 h avant à 2 h après maintenant</option>
+          <option value="journee">Tous les entretiens du jour</option>
+        </select>
+      </div>
+
+    </div>
+
+    <!-- Consignes & guide de questions : texte libre propre à chaque asso -->
+    <div class="card mb-24">
+      <div class="settings-head mb-16">
+        <div class="settings-head-icon teal"><i data-icone="epingle"></i></div>
+        <div>
+          <h2>Consignes & guide de questions</h2>
+          <p class="text-sm text-muted mt-4">
+            Affichés en haut de la fiche d'entretien, pour le bureau comme pour les staffeurs.
+            Laissez vide pour ne rien afficher.
+          </p>
+        </div>
+      </div>
+
+      <div class="stack">
+        <div class="form-group">
+          <label class="form-label" for="camp-consignes">Consignes aux staffeurs</label>
+          <textarea class="form-textarea" id="camp-consignes" rows="8"
+            placeholder="Ce qu'il faut faire, ce qu'il ne faut surtout pas demander, les infos à avoir sous la main…"></textarea>
+          <span class="form-hint">
+            Toujours visible en haut de la fiche. C'est l'endroit pour les interdits
+            et ce que chaque staffeur doit avoir en tête avant de commencer.
+          </span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="camp-guide-questions">Guide de questions</label>
+          <textarea class="form-textarea" id="camp-guide-questions" rows="10"
+            placeholder="Une question par ligne : de quoi relancer quand on ne sait plus quoi demander…"></textarea>
+          <span class="form-hint">
+            Replié par défaut dans la fiche : consultable d'un clic, sans encombrer l'écran.
+          </span>
+        </div>
+
+        <div class="flex-gap">
+          <button class="btn btn-primary" id="btn-save-consignes">Enregistrer</button>
+          <span id="consignes-saved" class="text-sm text-muted" style="align-self:center;"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-24">
+      <div class="flex-between mb-16">
+        <div class="settings-head">
+          <div class="settings-head-icon teal"><i data-icone="micro"></i></div>
+          <div>
+            <h2>Critères d'évaluation</h2>
+            <p class="text-sm text-muted mt-4">Ces critères s'affichent dans la fiche d'entretien que les staffeurs remplissent pour chaque cooptant.</p>
+          </div>
+        </div>
+        <div class="flex-gap">
+          <select class="form-select" id="crit-campaign-select" style="display:none;width:200px;font-size:14px;">
+            <option value=""></option>
+          </select>
+          <button class="btn btn-primary btn-sm" id="btn-add-criterion">+ Ajouter un critère</button>
+        </div>
+      </div>
+      <div id="criteria-list" class="stack">
+        <p class="text-muted text-sm">Chargement…</p>
+      </div>
+    </div>
+
+    <!-- Add/edit criterion form -->
+    <div class="card" id="criterion-form-card" style="display:none;">
+      <h2 class="mb-16" id="crit-form-title">Nouveau critère d'évaluation</h2>
+      <div class="stack">
+        <div class="form-group">
+          <label class="form-label" for="crit-label">Libellé du critère <span class="required">*</span></label>
+          <input class="form-input" type="text" id="crit-label" placeholder="Ex: Motivation, Communication, Leadership…" />
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="crit-type">Type d'évaluation</label>
+            <select class="form-select" id="crit-type">
+              <optgroup label="Compte dans le score">
+                <option value="echelle">Échelle : boutons 1 → max</option>
+                <option value="note">Note : saisie 0 → max (demi-points)</option>
+              </optgroup>
+              <optgroup label="Ne compte pas dans le score">
+                <option value="yesno">Oui / Non : deux boutons</option>
+                <option value="select">Liste de choix : une seule réponse</option>
+                <option value="multi">Cases à cocher : plusieurs réponses</option>
+                <option value="check">Case à cocher simple : vrai / non renseigné</option>
+                <option value="texte">Texte libre</option>
+              </optgroup>
+            </select>
+          </div>
+          <div class="form-group" id="crit-max-group">
+            <label class="form-label" for="crit-max">Valeur maximum</label>
+            <input class="form-input" type="number" id="crit-max" value="5" min="2" max="20" />
+          </div>
+        </div>
+        <div class="form-group" id="crit-options-group" style="display:none;">
+          <label class="form-label" for="crit-options">Options (une par ligne)</label>
+          <textarea class="form-textarea" id="crit-options" rows="4"
+            placeholder="Communication&#10;Événementiel&#10;Trésorerie"></textarea>
+          <span class="form-hint">Au moins deux options. Les staffeurs choisiront parmi cette liste.</span>
+        </div>
+        <label class="checkbox-wrap" style="cursor:pointer;">
+          <input type="checkbox" id="crit-required" checked />
+          <span>Critère obligatoire</span>
+        </label>
+        <div class="flex-gap">
+          <button class="btn btn-primary btn-sm" id="btn-save-criterion">Ajouter</button>
+          <button class="btn btn-ghost btn-sm" id="btn-cancel-criterion">Annuler</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-24 attend-campagne" data-auto>
+      <div class="settings-head mb-16">
+        <div>
+          <h2>Le classement</h2>
+          <p class="text-sm text-muted mt-4">Combien de places sont à pourvoir : une ligne de coupe apparaît dans le classement.</p>
+        </div>
+      </div>
+      <div class="form-group" style="max-width:220px;">
+        <label class="form-label" for="camp-nb-places">Places disponibles</label>
+        <input class="form-input" type="number" id="camp-nb-places" value="0" min="0" placeholder="0 = illimité" />
+        <span class="form-hint">Seuil de sélection (0 = illimité).</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Accès et sécurité ──────────────────────────────────────── -->
+  <div class="tab-panel" id="tab-acces" role="tabpanel" aria-labelledby="tbtn-acces" tabindex="0">
+    <!-- Passation du bureau : d'un bureau à l'autre, en trois étapes -->
+    <div class="card mb-24" id="passation">
+      <div class="settings-head mb-16">
+        <div>
+          <h2>Passation du bureau</h2>
+          <p class="text-sm text-muted mt-4">Quand un nouveau bureau prend la suite. Pensez d'abord à clôturer le recrutement (onglet Quand ?) : les données des cooptants sont effacées, et le nouveau bureau arrive sur un recrutement vide qui garde vos réglages.</p>
+        </div>
+      </div>
+      <ol class="passation-etapes">
+        <li>
+          <b>Invitez le nouveau bureau</b>
+          <span>Un code d'accès à leur envoyer : ils créent leur compte avec, sur la page de connexion.</span>
+          <div class="flex-gap" style="margin-top:8px;"><button type="button" class="btn btn-secondary btn-sm" id="pass-code">Créer le code du nouveau bureau</button></div>
+          <div id="pass-code-res" class="passation-code" hidden></div>
+        </li>
+        <li>
+          <b>Retirez l'ancien bureau</b>
+          <span>Une fois le nouveau bureau entré, retirez les comptes de ceux qui partent : ils ne verront plus rien de l'asso. Vous ne pouvez pas vous retirer vous-même : le nouveau bureau le fera.</span>
+          <div class="flex-gap" style="margin-top:8px;"><button type="button" class="btn btn-secondary btn-sm" id="pass-retirer">Choisir qui retirer</button></div>
+          <div id="pass-membres" class="passation-membres" hidden></div>
+        </li>
+        <li>
+          <b>Repartez d'une liste du staff vide</b>
+          <span>Les noms proposés sur les liens des dispos et de l'évaluation sont ceux de l'an dernier. Videz-la pour que le nouveau staff s'y inscrive.</span>
+          <div class="flex-gap" style="margin-top:8px;"><button type="button" class="btn btn-secondary btn-sm" id="pass-roster">Vider la liste du staff</button></div>
+        </li>
+      </ol>
+    </div>
+
     <div class="card">
       <div class="settings-head mb-16">
-        <div class="settings-head-icon orange">🔑</div>
+        <div class="settings-head-icon orange"><i data-icone="cle"></i></div>
         <div>
           <h2>Codes d'invitation</h2>
           <p class="text-sm text-muted mt-4">Partagez ces codes pour permettre à de nouveaux membres de rejoindre votre espace directement depuis la page de connexion.</p>
@@ -809,13 +924,11 @@
         <button class="btn btn-primary" id="btn-gen-invite-code">+ Générer un code</button>
       </div>
     </div>
-  </div>
 
-  <!-- ── Tab: Corbeille ───────────────────────────────────────── -->
-  <div class="tab-panel" id="tab-corbeille" role="tabpanel" aria-labelledby="tbtn-corbeille" tabindex="0">
+    <div class="mb-24"></div>
     <div class="card">
       <div class="settings-head mb-16">
-        <div class="settings-head-icon">🗑</div>
+        <div class="settings-head-icon"><i data-icone="corbeille"></i></div>
         <div>
           <h2>Corbeille</h2>
           <p class="text-sm text-muted mt-4">Les cooptants et dispos supprimés restent ici <strong>30 jours</strong>, puis s'effacent tout seuls. Pour une demande d'effacement de données, utilise « Supprimer définitivement ».</p>
@@ -825,16 +938,14 @@
         <p class="text-sm text-muted">Chargement…</p>
       </div>
     </div>
-  </div>
 
-  <!-- ── Tab: Zone de danger ────────────────────────────────────── -->
-  <div class="tab-panel" id="tab-danger" role="tabpanel" aria-labelledby="tbtn-danger" tabindex="0">
+    <div class="mb-24"></div>
     <div class="card" style="border:1.5px solid var(--red-mid);">
       <div class="settings-head mb-16">
-        <div class="settings-head-icon red">⚠️</div>
+        <div class="settings-head-icon red"><i data-icone="attention"></i></div>
         <div>
           <h2 style="color:var(--red);">Zone de danger</h2>
-          <p class="text-sm text-muted mt-4">Suppressions en masse. Les données restent récupérables <strong>30 jours</strong> dans l'onglet Corbeille. Une confirmation par nom d'association est requise.</p>
+          <p class="text-sm text-muted mt-4">Suppressions en masse. Les données restent récupérables <strong>30 jours</strong> dans la corbeille ci-dessus. Une confirmation par nom d'association est requise.</p>
         </div>
       </div>
       <div class="stack" style="gap:12px;">
@@ -863,7 +974,7 @@
 <div id="danger-overlay" style="display:none;position:fixed;inset:0;background:rgba(17,24,39,.6);z-index:999;align-items:center;justify-content:center;padding:24px;">
   <div class="card" style="max-width:460px;width:100%;">
     <div class="settings-head" style="margin-bottom:14px;">
-      <div class="settings-head-icon red" style="flex-shrink:0;">⚠️</div>
+      <div class="settings-head-icon red" style="flex-shrink:0;"><i data-icone="attention"></i></div>
       <div>
         <h2 style="color:var(--red);font-size:1.1rem;">Action irréversible</h2>
       </div>
@@ -887,11 +998,17 @@ import { getFirestore, collection, query, where, getDocs, doc, getDoc, setDoc, u
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
-import { showToast, confirmDialog, campaignConfig, esc, CAMPAIGN_CONFIG_DEFAULTS } from '/js/utils.js';
+import { showToast, confirmDialog, campaignConfig, esc, CAMPAIGN_CONFIG_DEFAULTS, paramLien, pourRecherche, estQuestionParcours } from '/js/utils.js';
+import { icone } from '/js/icones.js';
+import { ouvrirFicheStaffeur } from '/js/fiche-cooptant.js';
+import { alertesReglages } from '/js/coherence.js';
+import { afficherLogoAsso } from '/js/nav.js';
 import { heureFinValide, pasCreneauxValide } from '/js/capacite.js';
 import { initBurgerMenu } from '/js/nav.js';
 import { mettreEnCorbeille, cooptantEnCorbeille, listerCorbeille, restaurer, viderEntree, DUREE_CORBEILLE_JOURS }
   from '/js/corbeille.js';
+import { chargerAbsences } from '/js/absences.js';
+import { cloturer, rouvrir, effacerDonnees, preparerSuivant, DELAI_EFFACEMENT_JOURS } from '/js/cloture.js';
 
 let user, currentOrg, members = [], rooms = [], campaigns = [];
 let standingCampaign = null;
@@ -910,7 +1027,13 @@ let _codesTabLoaded = false;
 const tabBtns   = document.querySelectorAll('[role="tab"]');
 const tabPanels = document.querySelectorAll('[role="tabpanel"]');
 
+// Anciens noms d'onglets (liens enregistrés, recherche rapide) → onglets actuels.
+const ANCIENS_ONGLETS = { campagne: 'quand', entretien: 'evaluation', staff: 'qui', salles: 'comment',
+  codes: 'acces', corbeille: 'acces', danger: 'acces' };
+
 function switchTab(tabKey) {
+  tabKey = ANCIENS_ONGLETS[tabKey] || tabKey;
+  if (!document.getElementById(`tab-${tabKey}`)) return;
   tabBtns.forEach(b => {
     const isActive = b.dataset.tab === tabKey;
     b.classList.toggle('active', isActive);
@@ -918,8 +1041,14 @@ function switchTab(tabKey) {
     b.setAttribute('tabindex', isActive ? '0' : '-1');
   });
   tabPanels.forEach(p => p.classList.toggle('active', p.id === `tab-${tabKey}`));
-  if (tabKey === 'corbeille' && currentOrg) chargerCorbeille();
-  if (tabKey === 'codes' && !_codesTabLoaded && currentOrg) {
+  if (tabKey === 'acces' && currentOrg) chargerCorbeille();
+  // L'onglet suit l'adresse : recharger la page y ramène.
+  try {
+    const url = new URL(location.href);
+    url.searchParams.set('onglet', tabKey);
+    history.replaceState(null, '', url);
+  } catch { /* adresse non modifiable : sans importance */ }
+  if (tabKey === 'acces' && !_codesTabLoaded && currentOrg) {
     _codesTabLoaded = true;
     loadInviteCodes();
   }
@@ -994,14 +1123,25 @@ async function init() {
   const orgId = await resolveOrgContext(user);
 
   if (orgId) {
-    currentOrg = await getOrg(orgId);
-    document.getElementById('org-label').textContent = currentOrg?.name || orgId;
-    if (!currentOrg?.slug) {
-      document.getElementById('dispo-slug-warning').style.display = '';
-    }
-    await loadCampaigns();
-    await Promise.all([loadMembers(), loadRoster(), loadRooms(), loadBookings(), loadInviteCodes()]);
+    // L'asso, le recrutement et les listes partent EN MÊME TEMPS : les
+    // chargeurs n'ont besoin que de l'identifiant. Avant : l'asso, puis le
+    // recrutement, puis le reste, trois attentes à la suite.
+    currentOrg = { id: orgId };
+    const asso = getOrg(orgId).then(o => {
+      currentOrg = o || { id: orgId };
+      dessinerLogoAsso();
+      document.getElementById('org-label').textContent = currentOrg?.name || orgId;
+      if (!currentOrg?.slug) document.getElementById('dispo-slug-warning').style.display = '';
+    });
+    await Promise.all([
+      asso.then(loadInviteCodes),        // un code créé d'office reprend le nom de l'asso
+      loadCampaigns().then(() => { majAlertesReglages(); return loadRooms(); }),   // les salles par défaut s'ajoutent au recrutement
+      loadMembers(), loadRoster(), loadBookings(),
+    ]);
     _codesTabLoaded = true;
+    // Lien direct vers un onglet (recherche rapide, js/recherche.js).
+    const onglet = paramLien('onglet');
+    if (onglet) switchTab(onglet);
   } else {
     document.getElementById('org-label').textContent = 'Aucune organisation associée.';
     ['members-list','rooms-list'].forEach(id => {
@@ -1018,7 +1158,7 @@ async function loadCampaigns() {
   standingCampaign = await getOrCreateOrgCampaign(currentOrg.id);
   campaigns = standingCampaign ? [standingCampaign] : [];
   document.getElementById('campaigns-loading').style.display = 'none';
-  document.getElementById('campagne-content').style.display = '';
+  document.body.classList.add('campagne-chargee');
 
   const c = standingCampaign;
   const ouvert = c.recrutementOuvert !== false && c.statut !== 'fermee';
@@ -1032,18 +1172,6 @@ async function loadCampaigns() {
   // en base : on borne à 3 pour rester cohérent avec le planning.
   document.getElementById('camp-nb-jurys').value  = Math.min(3, cfg.nbJurys);
   document.getElementById('camp-jurys-anglais').checked = !!cfg.jurysAnglaisRequis;
-  {
-    // Titre du bloc replié : combien de réglages avancés s'écartent du défaut.
-    const d = CAMPAIGN_CONFIG_DEFAULTS;
-    const modifies = [
-      +cfg.delaiReservationJours !== d.delaiReservationJours, +cfg.pasCreneauxMinutes !== d.pasCreneauxMinutes,
-      +cfg.heureFin !== d.heureFin, !!+cfg.maxEntretiensParallele,
-      !!cfg.nbJurysMax && +cfg.nbJurysMax > +cfg.nbJurys, +cfg.maxEntretiensAffiles !== d.maxEntretiensAffiles,
-      !!cfg.jurysAnglaisRequis, !!cfg.staffToujoursDispo,
-    ].filter(Boolean).length;
-    document.getElementById('reglages-avances-resume').textContent = modifies
-      ? `· ${modifies} réglage${modifies > 1 ? 's' : ''} modifié${modifies > 1 ? 's' : ''}` : '· tout est par défaut';
-  }
   // Combien de staffeurs ont coché l'anglais : sans eux, activer le réglage
   // ne laisserait aucun créneau aux cooptants anglophones.
   getDocs(query(collection(db, 'staff_availabilities'), where('campaignId', '==', c.id)))
@@ -1051,6 +1179,8 @@ async function loadCampaigns() {
       const n = snap.docs.filter(d => (d.data().langues || []).includes('en')).length;
       document.getElementById('camp-jurys-anglais-compte').textContent =
         `Aujourd'hui : ${n} staffeur${n > 1 ? 's' : ''} sur ${snap.size} ${n > 1 ? 'ont' : 'a'} coché l'anglais.`;
+      nbFichesDispos = snap.size;
+      mettreAJourApercus();
     }).catch(() => {});
   {
     const max = parseInt(cfg.nbJurysMax, 10) || 0;
@@ -1058,6 +1188,7 @@ async function loadCampaigns() {
   }
   document.getElementById('camp-nb-places').value = c.nbPlaces ?? 0;
   document.getElementById('camp-appart').checked  = cfg.permettreAppart;
+  document.getElementById('camp-dabord').checked  = !!cfg.remplirConseillesDabord;
   document.getElementById('camp-battement').value = cfg.battementMinutes;
   document.getElementById('camp-heure-fin').value = String(heureFinValide(cfg.heureFin));
   document.getElementById('camp-pas').value = String(pasCreneauxValide(cfg.pasCreneauxMinutes));
@@ -1099,6 +1230,100 @@ async function loadCampaigns() {
   const cSel = document.getElementById('crit-campaign-select'); if (cSel) cSel.style.display = 'none';
   renderQuestions();
   renderCriteria();
+  mettreAJourApercus();
+  dessinerFinRecrutement();
+}
+
+// ── Fin du recrutement et préparation du suivant (js/cloture.js) ────
+const dateLongue = t => (t?.toDate ? t.toDate() : new Date(t)).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+
+function dessinerFinRecrutement() {
+  const c = standingCampaign;
+  if (!c) return;
+  const zone = document.getElementById('fin-contenu');
+  const bandeau = document.getElementById('etat-recrutement');
+  const etat = c.etat || 'en-cours';
+  let html = '';
+  if (etat === 'cloture') {
+    const efface = !!c.donneesEffaceesLe;
+    const restant = c.effacementPrevuLe ? Math.max(0, Math.ceil((c.effacementPrevuLe.toMillis() - Date.now()) / 86400000)) : 0;
+    html = efface
+      ? `<p class="fin-etat"><b>Recrutement clôturé</b>, données des cooptants effacées.</p>
+         <div class="flex-gap"><button type="button" class="btn btn-primary btn-sm" data-fin="preparer">Préparer le prochain recrutement</button></div>`
+      : `<p class="fin-etat"><b>Recrutement clôturé</b>${c.clotureLe ? ` le ${dateLongue(c.clotureLe)}` : ''}. Les données des cooptants seront effacées le <b>${dateLongue(c.effacementPrevuLe)}</b>${restant ? ` (dans ${restant} jour${restant > 1 ? 's' : ''})` : ''}.</p>
+         <p class="text-sm text-muted">D'ici là, le classement reste consultable : pensez à le télécharger (page Cooptants, bouton CSV).</p>
+         <div class="flex-gap">
+           <button type="button" class="btn btn-secondary btn-sm" data-fin="effacer">Effacer maintenant</button>
+           <button type="button" class="btn btn-secondary btn-sm" data-fin="rouvrir">Rouvrir le recrutement</button>
+           <button type="button" class="btn btn-primary btn-sm" data-fin="preparer">Préparer le prochain recrutement</button>
+         </div>`;
+    bandeau.innerHTML = efface
+      ? 'Recrutement clôturé. Quand le prochain se prépare : <b>Préparer le prochain recrutement</b>, en bas de cet onglet.'
+      : `Recrutement clôturé : les données des cooptants seront effacées le <b>${dateLongue(c.effacementPrevuLe)}</b>.`;
+    bandeau.hidden = false;
+  } else if (etat === 'preparation') {
+    html = `<p class="fin-etat"><b>Nouveau recrutement en préparation.</b> Les réglages, questions, grille et consignes de l'an dernier sont gardés : réglez les dates, puis ouvrez le recrutement en haut de cet onglet.</p>
+      <div class="flex-gap"><a class="btn btn-primary btn-sm" href="/secge/dashboard.html?org=${encodeURIComponent(currentOrg.id)}&assistant=1">Lancer l'assistant de démarrage</a></div>`;
+    bandeau.innerHTML = 'Nouveau recrutement en préparation : réglez les dates, puis ouvrez le recrutement.';
+    bandeau.hidden = false;
+  } else {
+    html = `<p class="text-sm text-muted">Quand tous les entretiens sont passés et le classement arrêté : téléchargez le classement (page Cooptants, bouton CSV), puis clôturez. Le formulaire ferme, et les données des cooptants sont effacées ${DELAI_EFFACEMENT_JOURS} jours plus tard (ou tout de suite, si vous le choisissez).</p>
+      <div class="flex-gap"><button type="button" class="btn btn-secondary btn-sm" data-fin="cloturer">Clôturer le recrutement</button></div>`;
+    bandeau.hidden = true;
+  }
+  zone.innerHTML = html;
+  zone.querySelectorAll('[data-fin]').forEach(b => b.addEventListener('click', () => actionFin(b.dataset.fin, b)));
+
+  // Historique : chiffres anonymes de chaque recrutement clôturé.
+  const hist = document.getElementById('historique');
+  const lignes = (c.historique || []).slice().reverse();
+  hist.hidden = !lignes.length;
+  hist.innerHTML = lignes.length ? `<div class="fiche-section" style="margin-top:18px;">Les recrutements précédents</div>
+    <div class="table-wrap"><table><thead><tr><th>Période</th><th style="text-align:right;">Candidatures</th><th style="text-align:right;">Entretiens</th><th style="text-align:right;">Évalués</th><th style="text-align:right;">Absences</th></tr></thead>
+    <tbody>${lignes.map(h => `<tr><td>${h.debut && h.fin ? `${esc(new Date(h.debut + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }))} au ${esc(new Date(h.fin + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }))}` : (h.clotureLe ? `clôturé le ${esc(dateLongue(h.clotureLe))}` : '·')}</td>
+      <td style="text-align:right;">${h.candidatures ?? '·'}</td><td style="text-align:right;">${h.entretiens ?? '·'}</td><td style="text-align:right;">${h.evalues ?? '·'}</td><td style="text-align:right;">${h.absences ?? '·'}</td></tr>`).join('')}</tbody></table></div>` : '';
+}
+
+async function actionFin(action, bouton) {
+  const c = standingCampaign;
+  const orgId = currentOrg.id;
+  const recharger = () => loadCampaigns();
+  const attendre = texte => { bouton.disabled = true; bouton.textContent = texte; };
+  try {
+    if (action === 'cloturer') {
+      const ok = await confirmDialog(
+        `Le formulaire ferme tout de suite. Toutes les données des cooptants (réponses, entretiens, évaluations, notes, absences) seront effacées dans ${DELAI_EFFACEMENT_JOURS} jours, retenus compris. Avez-vous téléchargé le classement ?`,
+        { title: 'Clôturer le recrutement', confirmLabel: 'Clôturer', danger: true });
+      if (!ok) return;
+      attendre('Clôture…');
+      await cloturer(db, orgId, c);
+      showToast(`Recrutement clôturé. Les données des cooptants seront effacées dans ${DELAI_EFFACEMENT_JOURS} jours.`, 'success');
+    } else if (action === 'rouvrir') {
+      attendre('…');
+      await rouvrir(db, c);
+      showToast('Recrutement rouvert. Pensez à rouvrir le formulaire si besoin.', 'success');
+    } else if (action === 'effacer' || action === 'preparer') {
+      if (!c.donneesEffaceesLe) {
+        const ok = await confirmDanger(`Effacer définitivement toutes les données des cooptants de « ${currentOrg.name} » : réponses, entretiens, évaluations, notes, absences, dispos du staff, et la corbeille. Rien ne pourra être récupéré.`);
+        if (!ok) return;
+      }
+      const suffixe = n => n ? ` (${n})` : '';
+      attendre('Effacement…');
+      const prog = (fait, total) => { bouton.textContent = `Effacement… ${fait}/${total}`; };
+      if (action === 'effacer') {
+        const n = await effacerDonnees(db, orgId, c, prog);
+        showToast(`Données des cooptants effacées${suffixe(n)}.`, 'success');
+      } else {
+        await preparerSuivant(db, orgId, c, prog);
+        showToast('Nouveau recrutement prêt à régler.', 'success');
+      }
+    }
+    await recharger();
+  } catch (err) {
+    console.error(err);
+    showToast('Erreur : ' + err.message, 'error');
+    dessinerFinRecrutement();
+  }
 }
 
 function reflectRecrutementState(ouvert) {
@@ -1114,8 +1339,7 @@ function reflectRecrutementState(ouvert) {
 
 // Recrutement sur dossier → tous les réglages d'entretien deviennent hors sujet.
 function reflectEntretienState(avecEntretien) {
-  const box = document.getElementById('entretien-settings');
-  box.style.display = avecEntretien ? '' : 'none';
+  document.querySelectorAll('.si-entretien').forEach(el => { el.hidden = !avecEntretien; });
 }
 
 document.getElementById('camp-avec-entretien').addEventListener('change', e => {
@@ -1137,6 +1361,8 @@ document.getElementById('camp-ouvert').addEventListener('change', async e => {
   try {
     await updateCampaign(standingCampaign.id, { recrutementOuvert: ouvert, statut: ouvert ? 'ouverte' : 'fermee' });
     standingCampaign.recrutementOuvert = ouvert;
+    standingCampaign.statut = ouvert ? 'ouverte' : 'fermee';
+    majAlertesReglages();
     showToast(ouvert ? 'Recrutement ouvert ✓' : 'Recrutement mis en pause.', 'success');
   } catch (err) {
     showToast('Erreur : ' + err.message, 'error');
@@ -1157,6 +1383,7 @@ function afficherJoursRetires() {
   zone.querySelectorAll('button[data-jour]').forEach(b => b.addEventListener('click', () => {
     joursRetires = joursRetires.filter(j => j !== b.dataset.jour);
     afficherJoursRetires();
+    planifierEnregistrement();
   }));
 }
 document.getElementById('camp-jour-retirer').addEventListener('click', () => {
@@ -1165,32 +1392,215 @@ document.getElementById('camp-jour-retirer').addEventListener('click', () => {
   if (!joursRetires.includes(champ.value)) joursRetires = [...joursRetires, champ.value].sort();
   champ.value = '';
   afficherJoursRetires();
+  planifierEnregistrement();
 });
 
-document.getElementById('campaign-form').addEventListener('submit', async e => {
-  e.preventDefault();
+// ── « En clair » : ce que les réglages donnent, en phrases ─────────
+// Recalculé à chaque frappe, avant même l'enregistrement : on voit l'effet
+// d'un réglage avant de quitter la page.
+let nbFichesDispos = null;
+const champ = id => document.getElementById(id);
+const heureLisible = min => `${Math.floor(min / 60)} h${min % 60 ? ' ' + String(min % 60).padStart(2, '0') : ''}`;
+const jourCourt = iso => new Date(iso + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+const NOMS_JOURS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+const pluriel = (n, mot) => `${n} ${mot}${n > 1 ? 's' : ''}`;
+const listeEt = l => l.length > 1 ? `${l.slice(0, -1).join(', ')} et ${l[l.length - 1]}` : (l[0] || '');
+
+function apercu(id, lignes, extra = '') {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.innerHTML = `<span class="apercu-t">En clair</span>${lignes.filter(Boolean).map(l => `<p>${l}</p>`).join('')}${extra}`;
+}
+
+function mettreAJourApercus() {
+  // Quand
+  const debut = champ('camp-date-debut').value, fin = champ('camp-date-fin').value;
+  const exclus = [...document.querySelectorAll('.jours-semaine input[data-jour]')].filter(cb => !cb.checked).map(cb => Number(cb.dataset.jour));
+  const sansJours = exclus.length ? ` Sans entretien ${listeEt(exclus.sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7)).map(j => `le ${NOMS_JOURS[j]}`))}.` : '';
+  const retires = joursRetires.length ? ` ${pluriel(joursRetires.length, 'date')} retirée${joursRetires.length > 1 ? 's' : ''}.` : '';
+  let periode;
+  if (debut && fin && fin >= debut) {
+    let n = 0;
+    for (let d = new Date(debut + 'T12:00:00'); d <= new Date(fin + 'T12:00:00'); d.setDate(d.getDate() + 1)) {
+      const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      if (!exclus.includes(d.getDay()) && !joursRetires.includes(iso)) n++;
+    }
+    periode = `Entretiens du <b>${jourCourt(debut)}</b> au <b>${jourCourt(fin)}</b> : <b>${pluriel(n, 'jour')}</b> d'entretiens.${sansJours}${retires}`;
+  } else if (debut || fin) {
+    periode = `<span class="apercu-alerte">Il manque ${debut ? 'la fin' : 'le début'} des entretiens : sans les deux dates, ce sont les 4 prochaines semaines.</span>`;
+  } else {
+    periode = `Pas de dates : les entretiens sont proposés sur les <b>4 prochaines semaines</b>, qui avancent chaque jour.${sansJours}${retires}`;
+  }
+  const deadline = champ('camp-deadline').value;
+  apercu('apercu-quand', [periode, deadline ? `On peut postuler jusqu'au <b>${jourCourt(deadline)}</b>.` : 'Pas de date limite pour postuler.']);
+
+  // Créneaux : la liste des heures de début d'une journée, telle que le cooptant la verra.
+  const duree = parseInt(champ('camp-duree').value) || 30;
+  const batt = Math.max(0, parseInt(champ('camp-battement').value) || 0);
+  const pas = pasCreneauxValide(champ('camp-pas').value);
+  const finJour = heureFinValide(champ('camp-heure-fin').value) * 60;
+  const heures = [];
+  for (let t = 8 * 60; t + duree <= finJour; t += pas) heures.push(t);
+  const delai = parseInt(champ('camp-delai').value, 10) || 0;
+  const quandReserver = ['dès le jour même', 'au plus tôt pour le lendemain', 'au plus tôt pour après-demain'][delai] || `au plus tôt ${delai} jours à l'avance`;
+  apercu('apercu-creneaux', [
+    `Un entretien dure <b>${duree} min</b>${batt ? `, plus ${batt} min de battement` : ''}. Le dernier finit à <b>${heureLisible(finJour)}</b>.`,
+    heures.length
+      ? `Chaque jour, le cooptant choisit parmi <b>${pluriel(heures.length, 'heure')} de début</b>, ${quandReserver}, si assez de staffeurs sont libres :`
+      : '<span class="apercu-alerte">Aucun créneau possible : la durée dépasse la plage horaire.</span>',
+  ], heures.length ? `<div class="apercu-heures">${heures.map(t => `<span>${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}</span>`).join('')}</div>` : '');
+
+  // Comment
+  const avec = champ('camp-avec-entretien').checked;
+  const mode = document.querySelector('input[name="camp-mode-rdv"]:checked')?.value || 'creneaux';
+  const maxGroupe = Math.max(2, Math.min(4, parseInt(champ('camp-max-groupe').value) || 2));
+  const parallele = parseInt(champ('camp-max-parallele').value, 10) || 0;
+  apercu('apercu-comment', avec ? [
+    mode === 'dispos'
+      ? 'Le cooptant <b>coche ses disponibilités</b>, puis vous placez tout le monde d\'un coup depuis le tableau de bord.'
+      : 'Le cooptant <b>réserve lui-même</b> un créneau libre, là où assez de staffeurs sont dispos. Rien à replacer ensuite.',
+    champ('camp-collectif').checked ? `Il peut faire venir ${maxGroupe - 1 > 1 ? `jusqu'à ${maxGroupe - 1} amis` : 'un ami'} sur son créneau, avec un lien à transmettre.` : '',
+    mode !== 'dispos' && champ('camp-dabord').checked ? 'Les créneaux se remplissent <b>dans l\'ordre</b> : seuls ceux qui collent à un entretien déjà pris sont proposés.' : '',
+    parallele ? `Jamais plus de <b>${pluriel(parallele, 'entretien')}</b> en même temps.` : 'Pas de limite d\'entretiens en même temps : seuls les staffeurs libres comptent.',
+    champ('camp-appart').checked ? 'Les appartements sont proposés comme lieu d\'entretien.' : '',
+  ] : ['<b>Recrutement sur dossier</b> : le formulaire ne demande ni créneau ni disponibilité.']);
+
+  // Qui
+  const nbJ = Math.min(3, parseInt(champ('camp-nb-jurys').value) || 1);
+  const maxJ = parseInt(champ('camp-nb-jurys-max').value, 10) || 0;
+  const affiles = parseInt(champ('camp-max-affiles').value) || 0;
+  apercu('apercu-qui', [
+    `Chaque entretien a <b>${pluriel(nbJ, 'staffeur')}</b>${maxJ > nbJ ? `, jusqu'à ${maxJ} quand quelqu'un est libre sans manquer à un autre entretien` : ''}.`,
+    affiles ? `Un staffeur enchaîne au plus <b>${pluriel(affiles, 'entretien')}</b> d'affilée, puis passe la main.` : 'Pas de limite d\'entretiens d\'affilée.',
+    champ('camp-jurys-anglais').checked ? 'Un entretien en anglais n\'a que des staffeurs anglophones.' : '',
+    champ('camp-staff-libre').checked
+      ? 'Tout le bureau est réputé libre : <b>personne n\'a à remplir ses dispos</b>.'
+      : `Chaque staffeur remplit ses dispos avec le lien du tableau de bord${nbFichesDispos != null ? ` (<b>${nbFichesDispos}</b> l'ont fait)` : ''}.`,
+  ]);
+}
+
+// ── Chercher un réglage ─────────────────────────────────────────────
+// Indexe les libellés visibles de tous les onglets. Ce qui est masqué dans la
+// page (formulaires d'ajout fermés, sections cachées) n'est pas proposé.
+function indexerReglages() {
+  const items = [], vus = new Set();
+  document.querySelectorAll('.tab-panel').forEach(panel => {
+    const onglet = panel.id.replace('tab-', '');
+    const nomOnglet = document.getElementById(`tbtn-${onglet}`)?.textContent.replace(/\s*\?\s*$/, '').trim() || '';
+    panel.querySelectorAll('.card h2, .form-label, .checkbox-wrap strong, .checkbox-wrap > span:first-of-type, .mode-choice-title').forEach(el => {
+      if (el.closest('[style*="display:none"], [style*="display: none"], [hidden]')) return;
+      const texte = el.textContent.replace(/\s+/g, ' ').replace(/\s*\*$/, '').trim();
+      if (!texte || texte.length > 110 || vus.has(onglet + texte)) return;
+      vus.add(onglet + texte);
+      const cible = el.closest('.form-group, .checkbox-wrap, .mode-choice-grid, .card');
+      const aide = cible?.querySelector?.('.form-hint, .text-muted')?.textContent || '';
+      items.push({ texte, onglet, nomOnglet, cible, cle: pourRecherche(`${texte} ${nomOnglet}`), aide: pourRecherche(aide) });
+    });
+  });
+  return items;
+}
+
+let resultatsReglages = [], actifReglage = 0;
+const champRecherche = document.getElementById('reglages-q');
+const boiteResultats = document.getElementById('reglages-resultats');
+
+function chercherReglage() {
+  const mots = pourRecherche(champRecherche.value).split(' ').filter(Boolean);
+  if (!mots.length) { boiteResultats.hidden = true; return; }
+  resultatsReglages = indexerReglages()
+    .map(it => ({ it, n: mots.every(m => it.cle.includes(m) || it.aide.includes(m)) ? mots.filter(m => it.cle.includes(m)).length * 2 + 1 : 0 }))
+    .filter(x => x.n).sort((a, b) => b.n - a.n).slice(0, 8).map(x => x.it);
+  actifReglage = 0;
+  boiteResultats.innerHTML = resultatsReglages.length
+    ? resultatsReglages.map((r, i) => `<button type="button" class="param-res" role="option" data-i="${i}" aria-selected="${i === 0}"><b>${esc(r.texte)}</b><small>${esc(r.nomOnglet)}</small></button>`).join('')
+    : `<div class="param-vide">Aucun réglage pour « ${esc(champRecherche.value)} ».</div>`;
+  boiteResultats.hidden = false;
+}
+
+function allerAuReglage(r) {
+  if (!r) return;
+  boiteResultats.hidden = true;
+  switchTab(r.onglet);
+  const cible = r.cible;
+  if (!cible) return;
+  cible.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  cible.classList.remove('reglage-trouve');
+  void cible.offsetWidth;
+  cible.classList.add('reglage-trouve');
+  setTimeout(() => cible.classList.remove('reglage-trouve'), 1800);
+  cible.querySelector('input:not([type=hidden]), select, textarea')?.focus({ preventScroll: true });
+}
+
+champRecherche.addEventListener('input', chercherReglage);
+champRecherche.addEventListener('focus', () => { if (champRecherche.value) chercherReglage(); });
+champRecherche.addEventListener('keydown', e => {
+  if (boiteResultats.hidden && e.key !== 'Escape') return;
+  const btns = [...boiteResultats.querySelectorAll('.param-res')];
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (!btns.length) return;
+    actifReglage = (actifReglage + (e.key === 'ArrowDown' ? 1 : -1) + btns.length) % btns.length;
+    btns.forEach((b, i) => b.setAttribute('aria-selected', String(i === actifReglage)));
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    allerAuReglage(resultatsReglages[actifReglage]);
+  } else if (e.key === 'Escape') {
+    boiteResultats.hidden = true;
+  }
+});
+boiteResultats.addEventListener('mousedown', e => e.preventDefault());   // garder le focus dans le champ
+boiteResultats.addEventListener('click', e => {
+  const b = e.target.closest('.param-res');
+  if (b) allerAuReglage(resultatsReglages[Number(b.dataset.i)]);
+});
+document.addEventListener('click', e => { if (!e.target.closest('.param-cherche')) boiteResultats.hidden = true; });
+
+// ── Enregistrement automatique des réglages du recrutement ──────────
+// Les réglages sont rangés par question (Quand, Comment, Qui, Évaluation) :
+// plus de bouton « Enregistrer » par bloc, chaque changement part tout seul.
+// ⚠️ updateCampaign remplace `config` en entier : on repart toujours des
+// valeurs existantes (campaignConfig) et on relit TOUS les champs.
+let minuterieReglages = null;
+let enregistrementEnCours = Promise.resolve();
+const etatReglages = (texte, ton = '') => {
+  const el = document.getElementById('reglages-etat');
+  el.textContent = texte;
+  el.dataset.ton = ton;
+};
+
+function planifierEnregistrement() {
+  mettreAJourApercus();
+  if (!standingCampaign) return;
+  clearTimeout(minuterieReglages);
+  etatReglages('Modifications…');
+  minuterieReglages = setTimeout(() => {
+    enregistrementEnCours = enregistrementEnCours.then(enregistrerReglages, enregistrerReglages);
+  }, 500);
+}
+
+document.querySelectorAll('[data-auto]').forEach(zone => {
+  zone.addEventListener('change', planifierEnregistrement);
+  // Les champs texte et nombre : l'aperçu suit la frappe, l'enregistrement
+  // attend la fin de la saisie (« change »).
+  zone.addEventListener('input', mettreAJourApercus);
+});
+
+async function enregistrerReglages() {
   if (!standingCampaign) return;
   const dateDebut = document.getElementById('camp-date-debut').value || null;
   const dateFin   = document.getElementById('camp-date-fin').value   || null;
 
   // Une seule borne ne définit pas une période → on retomberait silencieusement
-  // sur la fenêtre glissante. Mieux vaut le dire.
+  // sur la fenêtre glissante. Mieux vaut le dire, et attendre la seconde.
   if ((dateDebut && !dateFin) || (!dateDebut && dateFin)) {
-    return showToast('Renseigne les deux dates d\'entretiens, ou aucune des deux.', 'error');
+    return etatReglages('Pas encore enregistré : il faut les deux dates, ou aucune.', 'alerte');
   }
   if (dateDebut && dateFin && dateFin < dateDebut) {
-    return showToast('La fin des entretiens doit être après le début.', 'error');
+    return etatReglages('Pas enregistré : la fin des entretiens est avant le début.', 'alerte');
   }
 
-  const btn = document.getElementById('camp-save-btn');
-  btn.disabled = true; btn.innerHTML = '<span class="spinner" style="width:14px;height:14px;border-width:2px;margin-right:6px;"></span>Enregistrement…';
-
-  // Tout est DANS le try : une erreur pendant la construction de la config
-  // (champ absent, helper manquant) laissait sinon le bouton bloqué sur
-  // « Enregistrement… » sans jamais rien dire à l'utilisateur.
+  etatReglages('Enregistrement…');
   try {
-    // ⚠️ updateCampaign remplace `config` en entier : on repart des valeurs
-    // existantes (complétées par les défauts) pour ne rien effacer.
     const config = {
       ...campaignConfig(standingCampaign),
       dureeMinutes:    parseInt(document.getElementById('camp-duree').value) || 30,
@@ -1202,6 +1612,7 @@ document.getElementById('campaign-form').addEventListener('submit', async e => {
         return max > min ? Math.min(3, max) : null;
       })(),
       permettreAppart: document.getElementById('camp-appart').checked,
+      remplirConseillesDabord: document.getElementById('camp-dabord').checked,
       battementMinutes: Math.max(0, parseInt(document.getElementById('camp-battement').value) || 0),
       heureFin:        heureFinValide(document.getElementById('camp-heure-fin').value),
       pasCreneauxMinutes: pasCreneauxValide(document.getElementById('camp-pas').value),
@@ -1222,18 +1633,143 @@ document.getElementById('campaign-form').addEventListener('submit', async e => {
       avecEntretien:   document.getElementById('camp-avec-entretien').checked,
       entretienCollectif: document.getElementById('camp-collectif').checked,
       maxParGroupe:    Math.max(2, Math.min(4, parseInt(document.getElementById('camp-max-groupe').value) || 2)),
+      fenetreEvaluation: document.getElementById('camp-fenetre-eval').value === 'journee' ? 'journee' : 'deux-heures',
     };
     const nbPlaces = parseInt(document.getElementById('camp-nb-places').value) || 0;
 
     await updateCampaign(standingCampaign.id, { config, nbPlaces });
     standingCampaign.config = config; standingCampaign.nbPlaces = nbPlaces;
-    document.getElementById('camp-saved').textContent = 'Enregistré ✓';
+    majAlertesReglages();
+    etatReglages(`Enregistré à ${new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`, 'ok');
   } catch (err) {
     console.error(err);
+    etatReglages('Pas enregistré', 'alerte');
     showToast('Erreur : ' + (err?.message || err), 'error');
-  } finally {
-    btn.disabled = false; btn.textContent = 'Enregistrer';
   }
+}
+
+// ── Logo de l'asso ─────────────────────────────────────────────────
+// Recadré en carré au centre, fond blanc (un PNG aux coins transparents
+// donnait des coins noirs une fois en JPEG), 256 px : léger, relu partout.
+function logoCarre(fichier, cote = 256) {
+  return new Promise((resolve, reject) => {
+    if (fichier.size > 5 * 1024 * 1024) return reject(new Error('Image trop lourde (5 Mo au plus).'));
+    const img = new Image();
+    img.onerror = () => reject(new Error('Image illisible.'));
+    img.onload = () => {
+      const c = Math.min(img.width, img.height);
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = Math.min(cote, c);
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, (img.width - c) / 2, (img.height - c) / 2, c, c, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(img.src);
+      resolve(canvas.toDataURL('image/jpeg', 0.85));
+    };
+    img.src = URL.createObjectURL(fichier);
+  });
+}
+
+function dessinerLogoAsso() {
+  const logo = currentOrg?.logoBase64 || '';
+  const ap = document.getElementById('logo-asso-apercu');
+  ap.classList.toggle('vide', !logo);
+  ap.innerHTML = logo ? `<img src="${logo}" alt="Logo actuel" />` : icone('photo');
+  document.getElementById('logo-asso-retirer').hidden = !logo;
+  document.getElementById('logo-asso-choisir').textContent = logo ? 'Changer l\'image' : 'Choisir une image';
+}
+
+async function enregistrerLogoAsso(logo) {
+  try {
+    await updateDoc(doc(db, 'organizations', currentOrg.id), { logoBase64: logo });
+    currentOrg.logoBase64 = logo;
+    dessinerLogoAsso();
+    afficherLogoAsso(logo, { memoriser: true });
+    showToast(logo ? 'Logo enregistré.' : 'Logo retiré.', 'success');
+  } catch (err) { showToast('Erreur : ' + err.message, 'error'); }
+}
+document.getElementById('logo-asso-choisir').addEventListener('click', () => document.getElementById('logo-asso-input').click());
+document.getElementById('logo-asso-input').addEventListener('change', async e => {
+  const f = e.target.files?.[0];
+  e.target.value = '';
+  if (!f || !currentOrg?.id) return;
+  try { await enregistrerLogoAsso(await logoCarre(f)); }
+  catch (err) { showToast(err.message, 'error'); }
+});
+document.getElementById('logo-asso-retirer').addEventListener('click', async () => {
+  if (!await confirmDialog('Retirer le logo de l\'asso ? Le menu et les pages publiques n\'en auront plus.', { title: 'Retirer le logo', confirmLabel: 'Retirer', danger: true })) return;
+  enregistrerLogoAsso('');
+});
+
+// ── Réglages à vérifier (js/coherence.js) ─────────────────────────
+// Ce qui n'est pas logique ou pas pratique (entretiens plus longs que l'écart
+// entre deux horaires, longues séries sans pause, inscriptions ouvertes après
+// le dernier créneau réservable…), avec un lien vers le champ concerné. Les
+// mêmes alertes sont dans « À faire » du tableau de bord, masquables là-bas.
+const CHAMP_ALERTE = { 'duree-pas': 'camp-pas', pause: 'camp-max-affiles', deadline: 'camp-deadline',
+  ouvert: 'camp-ouvert', grille: 'criteria-list', places: 'camp-nb-places' };
+let nbEntretiensPasses = 0, entretiensComptes = false;
+
+function majAlertesReglages() {
+  const el = document.getElementById('reglages-alertes');
+  if (!standingCampaign) { el.hidden = true; return; }
+  // Le compte des entretiens passés ne sert qu'aux alertes « pas de grille »
+  // et « pas de places » : lu seulement s'il manque l'une des deux (sinon
+  // ~90 lectures pour rien à chaque ouverture de Paramètres).
+  const manque = !(standingCampaign.interviewCriteria || []).length || !(Number(standingCampaign.nbPlaces) > 0);
+  if (manque && !entretiensComptes) { entretiensComptes = true; compterEntretiensPasses(); }
+  const ignorees = new Set(standingCampaign.alertesIgnorees || []);
+  const alertes = alertesReglages({ cfg: campaignConfig(standingCampaign), campaign: standingCampaign, nbEntretiensPasses })
+    .filter(a => a.cles.some(c => !ignorees.has(c)));
+  el.hidden = !alertes.length;
+  el.innerHTML = `<div class="param-alertes-titre">À vérifier</div>` + alertes.map(a => `
+    <div class="param-alerte ${a.ton}">
+      <div><b>${esc(a.titre)}</b><small>${esc(a.detail)}</small></div>
+      <div class="param-alerte-actions">
+        <button type="button" class="btn btn-secondary btn-sm" data-alerte="${esc(a.code)}" data-onglet="${esc(a.onglet)}">Régler</button>
+        <button type="button" class="param-masquer" data-masquer-alerte="${esc(a.code)}" title="Masquer : ne plus la signaler (pour tout le bureau)" aria-label="Masquer ${esc(a.titre)}">✕</button>
+      </div>
+    </div>`).join('');
+  // Masquer : mêmes clés que la croix du tableau de bord (campaign.alertesIgnorees).
+  el.querySelectorAll('[data-masquer-alerte]').forEach(b => b.addEventListener('click', async () => {
+    const a = alertes.find(x => x.code === b.dataset.masquerAlerte);
+    if (!a) return;
+    const apres = [...new Set([...(standingCampaign.alertesIgnorees || []), ...a.cles])];
+    try {
+      // Liste réécrite en entier (pas d'arrayUnion : la démo ne le connaît pas).
+      await updateCampaign(standingCampaign.id, { alertesIgnorees: apres });
+      standingCampaign.alertesIgnorees = apres;
+      majAlertesReglages();
+      showToast('Alerte masquée pour tout le bureau. « Tout réafficher » au tableau de bord pour la revoir.', 'success');
+    } catch (err) { showToast('Erreur : ' + err.message, 'error'); }
+  }));
+  el.querySelectorAll('[data-alerte]').forEach(b => b.addEventListener('click', () => {
+    document.querySelector(`.tab-btn[data-tab="${CSS.escape(b.dataset.onglet)}"]`)?.click();
+    const champ = document.getElementById(CHAMP_ALERTE[b.dataset.alerte]);
+    if (!champ) return;
+    champ.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    champ.classList.add('param-signale');
+    setTimeout(() => champ.classList.remove('param-signale'), 2400);
+    if (champ.matches('input, select')) champ.focus({ preventScroll: true });
+  }));
+}
+
+/** Entretiens déjà passés (pour « pas de grille », « places ») : lu une fois, sans retarder la page. */
+async function compterEntretiensPasses() {
+  try {
+    const snap = await getDocs(query(collection(db, 'interviews'), where('campaignId', '==', standingCampaign.id),
+      where('datetimeStart', '<=', new Date())));
+    const t = Date.now();
+    nbEntretiensPasses = snap.docs.filter(d => (d.data().datetimeEnd?.toMillis?.() ?? d.data().datetimeStart?.toMillis?.() ?? Infinity) <= t).length;
+    majAlertesReglages();
+  } catch (e) { console.warn('Entretiens illisibles :', e); }
+}
+
+// Quitter la page juste après un changement : on prévient, l'enregistrement
+// part dans la demi-seconde.
+window.addEventListener('beforeunload', e => {
+  if (document.getElementById('reglages-etat').textContent === 'Modifications…') { e.preventDefault(); e.returnValue = ''; }
 });
 
 document.getElementById('btn-save-consignes').addEventListener('click', async () => {
@@ -1519,9 +2055,10 @@ function dessinerStand() {
     </label>`;
   el.innerHTML = ligne('__email', 'Email emlyon', _standCfg.standEmail !== false,
       'facultatif sur le stand')
+    + '<p class="text-sm text-muted" style="margin:2px 0;">Le parcours est toujours demandé, au stand aussi.</p>'
     + (_questions.length
-      ? _questions.map(q => ligne(esc(q.id || ''), esc(q.label), q.id && choisies.has(q.id), q.required ? 'obligatoire' : '')).join('')
-      : '<p class="text-muted text-sm">Aucune question personnalisée.</p>');
+      ? _questions.filter(q => !estQuestionParcours(q)).map(q => ligne(esc(q.id || ''), esc(q.label), q.id && choisies.has(q.id), q.required ? 'obligatoire' : '')).join('')
+      : '<p class="text-muted text-sm">Aucune question dans le formulaire pour l\'instant.</p>');
 }
 
 document.getElementById('btn-save-stand').addEventListener('click', async () => {
@@ -1560,7 +2097,7 @@ function dessinerTraductions() {
   if (!el) return;
   const apercu = document.getElementById('trad-apercu');
   if (currentOrg) apercu.href = `/postuler.html?org=${encodeURIComponent(currentOrg.slug || currentOrg.id)}&lang=en`;
-  if (!_questions.length) { el.innerHTML = '<p class="text-muted text-sm">Aucune question personnalisée.</p>'; document.getElementById('trad-compte').textContent = ''; return; }
+  if (!_questions.length) { el.innerHTML = '<p class="text-muted text-sm">Aucune question à traduire : ajoutez d\'abord des questions au formulaire.</p>'; document.getElementById('trad-compte').textContent = ''; return; }
   const faites = _questions.filter(questionTraduite).length;
   document.getElementById('trad-compte').textContent = faites === _questions.length
     ? 'Tout est traduit ✓'
@@ -1609,7 +2146,7 @@ function dessinerQuestions() {
   dessinerStand();
   dessinerTraductions();
   const el = document.getElementById('questions-list');
-  if (!_questions.length) { el.innerHTML = '<p class="text-muted text-sm">Aucune question personnalisée.</p>'; return; }
+  if (!_questions.length) { el.innerHTML = '<p class="text-muted text-sm">Aucune question pour l\'instant : le formulaire ne demande que le prénom, le nom, l\'email et le créneau. « + Ajouter une question » pour en poser d\'autres (motivation, téléphone…).</p>'; return; }
   el.innerHTML = '';
 
   _questions.forEach((q, i) => {
@@ -1623,7 +2160,7 @@ function dessinerQuestions() {
         <div class="q-grip" title="Glisser pour déplacer">⋮⋮</div>
         <div class="q-num">${i + 1}</div>
         <div style="flex:1;min-width:0;">
-          <div style="font-weight:600;">${esc(q.label)}</div>
+          <div style="font-weight:600;">${esc(q.label)}${estQuestionParcours(q) ? ' <span class="badge badge-gray" title="Le formulaire pose déjà la question commune Parcours : celle-ci n\'est plus affichée. Les réponses déjà reçues sont reprises. Vous pouvez la supprimer.">Remplacée par la question commune</span>' : ''}</div>
           <div class="text-sm text-muted">${Q_TYPE_LABELS[q.type] || q.type} · ${q.required ? 'Obligatoire' : 'Optionnel'}${q.labelEn ? ' · 🇬🇧 traduite' : ''}</div>
         </div>
         <div class="q-moves">
@@ -1694,11 +2231,11 @@ function dessinerQuestions() {
 // ─── Interview Criteria ───────────────────────────────────────────
 let _editingCriterionIndex = null;
 const TYPE_LABELS = {
-  echelle: '⭐ Échelle', note: '🔢 Note', yesno: '✅ Oui / Non',
-  select: '📋 Liste de choix', multi: '☑️ Cases à cocher',
-  check: '✔️ Case à cocher', texte: '💬 Texte libre',
+  echelle: 'Échelle', note: 'Note', yesno: 'Oui / Non',
+  select: 'Liste de choix', multi: 'Cases à cocher',
+  check: 'Case à cocher', texte: 'Texte libre',
 };
-const TYPE_ICONS  = { echelle: '⭐', note: '🔢', yesno: '✅', select: '📋', multi: '☑️', check: '✔️', texte: '💬' };
+const TYPE_ICONS  = { echelle: 'etoile', note: 'diese', yesno: 'oui_non', select: 'liste', multi: 'cases', check: 'coche', texte: 'bulle' };
 
 // Seuls les types chiffrés ont une valeur maximum ; seuls les types à liste
 // ont des options. Centralisé ici pour éviter les divergences entre le
@@ -1794,7 +2331,7 @@ async function renderCriteria() {
     const maxInfo = cr.max && cr.type !== 'yesno' ? ` · max ${cr.max}` : '';
     row.innerHTML = `
       <div style="display:flex;align-items:center;gap:12px;">
-        <div style="background:var(--indigo-light);border-radius:8px;padding:8px 10px;font-size:18px;">${TYPE_ICONS[cr.type] || '⭐'}</div>
+        <div style="background:var(--indigo-light);color:var(--indigo-dark);border-radius:8px;padding:8px 10px;font-size:18px;display:flex;">${icone(TYPE_ICONS[cr.type] || 'etoile')}</div>
         <div>
           <div style="font-weight:600;">${cr.label}</div>
           <div class="text-sm text-muted">${TYPE_LABELS[cr.type] || cr.type}${maxInfo} · ${cr.required ? 'Obligatoire' : 'Optionnel'}</div>
@@ -1855,7 +2392,7 @@ function renderMembers() {
     const nom = m.displayName || [m.firstName, m.lastName].filter(Boolean).join(' ') || m.email?.split('@')[0] || m.userId;
     row.innerHTML = `
       <div>
-        <div style="font-weight:600;">${esc(nom)}${soi ? ' <span class="text-sm text-muted" style="font-weight:400;">(toi)</span>' : ''}</div>
+        <div style="font-weight:600;"><button type="button" class="fiche-staff" data-staff="${esc(m.userId)}" title="Ses dispos et ses entretiens">${esc(nom)}</button>${soi ? ' <span class="text-sm text-muted" style="font-weight:400;">(toi)</span>' : ''}</div>
         <div class="text-sm text-muted" style="margin-top:1px;">${esc(m.email || m.userId)}</div>
         ${soi
           // Les règles interdisent de modifier son propre rôle (sinon on
@@ -2010,6 +2547,24 @@ async function loadRoster() {
   renderRoster();
 }
 
+/**
+ * Identité à ouvrir dans la fiche d'un staffeur : celle de la liste du staff
+ * quand la personne y figure (c'est elle que portent ses dispos et ses
+ * entretiens, voir planning.html), sinon son compte.
+ */
+function idFicheStaff(userId, nom) {
+  return roster.find(r => normName(r.displayName) === normName(nom))?.id || userId;
+}
+// Un clic sur un nom (membres, liste du staff) : la fiche du staffeur, la même que dans le planning.
+document.addEventListener('click', e => {
+  const b = e.target.closest('#members-list .fiche-staff, #roster-list .fiche-staff');
+  if (!b || !standingCampaign) return;
+  const nom = b.textContent.trim();
+  // Lu au clic : la liste du staff se charge en même temps que les membres.
+  const id = b.closest('#members-list') ? idFicheStaff(b.dataset.staff, nom) : b.dataset.staff;
+  ouvrirFicheStaffeur(id, { org: currentOrg, campaign: standingCampaign, nom });
+});
+
 function renderRoster() {
   const el = document.getElementById('roster-list');
   if (!roster.length) {
@@ -2021,9 +2576,10 @@ function renderRoster() {
     const row = document.createElement('div');
     row.className = 'flex-between';
     row.style.cssText = 'padding:8px 0;border-bottom:1px solid var(--border);';
-    row.innerHTML = `<div style="font-weight:600;">${m.displayName}</div>
-      <button class="btn btn-danger btn-sm" data-id="${m.id}">Retirer</button>`;
-    row.querySelector('button').addEventListener('click', async () => {
+    // Nom échappé : la liste se remplit aussi depuis la page publique des dispos.
+    row.innerHTML = `<div><button type="button" class="fiche-staff" data-staff="${esc(m.id)}" title="Ses dispos et ses entretiens">${esc(m.displayName)}</button></div>
+      <button class="btn btn-danger btn-sm" data-id="${esc(m.id)}">Retirer</button>`;
+    row.querySelector('button[data-id]').addEventListener('click', async () => {
       const dispos = await disposDe(m.id);
       if (!await confirmDialog(
             dispos.length
@@ -2125,7 +2681,7 @@ async function seedDefaultRoomsIfNeeded() {
 
 function renderRooms() {
   const el = document.getElementById('rooms-list');
-  if (!rooms.length) { el.innerHTML = '<p class="text-muted text-sm">Aucune salle enregistrée.</p>'; return; }
+  if (!rooms.length) { el.innerHTML = '<p class="text-muted text-sm">Aucune salle pour l\'instant. « + Ajouter une salle » : elles seront proposées dans la fiche de chaque entretien. On peut aussi taper une salle à la main dans l\'entretien.</p>'; return; }
   el.innerHTML = '';
   rooms.forEach(r => {
     const responsableLabel = r.responsableUserId
@@ -2291,7 +2847,7 @@ async function loadInviteCodes() {
       try {
         const r = await _createInviteCode('secge', 'Bureau');
         renderInviteCodeRow(r.code, r.data, listEl);
-        showToast('Code d\'accès du bureau créé automatiquement 🎉', 'success');
+        showToast('Code d\'accès du bureau créé automatiquement.', 'success');
       } catch(autoErr) {
         listEl.innerHTML = '<p class="text-sm text-muted">Aucun code d\'accès. Créez-en un ci-dessous.</p>';
       }
@@ -2314,8 +2870,8 @@ function renderInviteCodeRow(code, data, container) {
     <span style="font-family:monospace;font-size:15px;font-weight:800;letter-spacing:.12em;color:var(--indigo);min-width:96px;">${code}</span>
     <span class="badge ${badgeCls}" style="font-size:11px;">${ROLE_LABELS[data.role] || data.role}</span>
     ${data.label ? `<span class="text-sm text-muted" style="flex:1;">${data.label}</span>` : '<span style="flex:1;"></span>'}
-    <button class="btn btn-ghost btn-sm btn-copy-code">📋 Copier</button>
-    <button class="btn btn-danger btn-sm btn-del-code" title="Supprimer ce code">🗑</button>`;
+    <button class="btn btn-ghost btn-sm btn-copy-code">${icone('copier')}Copier</button>
+    <button class="btn btn-danger btn-sm btn-icone btn-del-code" title="Supprimer ce code" aria-label="Supprimer ce code">${icone('corbeille')}</button>`;
 
   row.querySelector('.btn-copy-code').addEventListener('click', async () => {
     try {
@@ -2373,8 +2929,72 @@ document.getElementById('btn-gen-invite-code').addEventListener('click', async (
   }
 });
 
+// ─── Passation du bureau ──────────────────────────────────────────
+document.getElementById('pass-code').addEventListener('click', async e => {
+  if (!currentOrg) return;
+  const btn = e.currentTarget;
+  btn.disabled = true;
+  try {
+    const { code } = await _createInviteCode('secge', `Nouveau bureau ${new Date().getFullYear()}`);
+    const message = `Pour accéder à Cooptly : crée ton compte sur ${location.origin} avec le code ${code}.`;
+    const res = document.getElementById('pass-code-res');
+    res.innerHTML = `<div>Code : <b>${esc(code)}</b></div><p class="text-sm text-muted" style="margin:4px 0 8px;">${esc(message)}</p>
+      <button type="button" class="btn btn-primary btn-sm">Copier le message</button>`;
+    res.querySelector('button').addEventListener('click', () => navigator.clipboard.writeText(message)
+      .then(() => showToast('Message copié.', 'success')).catch(() => showToast('Impossible de copier.', 'error')));
+    res.hidden = false;
+    loadInviteCodes();
+  } catch (err) { showToast('Erreur : ' + err.message, 'error'); }
+  finally { btn.disabled = false; }
+});
+
+document.getElementById('pass-retirer').addEventListener('click', () => {
+  const zone = document.getElementById('pass-membres');
+  const autres = members.filter(m => m.userId !== user?.uid);
+  if (!autres.length) { zone.innerHTML = '<p class="text-sm text-muted">Personne d\'autre que vous dans le bureau.</p>'; zone.hidden = false; return; }
+  zone.innerHTML = autres.map((m, i) => `<label class="checkbox-wrap"><input type="checkbox" data-i="${i}">
+      <span>${esc(m.displayName || [m.firstName, m.lastName].filter(Boolean).join(' ') || m.email || m.userId)} <span class="text-muted">${esc(m.email || '')}</span></span></label>`).join('')
+    + '<div class="flex-gap" style="margin-top:8px;"><button type="button" class="btn btn-danger btn-sm" id="pass-retirer-ok" disabled>Retirer</button></div>';
+  zone.hidden = false;
+  const ok = zone.querySelector('#pass-retirer-ok');
+  const coches = () => [...zone.querySelectorAll('input:checked')].map(c => autres[Number(c.dataset.i)]);
+  zone.querySelectorAll('input').forEach(c => c.addEventListener('change', () => {
+    const n = coches().length;
+    ok.disabled = !n;
+    ok.textContent = n ? `Retirer ${n} personne${n > 1 ? 's' : ''}` : 'Retirer';
+  }));
+  ok.addEventListener('click', async () => {
+    const choisis = coches();
+    if (!await confirmDialog(`Retirer ${choisis.length} personne${choisis.length > 1 ? 's' : ''} du bureau ? Elles n'auront plus accès à l'asso.`,
+      { title: 'Retirer l\'ancien bureau', confirmLabel: 'Retirer', danger: true })) return;
+    ok.disabled = true;
+    try {
+      // Une personne peut avoir plusieurs documents (pré-ajout et canonique) : tous partent.
+      await Promise.all(choisis.flatMap(m => (m._docIds?.length ? m._docIds : [m.id]).map(id => deleteDoc(doc(db, 'memberships', id)))));
+      showToast(`${choisis.length} personne${choisis.length > 1 ? 's' : ''} retirée${choisis.length > 1 ? 's' : ''} du bureau.`, 'success');
+      zone.hidden = true;
+      await loadMembers();
+    } catch (err) { ok.disabled = false; showToast('Erreur : ' + err.message, 'error'); }
+  });
+});
+
+document.getElementById('pass-roster').addEventListener('click', async () => {
+  if (!roster.length) return showToast('La liste du staff est déjà vide.', 'info');
+  if (!await confirmDialog(`Retirer les ${roster.length} noms de la liste du staff, avec leurs dispos ?`,
+    { title: 'Vider la liste du staff', confirmLabel: 'Vider', danger: true })) return;
+  try {
+    const ids = new Set(roster.map(m => m.id));
+    const dispos = standingCampaign
+      ? (await getDocs(query(collection(db, 'staff_availabilities'), where('campaignId', '==', standingCampaign.id)))).docs.filter(d => ids.has(d.data().userId))
+      : [];
+    await Promise.all([...dispos.map(d => deleteDoc(d.ref)), ...roster.map(m => deleteDoc(doc(db, 'roster_members', m.id)))]);
+    showToast('Liste du staff vidée.', 'success');
+    await loadRoster();
+  } catch (err) { showToast('Erreur : ' + err.message, 'error'); }
+});
+
 // ─── Corbeille ────────────────────────────────────────────────────
-const TYPES_CORBEILLE = { cooptant: 'Cooptant', dispos: 'Dispos', orphelins: 'Entretiens', entretien: 'Entretien' };
+const TYPES_CORBEILLE = { cooptant: 'Cooptant', dispos: 'Dispos', orphelins: 'Entretiens', entretien: 'Entretien', absence: 'Absence' };
 
 async function chargerCorbeille() {
   const liste = document.getElementById('corbeille-list');
@@ -2439,17 +3059,6 @@ async function chargerCorbeille() {
   }
 }
 
-// Lien d'évaluation : chemin pointé, pour ne toucher à aucun autre réglage.
-document.getElementById('btn-save-fenetre-eval').addEventListener('click', async () => {
-  if (!standingCampaign) return showToast('Chargement en cours, réessaie dans un instant.', 'info');
-  const v = document.getElementById('camp-fenetre-eval').value === 'journee' ? 'journee' : 'deux-heures';
-  try {
-    await updateDoc(doc(db, 'campaigns', standingCampaign.id), { 'config.fenetreEvaluation': v });
-    standingCampaign.config = { ...(standingCampaign.config || {}), fenetreEvaluation: v };
-    showToast('Lien d\'évaluation mis à jour.', 'success');
-  } catch (err) { showToast('Erreur : ' + err.message, 'error'); }
-});
-
 // ─── Zone de danger ───────────────────────────────────────────────
 document.getElementById('btn-reset-candidates').addEventListener('click', async () => {
   if (!currentOrg || !standingCampaign) return showToast('Organisation non chargée.', 'error');
@@ -2463,16 +3072,17 @@ document.getElementById('btn-reset-candidates').addEventListener('click', async 
     // Les entretiens font partie du lot : ne supprimer que les cooptants
     // laissait un entretien par personne, sans nom rattachable, qui continuait
     // d'occuper le planning et de bloquer des créneaux.
-    const [candSnap, ivSnap, evalSnap, notesSnap] = await Promise.all([
+    const [candSnap, ivSnap, evalSnap, notesSnap, absences] = await Promise.all([
       getDocs(query(collection(db, 'candidates'),            where('campaignId', '==', standingCampaign.id))),
       getDocs(query(collection(db, 'interviews'),            where('campaignId', '==', standingCampaign.id))),
       getDocs(query(collection(db, 'interview_evaluations'), where('organizationId', '==', currentOrg.id))),
       getDocs(query(collection(db, 'notes_internes'),        where('organizationId', '==', currentOrg.id))),
+      chargerAbsences(db, currentOrg.id, standingCampaign.id),
     ]);
 
     // Une entrée de corbeille par cooptant (avec son entretien et son
     // évaluation) : on peut ensuite en restaurer un seul.
-    const parCooptant = new Map(candSnap.docs.map(d => [d.id, { cand: d, ivs: [], evals: [], notes: [] }]));
+    const parCooptant = new Map(candSnap.docs.map(d => [d.id, { cand: d, ivs: [], evals: [], notes: [], absences: [] }]));
     const orphelins = [];
     ivSnap.docs.forEach(d => (parCooptant.get(d.data().candidateId)?.ivs ?? orphelins).push(d));
     evalSnap.docs.forEach(d => (parCooptant.get(d.data().candidateId)?.evals ?? orphelins).push(d));
@@ -2481,9 +3091,13 @@ document.getElementById('btn-reset-candidates').addEventListener('click', async 
       .filter(d => !d.data().campaignId || d.data().campaignId === standingCampaign.id)
       .forEach(d => (parCooptant.get(d.data().candidateId)?.notes ?? orphelins).push(d));
 
-    const taches = [...parCooptant.values()].map(({ cand, ivs, evals, notes }) =>
+    // Absences : avec leur cooptant (celles d'un cooptant disparu restent, elles
+    // ne bloquent rien et ne s'affichent nulle part).
+    absences.forEach(({ id, ...data }) => parCooptant.get(data.candidateId)?.absences.push({ id, data }));
+
+    const taches = [...parCooptant.values()].map(({ cand, ivs, evals, notes, absences }) =>
       () => cooptantEnCorbeille(db, { id: cand.id, ...cand.data() }, ivs, evals, currentOrg.id, user?.email || null,
-        notes.map(n => ({ id: n.id, data: n.data() }))));
+        notes.map(n => ({ id: n.id, data: n.data() })), absences));
     // Entretiens et évaluations sans cooptant : regroupés par paquets.
     for (let i = 0; i < orphelins.length; i += 400) {
       const paquet = orphelins.slice(i, i + 400);

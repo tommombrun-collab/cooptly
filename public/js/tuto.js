@@ -9,7 +9,10 @@
  *
  * `TUTO_VERSION` remontre la visite à TOUT LE MONDE après un gros changement,
  * y compris à ceux qui l'avaient déjà vue : il suffit de l'incrémenter.
- * (Version 2 : nouvelle visite avec flèches, après la refonte du tableau de bord.)
+ * (Version 2 : nouvelle visite avec flèches, après la refonte du tableau de bord.
+ *  Version 3 : refonte de l'interface, menu latéral, Paramètres par question.)
+ * Une nouvelle visite (nouvelle clé de `VISITES`) n'a pas besoin d'incrémenter
+ * la version : personne ne l'a encore vue, elle est montrée une fois à chacun.
  */
 import { app } from './auth.js';
 import { getFirestore, doc, getDoc, setDoc, serverTimestamp }
@@ -17,12 +20,14 @@ import { getFirestore, doc, getDoc, setDoc, serverTimestamp }
 
 const db = getFirestore(app);
 
-export const TUTO_VERSION = 2;
+export const TUTO_VERSION = 3;
 
 /**
  * Étapes par page. `cible` : sélecteur de l'élément à éclairer (étape sautée
- * s'il n'est pas à l'écran, par exemple un tableau vide). Sans `cible` : bulle
- * au centre. Le texte est statique, il peut contenir du HTML.
+ * s'il n'est pas à l'écran, par exemple un tableau vide), ou liste de
+ * sélecteurs dont le premier visible gagne (menu latéral sur ordinateur,
+ * onglets du bas sur téléphone). Sans `cible` : bulle au centre. Le texte est
+ * statique, il peut contenir du HTML.
  */
 const VISITES = {
   dashboard: [
@@ -34,14 +39,16 @@ const VISITES = {
       texte: 'Formulaire en anglais, QR code, et les liens du staff : <strong>dispos</strong>, <strong>évaluation</strong>, <strong>planning public</strong>, <strong>stand</strong>. Chacun dit à quoi il sert.' },
     { cible: '#btn-stand', titre: 'Sur un stand',
       texte: 'Inscrivez quelqu\'un sur place en quelques secondes, seul ou à deux, avec un QR code à la fin.' },
-    { cible: '.stats-grid', titre: 'L\'avancement',
-      texte: 'Cooptants reçus, placés, en attente, entretiens faits.' },
+    { cible: '.tdb-bande', titre: 'L\'avancement',
+      texte: 'Candidatures, entretiens réservés, passés et évalués. En dessous : ce qu\'il reste à faire et la journée.' },
     { cible: '#cands-wrap thead', titre: 'Les cooptants',
       texte: 'Cliquez sur une ligne pour voir le dossier. La colonne <strong>Messenger</strong> sert à suivre l\'ajout au groupe.' },
-    { cible: '.nav-links', titre: 'Le menu',
+    { cible: ['.side-liens', '.tel-onglets'], titre: 'Le menu',
       texte: '<strong>Cooptants</strong> pour les évaluations et les délibérations, <strong>Planning</strong> pour les entretiens, <strong>Paramètres</strong> pour tout régler.' },
-    { cible: 'a[aria-label="Aide"]', titre: 'Besoin d\'aide ?',
-      texte: 'Le <strong>?</strong> ouvre l\'aide complète. Pour revoir cette visite : menu ☰ → « Revoir la présentation ».' },
+    { cible: ['.side-cherche', '.tel-cherche'], titre: 'Chercher',
+      texte: 'Un cooptant, un staffeur ou une action, depuis n\'importe quelle page. Sur ordinateur : <strong>Ctrl K</strong>.' },
+    { cible: ['#side-moi', '.tel-moi'], titre: 'Ton compte',
+      texte: 'Changer d\'association, thème clair ou sombre, <strong>aide</strong>, et « Revoir la présentation » pour relancer cette visite.' },
   ],
   candidats: [
     { cible: '.view-toggle', titre: 'Deux vues',
@@ -49,25 +56,41 @@ const VISITES = {
     { cible: '#filtres', titre: 'Rechercher, filtrer, trier',
       texte: 'La recherche ignore les accents. Les pastilles filtrent (statut, sans entretien, pas évalués, anglais), un clic sur un en-tête de colonne trie.' },
     { cible: '#cands-table tbody tr', titre: 'La fiche d\'un cooptant',
-      texte: 'Cliquez sur une ligne : profil, entretien, jury, évaluations et note interne, tout est dans la même fiche.' },
+      texte: 'Cliquez sur une ligne : profil, entretien, staffeurs, évaluations et note interne, tout est dans la même fiche.' },
+    { cible: '#btn-view-classement', titre: 'Le classement',
+      texte: 'Pour délibérer : ligne de coupe, zone grise, correction des staffeurs et vote des membres. Une courte visite le présente à la première ouverture.' },
+  ],
+  // Vue Classement de candidats.html (`body[data-vue="classement"]`), lancée
+  // par setView à la première ouverture.
+  classement: [
+    { cible: '#nb-places-input', titre: 'La ligne de coupe',
+      texte: 'Le nombre de places trace la ligne. Glissez une ligne ou tapez un rang pour réordonner ; <strong>−</strong> et <strong>+</strong> ajustent une note sur le moment.' },
+    { cible: '#zg-champ', titre: 'La zone grise',
+      texte: 'Les derniers retenus et les premiers non retenus, surlignés : ceux dont il faut vraiment discuter. « Ne montrer que la zone grise » replie les autres pendant la réunion.' },
+    { cible: '.sev-bascule', titre: 'Staffeurs sévères ou généreux',
+      texte: 'Cochez pour corriger les notes : l\'écart d\'un staffeur plus sévère ou plus généreux que les autres est retiré à ses cooptants. « Voir le détail » montre l\'écart de chacun.' },
+    { cible: '#vote-carte .vote-carte', titre: 'Faire voter les membres',
+      texte: 'Un lien à envoyer aux membres de l\'asso : chacun coche ses coups de cœur, ou s\'abstient sur un ami. Secret jusqu\'à la clôture ; le tableau de bord dit qui n\'a pas encore voté.' },
     { cible: '#btn-delib', titre: 'Délibérer',
-      texte: 'Le mode plein écran pour la réunion : on réordonne par glisser-déposer, avec la ligne de coupe.' },
+      texte: 'Le plein écran pour la réunion, avec le nombre de retenus et ceux qui restent à discuter.' },
   ],
   planning: [
-    { cible: '.tabs', titre: 'Trois onglets',
-      texte: 'La <strong>grille</strong> des entretiens, l\'<strong>allocation manuelle</strong> d\'un cooptant, et les <strong>dispos</strong> du staff.' },
+    { cible: '#mode-planning', titre: 'Entretiens, dispos, ou les deux',
+      texte: 'Les <strong>dispos</strong> colorent la grille : plus c\'est foncé, plus il y a de staffeurs libres. Juste à côté : un jour, la semaine ou toute la période.' },
     { cible: '.planning-cell[data-iv-id]', titre: 'Un entretien',
       texte: 'Cliquez pour choisir les staffeurs (🇬🇧 = parle anglais), la salle, cocher « en anglais » et prendre des notes privées.' },
+    { cible: '#planning-table td.pl-libre', titre: 'Placer quelqu\'un ici',
+      texte: 'Un clic sur une case libre : les staffeurs dispos, et les cooptants sans entretien à y placer. Les staffeurs sont proposés tout seuls.' },
+    { cible: '#btn-optimiser', titre: 'Optimiser',
+      texte: 'Redistribue les staffeurs des entretiens à venir pour éviter de faire venir quelqu\'un pour un seul entretien. Les heures ne bougent jamais, et vous validez chaque changement.' },
   ],
   parametres: [
-    { cible: '[role="tablist"]', titre: 'Tout se règle ici',
-      texte: 'Un onglet par sujet : recrutement, formulaire, entretien, staff, salles, codes, corbeille.' },
-    { cible: '#reglages-avances', titre: 'Les réglages fins',
-      texte: 'Délai, pas des créneaux, entretiens en parallèle, juré en plus, anglais… Repliés ici, avec le nombre de réglages modifiés.' },
-    { cible: '#tbtn-formulaire', titre: 'Le formulaire',
-      texte: 'Vos questions, leur <strong>traduction en anglais</strong>, et les champs demandés au <strong>stand</strong>.' },
-    { cible: '#tbtn-staff', titre: 'Le staff',
-      texte: 'La liste des staffeurs et les rôles du bureau.' },
+    { cible: '[role="tablist"]', titre: 'Un onglet par question',
+      texte: '<strong>Quand ?</strong> les dates et créneaux, <strong>Comment ?</strong> la prise de rendez-vous et les salles, <strong>Qui ?</strong> les staffeurs. Puis le formulaire, l\'évaluation, l\'accès et la corbeille.' },
+    { cible: '#apercu-quand', titre: 'En clair',
+      texte: 'Chaque bloc résume en phrases ce que donnent vos réglages, avant même de quitter la page.' },
+    { cible: '.param-outils', titre: 'Chercher, sans rien enregistrer',
+      texte: 'Tapez « anglais », « salle » ou « délai » : la page vous y emmène. Pas de bouton Enregistrer : chaque changement part tout seul, l\'heure s\'affiche ici.' },
   ],
 };
 
@@ -80,7 +103,7 @@ const GENERALE = [
 function pageCourante() {
   const p = location.pathname;
   if (p.endsWith('/secge/dashboard.html')) return 'dashboard';
-  if (p.endsWith('/secge/candidats.html')) return 'candidats';
+  if (p.endsWith('/secge/candidats.html')) return document.body.dataset.vue === 'classement' ? 'classement' : 'candidats';
   if (p.endsWith('/planning.html'))        return 'planning';
   if (p.endsWith('/parametres.html'))      return 'parametres';
   return null;
@@ -131,12 +154,18 @@ function visible(el) {
   return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden';
 }
 
+/** Premier élément visible parmi les sélecteurs de l'étape (sinon le premier présent). */
+function trouver(cible) {
+  const liste = [].concat(cible).map(s => document.querySelector(s)).filter(Boolean);
+  return liste.find(visible) || liste[0] || null;
+}
+
 /** Attend qu'un élément apparaisse (données chargées après la visite). */
 function attendre(selecteur, delaiMs) {
   return new Promise(res => {
     const debut = Date.now();
     const tour = () => {
-      const el = document.querySelector(selecteur);
+      const el = trouver(selecteur);
       if (visible(el)) return res(el);
       if (Date.now() - debut > delaiMs) return res(null);
       setTimeout(tour, 150);
@@ -157,16 +186,16 @@ export async function afficherTutoSiBesoin(user) {
   // que le premier soit là (au plus quelques secondes).
   const premiere = VISITES[page].find(e => e.cible);
   if (premiere) await attendre(premiere.cible, 6000);
-  ouvrirTuto(user);
+  // La page vérifiée, pas celle du moment : la vue a pu changer entre-temps.
+  if (pageCourante() === page) ouvrirTuto(user, page);
 }
 
 /**
  * Ouvre la visite de la page, vue ou non (menu ☰ → « Revoir la présentation »).
  * @param {import('firebase/auth').User} user
  */
-export function ouvrirTuto(user) {
+export function ouvrirTuto(user, page = pageCourante()) {
   if (document.getElementById('tuto-overlay')) return;
-  const page = pageCourante();
   const etapes = page ? VISITES[page] : GENERALE;
   const retourFocus = document.activeElement;
   let i = 0;
@@ -250,13 +279,13 @@ export function ouvrirTuto(user) {
 
   const dessiner = async () => {
     const e = etapes[i];
-    cibleCourante = e.cible ? document.querySelector(e.cible) : null;
+    cibleCourante = e.cible ? trouver(e.cible) : null;
     // Étape dont l'élément n'est pas à l'écran (tableau vide…) : on la saute.
+    // Présent mais masqué (rien sur téléphone) : tout de suite. Absent : il
+    // arrive peut-être avec les données, on l'attend un peu.
     if (e.cible && !visible(cibleCourante)) {
-      cibleCourante = await attendre(e.cible, 800);
-      if (!cibleCourante) {
-        if (i < etapes.length - 1) { i++; return dessiner(); }
-      }
+      cibleCourante = cibleCourante ? null : await attendre(e.cible, 600);
+      if (!cibleCourante && i < etapes.length - 1) { i++; return dessiner(); }
     }
     if (cibleCourante) {
       // Élément plus haut que l'écran : on amène son HAUT en vue, avec de la
@@ -269,7 +298,10 @@ export function ouvrirTuto(user) {
         cibleCourante.scrollIntoView({ block: 'center', behavior: 'instant' });
       }
     }
-    $('.tuto-compteur').textContent = `${i + 1} / ${etapes.length}`;
+    // Compteur sur les étapes qu'on peut vraiment montrer ici (pas de « 6 / 8 »
+    // suivi de « 8 / 8 » quand une étape n'existe pas sur cet écran).
+    const montrables = etapes.filter((x, k) => k === i || !x.cible || visible(trouver(x.cible)));
+    $('.tuto-compteur').textContent = `${montrables.indexOf(e) + 1} / ${montrables.length}`;
     $('#tuto-titre').textContent = e.titre;
     $('#tuto-texte').innerHTML = e.texte;   // contenu statique, défini ci-dessus
     const derniere = i === etapes.length - 1;
@@ -295,7 +327,7 @@ export function ouvrirTuto(user) {
     if (i === 0) return;
     // Revenir en arrière en sautant les étapes sans élément à l'écran.
     let j = i - 1;
-    while (j > 0 && etapes[j].cible && !visible(document.querySelector(etapes[j].cible))) j--;
+    while (j > 0 && etapes[j].cible && !visible(trouver(etapes[j].cible))) j--;
     i = j; dessiner();
   };
 

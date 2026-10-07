@@ -20,7 +20,7 @@ import { collection, doc, getDoc, getDocs, query, where, writeBatch, serverTimes
 export const DUREE_CORBEILLE_JOURS = 30;
 
 /** Seules collections que `restaurer` accepte de réécrire. */
-export const COLLECTIONS_RESTAURABLES = ['candidates', 'interviews', 'interview_evaluations', 'staff_availabilities', 'notes_internes'];
+export const COLLECTIONS_RESTAURABLES = ['candidates', 'interviews', 'interview_evaluations', 'staff_availabilities', 'notes_internes', 'absences'];
 
 // Un lot Firestore accepte 500 écritures ; on garde de la marge.
 const MAX_ECRITURES_LOT = 450;
@@ -61,8 +61,9 @@ export async function mettreEnCorbeille(db, { organizationId, type, libelle, doc
  * @param {string} organizationId
  * @param {string} [par]
  * @param {{id: string, data: object}[]} [notes] notes internes du cooptant et de ses entretiens (js/notes.js)
+ * @param {{id: string, data: object}[]} [absences] ses absences (js/absences.js)
  */
-export function cooptantEnCorbeille(db, c, entretiens, evaluations, organizationId, par, notes = []) {
+export function cooptantEnCorbeille(db, c, entretiens, evaluations, organizationId, par, notes = [], absences = []) {
   const { id, ...data } = c;
   // Champs calculés par la page (préfixés `_`) : pas des données à restaurer.
   Object.keys(data).forEach(k => { if (k.startsWith('_')) delete data[k]; });
@@ -74,6 +75,7 @@ export function cooptantEnCorbeille(db, c, entretiens, evaluations, organization
       ...entretiens.map(s => ({ col: 'interviews', id: s.id, data: s.data() })),
       ...evaluations.map(s => ({ col: 'interview_evaluations', id: s.id, data: s.data() })),
       ...notes.map(n => ({ col: 'notes_internes', id: n.id, data: n.data })),
+      ...absences.map(a => ({ col: 'absences', id: a.id, data: a.data })),
     ],
   });
 }

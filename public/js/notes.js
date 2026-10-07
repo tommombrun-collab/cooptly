@@ -53,6 +53,27 @@ export async function enregistrerNote(db, notes, id, cible, texte) {
 }
 
 /**
+ * Ajustement de note décidé en délibération (« je le monte d'un point »).
+ * Rangé avec la note interne du cooptant : privé au bureau, il suit le
+ * cooptant dans la corbeille et part à la clôture. Unité : celle du score
+ * affiché (points de % avec une grille chiffrée, points sur 20 sinon).
+ */
+export async function enregistrerAjustement(db, notes, cible, valeur) {
+  const id = idNoteCooptant(cible.candidateId);
+  const data = {
+    organizationId: cible.organizationId,
+    campaignId:     cible.campaignId || null,
+    candidateId:    cible.candidateId,
+    ajustement:     valeur,
+    updatedAt: serverTimestamp(),
+  };
+  await setDoc(doc(db, 'notes_internes', id), data, { merge: true });
+  notes.set(id, { id, data: { ...(notes.get(id)?.data || {}), ...data } });
+}
+
+export const ajustementNote = (notes, candidateId) => Number(notes.get(idNoteCooptant(candidateId))?.data?.ajustement) || 0;
+
+/**
  * Déplace les anciennes notes (champ `notesInternes` d'un cooptant, `notes`
  * d'un entretien) vers `notes_internes`, et efface l'ancien champ. Copie et
  * effacement partent dans le même lot : aucune note ne peut se perdre entre

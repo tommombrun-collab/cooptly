@@ -12,6 +12,8 @@ import { getUserRole, logout, getMyMemberships, getMembershipForOrg } from './au
 import { applyContentProtection, paramLien } from './utils.js';
 import { app } from './auth.js';
 import { afficherTutoSiBesoin, ouvrirTuto } from './tuto.js';
+import { brancherRecherche, ouvrirRecherche, raccourci } from './recherche.js';
+import { installerIcones } from './icones.js';
 import { getFirestore, collection, getDocs, getDoc, doc }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
@@ -46,7 +48,7 @@ function _orgDuContexte() {
 }
 
 /** Remplit badge, nom d'asso et nom de la personne (valeurs vides = masqués). */
-function _afficherIdentite({ orgName, roleLabel, userName } = {}) {
+function _afficherIdentite({ orgName, roleLabel, userName, logo } = {}) {
   const brand = document.querySelector('.nav-brand-name');
   if (brand && orgName) brand.textContent = orgName;
   const badge = document.getElementById('role-badge');
@@ -58,12 +60,26 @@ function _afficherIdentite({ orgName, roleLabel, userName } = {}) {
   }
   const nom = document.getElementById('user-name');
   if (nom) nom.textContent = userName || '';
+  // Menu latéral et barre du téléphone
+  const sideOrg = document.getElementById('side-org');
+  if (sideOrg && orgName) { sideOrg.textContent = orgName; sideOrg.title = orgName; }
+  const telTitre = document.getElementById('tel-titre');
+  if (telTitre && orgName) telTitre.textContent = orgName;
+  // Logo de l'ASSO (plus celui de la plateforme) ; sans logo, un rond vide
+  // avec une icône photo, qui invite à l'ajouter dans Paramètres.
+  if (orgName) afficherLogoAsso(logo);
+  const sideRole = document.getElementById('side-role');
+  if (sideRole) sideRole.textContent = roleLabel || '';
+  const sideNom = document.getElementById('side-nom');
+  if (sideNom && userName) sideNom.textContent = userName;
+  const ini = userName ? userName.split(/\s+/).filter(Boolean).slice(0, 2).map(m => m[0]).join('').toUpperCase() : '';
+  document.querySelectorAll('.side-av').forEach(a => { if (ini) a.textContent = ini; });
 }
 
 function _preparerNav() {
   const nav = document.querySelector('.nav');
   if (!nav || !nav.querySelector('.nav-links')) return;   // pages publiques : rien à faire
-  _injectButton();
+  _construireSide();
 
   // Un seul badge de rôle et un seul nom, identiques sur toutes les pages
   // du bureau. Certaines pages avaient leur propre badge (« Sec-gé » écrit en
@@ -88,7 +104,6 @@ function _preparerNav() {
 
   _afficherIdentite(_lireCacheNav()[_orgDuContexte()]);
 }
-_preparerNav();
 
 /**
  * Injecte le burger menu dans la nav de la page.
@@ -139,6 +154,7 @@ export async function initBurgerMenu(user) {
       }
     });
   }
+  _syncLiens();
 
   // Nom effectif : préférer Firestore si disponible (admin peut changer le nom sans toucher Firebase Auth)
   let effectiveDisplayName = user.displayName || user.email.split('@')[0];
@@ -155,8 +171,15 @@ export async function initBurgerMenu(user) {
     } catch(e) { /* ignore */ }
   }
 
-  _injectButton();
-  _injectDrawer(role, { ...user, displayName: effectiveDisplayName }, orgs);
+  _construireCompte(role, { ...user, displayName: effectiveDisplayName }, orgs, navOrgId);
+  brancherRecherche({
+    orgId: navOrgId || null, role, par: user.email || null,
+    rappels: {
+      choisirTheme: _choisirTheme,
+      revoirTuto: () => ouvrirTuto(user),
+      changerMdp: async () => { const { ouvrirChangementMdp } = await import('./mot-de-passe.js'); ouvrirChangementMdp(); },
+    },
+  });
 
   // Identité affichée dans la barre, la même partout : nom de l'asso, rôle
   // DANS CETTE ASSO (on peut être président ici et bureau ailleurs), nom de
@@ -170,7 +193,7 @@ export async function initBurgerMenu(user) {
     } else if (role === 'admin') {
       roleLabel = ROLE_LIBELLE.admin;
     }
-    const identite = { orgName: current?.name || '', roleLabel, userName: effectiveDisplayName };
+    const identite = { orgName: current?.name || '', roleLabel, userName: effectiveDisplayName, logo: current?.logoBase64 || '' };
     _afficherIdentite(identite);
     _ecrireCacheNav(_orgDuContexte() || current?.id, identite);
     if (current?.id) _ecrireCacheNav(current.id, identite);
@@ -206,253 +229,292 @@ export async function initBurgerMenu(user) {
   return effectiveDisplayName;
 }
 
-function _themeIcon(theme) {
-  if (theme === 'dark') {
-    // Sun icon
-    return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>`;
+// ── Infobulles ────────────────────────────────────────────────────
+// Tout élément qui porte un `title` (ou `data-info`) affiche une vraie bulle
+// au survol, plus rapide et lisible que l'infobulle du navigateur. Au clavier,
+// au focus. Au doigt, sur les éléments marqués `data-info-tap` (barres d'un
+// graphique). Le `title` est retiré pour ne pas doubler la bulle.
+function _installerInfobulles() {
+  let bulle = null, cible = null, minuteur = null;
+  const preparer = el => {
+    const t = el.getAttribute('title');
+    if (t) {
+      el.dataset.info = t;
+      if (!el.getAttribute('aria-label') && !el.textContent.trim()) el.setAttribute('aria-label', t);
+    }
+    el.removeAttribute('title');
+    return el.dataset.info || '';
+  };
+  const montrer = el => {
+    const txt = el.dataset.info;
+    // Rien à dire de plus que ce qui est déjà écrit dessus.
+    if (!txt || el.innerText?.trim() === txt.trim()) return;
+    if (!bulle) {
+      bulle = document.createElement('div');
+      bulle.className = 'infobulle';
+      bulle.setAttribute('role', 'tooltip');
+      document.body.append(bulle);
+    }
+    bulle.textContent = txt;
+    bulle.hidden = false;
+    const r = el.getBoundingClientRect(), b = bulle.getBoundingClientRect();
+    let top = r.top - b.height - 8;
+    if (top < 6) top = r.bottom + 8;
+    const left = Math.max(6, Math.min(window.innerWidth - b.width - 6, r.left + r.width / 2 - b.width / 2));
+    bulle.style.top = `${top}px`;
+    bulle.style.left = `${left}px`;
+  };
+  const cacher = () => { clearTimeout(minuteur); if (bulle) bulle.hidden = true; cible = null; };
+  const survol = window.matchMedia('(hover: hover)').matches;
+  if (survol) {
+    document.addEventListener('mouseover', e => {
+      const el = e.target.closest?.('[title], [data-info]');
+      if (!el || el === cible) return;
+      if (!preparer(el)) return;
+      cible = el;
+      clearTimeout(minuteur);
+      if (bulle) bulle.hidden = true;
+      minuteur = setTimeout(() => montrer(el), 300);
+    });
+    document.addEventListener('mouseout', e => { if (cible && !cible.contains(e.relatedTarget)) cacher(); });
   }
-  // Moon icon
-  return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
+  document.addEventListener('focusin', e => {
+    const el = e.target.closest?.('[title], [data-info]');
+    if (!el || !el.matches(':focus-visible') || !preparer(el)) return;
+    cible = el; montrer(el);
+  });
+  document.addEventListener('click', e => {
+    const el = e.target.closest?.('[data-info-tap]');
+    if (el && preparer(el)) { cible = el; montrer(el); } else if (bulle && !bulle.hidden) cacher();
+  }, true);
+  document.addEventListener('focusout', cacher);
+  window.addEventListener('scroll', cacher, true);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') cacher(); });
+}
+
+// ── Menu latéral (grand écran), colonne d'icônes (portable), onglets en bas (téléphone) ──
+// Construit à partir des liens de la barre du haut, qui reste dans la page mais
+// masquée : les pages s'appuient dessus (#btn-logout, liens complétés par ?org=).
+
+const ICONES = {
+  accueil:   '<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/>',
+  cooptants: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.9 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.8c2 .7 3.2 2.4 3.5 5.2"/>',
+  planning:  '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="M7.5 14h3M13.5 14h3M7.5 17.5h3"/>',
+  reglages:  '<path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/>',
+  assos:     '<rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M9 21v-4h6v4M8 7h2M14 7h2M8 11h2M14 11h2"/>',
+  cle:       '<circle cx="8" cy="15" r="4"/><path d="m11 12 9-9M17 6l3 3M15 8l2 2"/>',
+  courbe:    '<path d="M4 19V5M4 19h16"/><path d="m7 15 4-5 3 3 5-6"/>',
+  base:      '<ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v12c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3"/>',
+  plus:      '<circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/>',
+  ajout:     '<path d="M12 5v14M5 12h14"/>',
+  lecture:   '<path d="M7 4v16l13-8z"/>',
+  aide:      '<circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 1 1 3.6 2.3c-.8.4-1.2 1-1.2 1.9v.5"/><path d="M12 17h.01"/>',
+  loupe:     '<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>',
+  sortie:    '<path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h11"/>',
+  photo:     '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="m21 16-5-5-9 8"/>',
+};
+const icone = nom => `<svg class="side-i" viewBox="0 0 24 24" aria-hidden="true">${ICONES[nom] || ICONES.accueil}</svg>`;
+
+function _iconeDuLien(href) {
+  const p = (href || '').split('?')[0];
+  if (p.includes('/admin/organisations')) return 'assos';
+  if (p.includes('/admin/permissions')) return 'cle';
+  if (p.includes('/admin/connexions')) return 'courbe';
+  if (p.includes('/admin/data')) return 'base';
+  if (p.includes('candidats')) return 'cooptants';
+  if (p.includes('planning')) return 'planning';
+  if (p.includes('parametres')) return 'reglages';
+  return 'accueil';
+}
+
+/** Les liens de la page : ceux de la barre du haut d'origine. */
+function _liensDeLaPage() {
+  return [...document.querySelectorAll('.nav .nav-links a')].map(a => ({
+    href: a.getAttribute('href'), label: a.textContent.trim(), actif: a.classList.contains('active'),
+  }));
+}
+
+function _construireSide() {
+  if (document.querySelector('.side-nav')) return;
+  const liens = _liensDeLaPage();
+  const brand = document.querySelector('.nav .nav-brand');
+  const lien = l => `<a class="side-lien${l.actif ? ' actif' : ''}" href="${l.href}" title="${l.label}"${l.actif ? ' aria-current="page"' : ''}>${icone(_iconeDuLien(l.href))}<span>${l.label}</span></a>`;
+
+  const side = document.createElement('aside');
+  side.className = 'side-nav';
+  side.setAttribute('aria-label', 'Navigation');
+  side.innerHTML = `
+    <a class="side-asso" href="${brand?.getAttribute('href') || '/'}">
+      <span class="side-logo">C</span>
+      <span class="side-asso-txt"><b id="side-org">Cooptly</b><small id="side-role"></small></span>
+    </a>
+    <button type="button" class="side-cherche" data-recherche title="Rechercher (${raccourci})">${icone('loupe')}<span>Rechercher</span><kbd>${raccourci}</kbd></button>
+    <nav class="side-liens">${liens.map(lien).join('')}</nav>
+    <div class="side-bas">
+      <button type="button" class="side-moi" id="side-moi" aria-haspopup="menu" aria-expanded="false" aria-controls="side-compte">
+        <i class="side-av"></i><span class="side-moi-txt"><b id="side-nom"></b><small>Compte et réglages</small></span>
+      </button>
+    </div>`;
+
+  // Téléphone : barre en haut, onglets en bas (4 pages au plus, puis « Plus »).
+  const haut = document.createElement('header');
+  haut.className = 'tel-haut';
+  haut.innerHTML = `<span class="side-logo">C</span><b id="tel-titre">Cooptly</b>
+    <button type="button" class="tel-cherche" data-recherche aria-label="Rechercher">${icone('loupe')}</button>
+    <button type="button" class="tel-moi" aria-label="Compte et réglages" aria-haspopup="menu" aria-controls="side-compte"><i class="side-av"></i></button>`;
+  const bas = document.createElement('nav');
+  bas.className = 'tel-onglets';
+  bas.setAttribute('aria-label', 'Navigation');
+  bas.innerHTML = liens.slice(0, 4).map(l => `<a class="tel-onglet${l.actif ? ' actif' : ''}" href="${l.href}"${l.actif ? ' aria-current="page"' : ''}>${icone(_iconeDuLien(l.href))}<span>${_libelleCourt(l.label)}</span></a>`).join('')
+    + `<button type="button" class="tel-onglet" aria-haspopup="menu" aria-controls="side-compte">${icone('plus')}<span>Plus</span></button>`;
+
+  const compte = document.createElement('div');
+  compte.className = 'side-compte';
+  compte.id = 'side-compte';
+  compte.setAttribute('role', 'menu');
+  compte.hidden = true;
+  compte.innerHTML = _contenuCompte({ role: null, user: null, orgs: [], navOrgId: null });
+
+  document.body.prepend(side, haut);
+  document.body.append(bas, compte);
+  document.body.classList.add('avec-side');
+
+  document.querySelectorAll('[aria-controls="side-compte"]').forEach(b => b.addEventListener('click', e => {
+    e.stopPropagation();
+    compte.hidden ? _ouvrirCompte(b) : _close();
+  }));
+  document.addEventListener('click', e => { if (!compte.hidden && !e.target.closest('#side-compte')) _close(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !compte.hidden) _close(); });
+  _brancherCompte();
+  document.querySelectorAll('[data-recherche]').forEach(b => b.addEventListener('click', () => { _close(); ouvrirRecherche(); }));
+
+  // Pages admin sans asso : le logo de la plateforme. Ailleurs, celui de
+  // l'asso arrive avec l'identité (_afficherIdentite).
+  const logoCache = localStorage.getItem('_platformLogo');
+  if (logoCache && _orgDuContexte() === '__admin__') document.querySelectorAll('.side-logo').forEach(l => { l.innerHTML = `<img src="${logoCache}" alt="" />`; });
+}
+
+/**
+ * Logo de l'asso dans le menu latéral et la barre du téléphone. Sans logo :
+ * rond vide avec une icône photo. Appelé aussi par Paramètres après un
+ * changement, qui met à jour le cache pour les pages suivantes.
+ * @param {string} [logo] image en data URI, '' ou absent = pas de logo
+ */
+export function afficherLogoAsso(logo, { memoriser = false } = {}) {
+  const sur = typeof logo === 'string' && /^data:image\//.test(logo);
+  document.querySelectorAll('.side-logo').forEach(l => {
+    l.classList.toggle('vide', !sur);
+    l.title = sur ? '' : 'Pas encore de logo : à ajouter dans Paramètres → Formulaire';
+    l.innerHTML = sur ? `<img src="${logo}" alt="" />` : icone('photo');
+  });
+  if (memoriser) {
+    const cle = _orgDuContexte();
+    if (cle && cle !== '__admin__') _ecrireCacheNav(cle, { logo: sur ? logo : '' });
+  }
+}
+
+function _libelleCourt(label) {
+  return ({ 'Tableau de bord': 'Accueil', "Vue d'ensemble": 'Accueil', 'Permissions': 'Accès', 'Base de données': 'Données' })[label] || label;
+}
+
+/** Recopie les liens de la barre du haut (complétés par ?org=) dans le menu latéral et les onglets. */
+function _syncLiens() {
+  const liens = _liensDeLaPage();
+  document.querySelectorAll('.side-liens .side-lien').forEach((a, i) => { if (liens[i]) a.setAttribute('href', liens[i].href); });
+  document.querySelectorAll('.tel-onglets a.tel-onglet').forEach((a, i) => { if (liens[i]) a.setAttribute('href', liens[i].href); });
+  const brand = document.querySelector('.nav .nav-brand');
+  const asso = document.querySelector('.side-asso');
+  if (brand && asso) asso.setAttribute('href', brand.getAttribute('href'));
+}
+
+function _ouvrirCompte(declencheur) {
+  const c = document.getElementById('side-compte');
+  if (!c) return;
+  c.hidden = false;
+  c.dataset.depuis = declencheur.closest('.tel-onglets') ? 'bas' : declencheur.closest('.tel-haut') ? 'haut' : 'side';
+  document.querySelectorAll('[aria-controls="side-compte"]').forEach(b => b.setAttribute('aria-expanded', String(b === declencheur)));
+  c.querySelector('button, a')?.focus({ preventScroll: true });
+}
+
+function _close() {
+  const c = document.getElementById('side-compte');
+  if (!c || c.hidden) return;
+  c.hidden = true;
+  document.querySelectorAll('[aria-controls="side-compte"]').forEach(b => b.setAttribute('aria-expanded', 'false'));
 }
 
 function _currentTheme() {
   return localStorage.getItem('_theme') || 'light';
 }
-
-function _toggleTheme() {
-  const next = _currentTheme() === 'dark' ? 'light' : 'dark';
-  localStorage.setItem('_theme', next);
-  document.documentElement.setAttribute('data-theme', next);
-  const btn = document.getElementById('theme-toggle-btn');
-  if (btn) btn.innerHTML = _themeIcon(next);
+function _choisirTheme(t) {
+  localStorage.setItem('_theme', t);
+  document.documentElement.setAttribute('data-theme', t);
+  document.querySelectorAll('[data-theme-choix]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.themeChoix === t)));
 }
 
-function _injectButton() {
-  const nav = document.querySelector('.nav');
-  if (!nav || document.getElementById('burger-btn')) return;
-
-  const btnStyle = 'display:flex;align-items:center;justify-content:center;width:34px;height:34px;background:none;border:1.5px solid var(--border);cursor:pointer;color:var(--text-muted);border-radius:8px;flex-shrink:0;text-decoration:none;transition:background .15s,color .15s,border-color .15s;';
-
-  // ── ? Help button ────────────────────────────────────────────
-  const helpBtn = document.createElement('a');
-  helpBtn.href = '/aide.html';
-  helpBtn.setAttribute('aria-label', 'Aide');
-  helpBtn.title = 'Aide & Documentation';
-  helpBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
-  helpBtn.style.cssText = btnStyle;
-  helpBtn.addEventListener('mouseenter', () => { helpBtn.style.background = 'var(--indigo-light)'; helpBtn.style.color = 'var(--indigo)'; helpBtn.style.borderColor = 'var(--indigo-mid)'; });
-  helpBtn.addEventListener('mouseleave', () => { helpBtn.style.background = 'none'; helpBtn.style.color = 'var(--text-muted)'; helpBtn.style.borderColor = 'var(--border)'; });
-
-  // ── ☀/☾ Theme toggle button ─────────────────────────────────
-  const themeBtn = document.createElement('button');
-  themeBtn.id = 'theme-toggle-btn';
-  themeBtn.setAttribute('aria-label', 'Basculer le thème');
-  themeBtn.title = 'Thème clair / sombre';
-  themeBtn.innerHTML = _themeIcon(_currentTheme());
-  themeBtn.style.cssText = btnStyle + 'border:1.5px solid var(--border);';
-  themeBtn.addEventListener('mouseenter', () => { themeBtn.style.background = 'var(--indigo-light)'; themeBtn.style.color = 'var(--indigo)'; themeBtn.style.borderColor = 'var(--indigo-mid)'; });
-  themeBtn.addEventListener('mouseleave', () => { themeBtn.style.background = 'none'; themeBtn.style.color = 'var(--text-muted)'; themeBtn.style.borderColor = 'var(--border)'; });
-  themeBtn.addEventListener('click', _toggleTheme);
-
-  const navRight = nav.querySelector('.nav-right');
-  if (navRight) {
-    navRight.insertBefore(themeBtn, navRight.firstChild);
-    navRight.insertBefore(helpBtn, themeBtn);
-    navRight.style.flex = '1';
-    navRight.style.justifyContent = 'flex-end';
-  } else {
-    nav.appendChild(helpBtn);
-    nav.appendChild(themeBtn);
+/** Contenu du menu du compte : assos, pages en plus, thème, présentation, mot de passe, aide, déconnexion. */
+function _contenuCompte({ role, orgs, navOrgId }) {
+  const esc = v => String(v ?? '').replace(/[&<>"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
+  // Logo de l'asso s'il existe, sinon son initiale
+  const pastille = o => /^data:image\//.test(o.logoBase64 || '')
+    ? `<img class="sc-asso sc-asso-logo" src="${esc(o.logoBase64)}" alt="">`
+    : `<span class="sc-asso">${esc((o.name || '?').trim()[0].toUpperCase())}</span>`;
+  let html = '';
+  // Pages qui ne tiennent pas dans les onglets du téléphone
+  const enTrop = _liensDeLaPage().slice(4);
+  if (enTrop.length) {
+    html += `<div class="sc-t sc-tel">Pages</div>` + enTrop.map(l => `<a class="sc-opt sc-tel" role="menuitem" href="${l.href}">${icone(_iconeDuLien(l.href))}${esc(l.label)}</a>`).join('');
   }
-
-  // ── ☰ Burger button (top-left) ───────────────────────────────
-  const btn = document.createElement('button');
-  btn.id = 'burger-btn';
-  btn.setAttribute('aria-label', 'Menu');
-  btn.innerHTML = `<svg width="20" height="16" viewBox="0 0 20 16" fill="currentColor">
-    <rect width="20" height="2.5" rx="1.25"/>
-    <rect y="6.75" width="20" height="2.5" rx="1.25"/>
-    <rect y="13.5" width="20" height="2.5" rx="1.25"/>
-  </svg>`;
-  btn.style.cssText = 'display:flex;align-items:center;justify-content:center;width:38px;height:38px;background:none;border:none;cursor:pointer;color:var(--text);border-radius:8px;flex-shrink:0;margin-right:4px;';
-  btn.addEventListener('click', _open);
-  nav.insertBefore(btn, nav.firstChild);
-
-  // ── Groupe left : burger + brand + badge → flex:1 ────────────
-  // Donne une 3e colonne symétrique à nav-right, ce qui centre naturellement nav-links.
-  const navLinks = nav.querySelector('.nav-links');
-  if (navLinks) {
-    const leftGroup = document.createElement('div');
-    leftGroup.style.cssText = 'display:flex;align-items:center;gap:8px;flex:1;';
-    while (nav.firstChild && nav.firstChild !== navLinks) {
-      leftGroup.appendChild(nav.firstChild);
-    }
-    nav.insertBefore(leftGroup, navLinks);
+  if (role === 'secge' && orgs.length) {
+    const courant = orgs.find(o => o.id === navOrgId || o.slug === navOrgId)?.id || orgs[0].id;
+    html += `<div class="sc-t">Mes associations</div>` + orgs.map(o => `<a class="sc-opt" role="menuitem" href="/secge/dashboard.html?org=${encodeURIComponent(o.id)}">${pastille(o)}${esc(o.name)}${o.id === courant ? '<span class="sc-coche" aria-label="association ouverte">✓</span>' : ''}</a>`).join('')
+      + `<a class="sc-opt" role="menuitem" href="/rejoindre.html">${icone('ajout')}Rejoindre une association</a><hr>`;
   }
-}
-
-function _injectDrawer(role, user, orgs) {
-  // Overlay
-  const ov = document.createElement('div');
-  ov.id = 'nav-overlay';
-  ov.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:999;display:none;backdrop-filter:blur(2px);';
-  ov.addEventListener('click', _close);
-
-  // Drawer
-  const dr = document.createElement('div');
-  dr.id = 'nav-drawer';
-  dr.style.cssText = 'position:fixed;top:0;left:0;bottom:0;width:285px;background:var(--surface);box-shadow:6px 0 32px rgba(0,0,0,.18);z-index:1000;transform:translateX(-100%);transition:transform .26s cubic-bezier(.4,0,.2,1);overflow-y:auto;display:flex;flex-direction:column;';
-  dr.innerHTML = _buildContent(role, user, orgs);
-
-  document.body.appendChild(ov);
-  document.body.appendChild(dr);
-
-  // Swipe-to-close on mobile
-  let startX = 0;
-  dr.addEventListener('touchstart', e => { startX = e.touches[0].clientX; }, { passive: true });
-  dr.addEventListener('touchend',   e => { if (e.changedTouches[0].clientX - startX < -60) _close(); }, { passive: true });
-}
-
-function _buildContent(role, user, orgs) {
-  const ROLE_STYLE = {
-    admin:    { label: 'Admin Plateforme', bg: '#FEE2E2', color: '#991B1B', dot: '#ef4444' },
-    secge:    { label: 'Bureau',            bg: '#FFF7ED', color: '#C2410C', dot: '#f97316' },
-    cooptant: { label: 'Cooptant',         bg: '#F0FDF4', color: '#166534', dot: '#22c55e' },
-  };
-  const rs = ROLE_STYLE[role] || { label: role, bg: '#F1F5F9', color: '#64748B', dot: '#94A3B8' };
-  const initial = (user.displayName || user.email)[0].toUpperCase();
-
-  // Admin sections
-  let sections = '';
-
   if (role === 'admin') {
-    sections += _section('🔴 Admin Plateforme', [
-      { href: '/admin/dashboard.html',     icon: '🏠', label: 'Vue d\'ensemble' },
-      { href: '/admin/organisations.html', icon: '🏢', label: 'Organisations' },
-      { href: '/admin/permissions.html',   icon: '🔐', label: 'Permissions & Accès' },
-    ]);
+    html += `<div class="sc-t">Admin plateforme</div>`
+      + [['/admin/dashboard.html', "Vue d'ensemble", 'accueil'], ['/admin/organisations.html', 'Organisations', 'assos'], ['/admin/permissions.html', 'Permissions et accès', 'cle'], ['/admin/connexions.html', 'Connexions', 'courbe'], ['/admin/data.html', 'Données', 'base']]
+        .map(([h, l, i]) => `<a class="sc-opt" role="menuitem" href="${h}">${icone(i)}${l}</a>`).join('');
     if (orgs.length) {
-      sections += _section('🏢 Associations', orgs.map(o => ({
-        href: `/secge/dashboard.html?org=${o.id}`,
-        icon: '→',
-        label: o.name,
-        color: o.primaryColor
-      })));
+      html += `<div class="sc-t">Associations</div><div class="sc-defile">` + orgs.slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+        .map(o => `<a class="sc-opt" role="menuitem" href="/secge/dashboard.html?org=${encodeURIComponent(o.id)}">${pastille(o)}${esc(o.name)}${o.id === navOrgId || o.slug === navOrgId ? '<span class="sc-coche">✓</span>' : ''}</a>`).join('') + '</div>';
     }
-
-  } else if (role === 'secge') {
-    // Asso active : celle de l'URL si elle est bien à l'utilisateur, sinon
-    // celle mémorisée, sinon la première.
-    const urlOrg     = paramLien('org');
-    const remembered = sessionStorage.getItem('currentOrgId');
-    const org = orgs.find(o => o.id === urlOrg)
-             || orgs.find(o => o.id === remembered)
-             || orgs[0];
-    const oid = org?.id || '';
-
-    sections += _section(`🏢 ${org?.name || 'Mon association'}`, [
-      { href: `/secge/dashboard.html?org=${oid}`, icon: '📊', label: 'Tableau de bord' },
-      { href: `/secge/candidats.html?org=${oid}`, icon: '👥', label: 'Cooptants & Réponses' },
-      { href: `/planning.html?org=${oid}`,        icon: '📅', label: 'Planning des entretiens' },
-      { href: `/parametres.html?org=${oid}`,      icon: '⚙️', label: 'Paramètres' },
-    ]);
-
-    // Membre de plusieurs bureaux : sélecteur d'asso. On n'affiche la section
-    // que s'il y a réellement un choix à faire.
-    if (orgs.length > 1) {
-      sections += _section('🔄 Changer d\'association', orgs
-        .filter(o => o.id !== oid)
-        .map(o => ({
-          href:  `/secge/dashboard.html?org=${o.id}`,
-          icon:  '→',
-          label: o.name,
-          color: o.primaryColor,
-        })));
-    }
-
-    sections += _section('➕ Rejoindre', [
-      { href: '/rejoindre.html', icon: '🔑', label: 'Rejoindre une autre asso' },
-    ]);
+    html += '<hr>';
   }
-
-  return `
-    <!-- En-tête profil -->
-    <div style="padding:0;border-bottom:1px solid var(--border);">
-      <!-- Bandeau gradient -->
-      <div style="height:72px;background:var(--indigo);position:relative;border-radius:0;display:flex;align-items:flex-start;justify-content:flex-end;padding:12px 14px;">
-        <button onclick="document.getElementById('nav-drawer').style.transform='translateX(-100%)';document.getElementById('nav-overlay').style.display='none';"
-          style="background:rgba(255,255,255,.18);border:none;cursor:pointer;color:#fff;font-size:15px;width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);">✕</button>
-      </div>
-      <!-- Avatar chevauchant -->
-      <div style="padding:0 16px 16px;margin-top:-28px;">
-        <div style="width:52px;height:52px;border-radius:13px;background:var(--indigo);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:20px;border:3px solid #fff;box-shadow:var(--shadow-indigo);margin-bottom:10px;letter-spacing:0;">${initial}</div>
-        <div style="font-size:15px;font-weight:700;color:var(--text);letter-spacing:-0.01em;">${user.displayName || user.email.split('@')[0]}</div>
-        <div style="font-size:11px;color:var(--text-muted);margin-top:1px;letter-spacing:0;">${user.email}</div>
-        <div style="display:inline-flex;align-items:center;gap:5px;margin-top:8px;font-size:11.5px;font-weight:600;color:${rs.color};background:${rs.bg};border:1px solid ${rs.dot}33;padding:3px 9px;border-radius:99px;">
-          <span style="width:6px;height:6px;border-radius:50%;background:${rs.dot};display:inline-block;flex-shrink:0;"></span>
-          ${rs.label}
-        </div>
-      </div>
-    </div>
-
-    <!-- Navigation -->
-    <nav style="padding:6px 0;flex:1;">${sections}</nav>
-
-    <!-- Pied -->
-    <div style="padding:12px 16px 20px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px;">
-      <button id="nav-tuto-btn" type="button"
-        style="display:flex;align-items:center;gap:9px;padding:10px 14px;border-radius:9px;background:none;border:1.5px solid var(--border);cursor:pointer;color:var(--text-muted);font-size:13px;font-weight:500;width:100%;font-family:inherit;transition:all .15s;letter-spacing:-0.005em;"
-        onmouseover="this.style.background='var(--indigo-light)';this.style.color='var(--indigo)';this.style.borderColor='var(--indigo-mid)'"
-        onmouseout="this.style.background='none';this.style.color='var(--text-muted)';this.style.borderColor='var(--border)'">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-        Revoir la présentation
-      </button>
-      <button id="nav-mdp-btn" type="button"
-        style="display:flex;align-items:center;gap:9px;padding:10px 14px;border-radius:9px;background:none;border:1.5px solid var(--border);cursor:pointer;color:var(--text-muted);font-size:13px;font-weight:500;width:100%;font-family:inherit;transition:all .15s;letter-spacing:-0.005em;"
-        onmouseover="this.style.background='var(--indigo-light)';this.style.color='var(--indigo)';this.style.borderColor='var(--indigo-mid)'"
-        onmouseout="this.style.background='none';this.style.color='var(--text-muted)';this.style.borderColor='var(--border)'">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-        Changer mon mot de passe
-      </button>
-      <a href="/aide.html"
-        style="display:flex;align-items:center;gap:9px;padding:10px 14px;border-radius:9px;background:none;border:1.5px solid var(--border);cursor:pointer;color:var(--text-muted);font-size:13px;font-weight:500;width:100%;font-family:inherit;transition:all .15s;letter-spacing:-0.005em;text-decoration:none;"
-        onmouseover="this.style.background='var(--indigo-light)';this.style.color='var(--indigo)';this.style.borderColor='var(--indigo-mid)'"
-        onmouseout="this.style.background='none';this.style.color='var(--text-muted)';this.style.borderColor='var(--border)'">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-        Aide & Documentation
-      </a>
-      <button id="nav-logout-btn"
-        style="display:flex;align-items:center;gap:9px;padding:10px 14px;border-radius:9px;background:none;border:1.5px solid var(--border);cursor:pointer;color:var(--text-muted);font-size:13px;font-weight:500;width:100%;font-family:inherit;transition:all .15s;letter-spacing:-0.005em;"
-        onmouseover="this.style.background='#FEF2F2';this.style.color='var(--red)';this.style.borderColor='#FECACA'"
-        onmouseout="this.style.background='none';this.style.color='var(--text-muted)';this.style.borderColor='var(--border)'">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-        Déconnexion
-      </button>
-    </div>`;
+  const t = _currentTheme();
+  html += `<div class="sc-t">Thème</div>
+    <div class="sc-segment" role="group" aria-label="Thème">
+      <button type="button" data-theme-choix="light" aria-pressed="${t !== 'dark'}">Clair</button>
+      <button type="button" data-theme-choix="dark" aria-pressed="${t === 'dark'}">Sombre</button>
+    </div><hr>
+    <button type="button" class="sc-opt" role="menuitem" id="nav-tuto-btn">${icone('lecture')}Revoir la présentation</button>
+    <button type="button" class="sc-opt" role="menuitem" id="nav-mdp-btn">${icone('cle')}Changer mon mot de passe</button>
+    <a class="sc-opt" role="menuitem" href="/aide.html">${icone('aide')}Aide</a>
+    <hr>
+    <button type="button" class="sc-opt sc-sortie" role="menuitem" id="nav-logout-btn">${icone('sortie')}Se déconnecter</button>`;
+  return html;
 }
 
-function _section(title, links) {
-  const curFull = location.pathname + location.search;
-  const curPath = location.pathname;
-  const items = links.map(l => {
-    const linkPath = l.href.split('?')[0];
-    const hasQuery = l.href.includes('?');
-    // Lien avec query param → comparaison exacte ; sans query → comparaison du pathname
-    const active = hasQuery ? curFull === l.href : curPath === linkPath;
-    return `<a href="${l.href}"
-      style="display:flex;align-items:center;gap:10px;padding:9px 14px;margin:1px 8px;font-size:13.5px;color:${active ? 'var(--indigo)' : 'var(--text)'};text-decoration:none;border-radius:9px;font-weight:${active ? '600' : '450'};background:${active ? 'var(--indigo-light)' : 'transparent'};letter-spacing:-0.005em;transition:background .12s,color .12s;"
-      onmouseover="if(!${active})this.style.background='var(--bg)'" onmouseout="if(!${active})this.style.background='transparent'">
-      <span style="font-size:14px;width:22px;text-align:center;flex-shrink:0;">${l.icon}</span>
-      <span style="flex:1;">${l.label}</span>
-      ${active ? `<span style="width:7px;height:7px;border-radius:50%;background:var(--indigo);flex-shrink:0;"></span>` : ''}
-      ${l.color && !active ? `<span style="width:8px;height:8px;border-radius:50%;background:${l.color};flex-shrink:0;"></span>` : ''}
-    </a>`;
-  }).join('');
-  return `
-    <div style="padding:10px 0 4px;">
-      <div style="font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--text-light);padding:0 24px 6px;">${title}</div>
-      ${items}
-    </div>`;
+function _brancherCompte() {
+  const c = document.getElementById('side-compte');
+  if (!c) return;
+  c.querySelectorAll('[data-theme-choix]').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); _choisirTheme(b.dataset.themeChoix); }));
+  c.querySelector('#nav-logout-btn')?.addEventListener('click', async () => {
+    _close();
+    // Le bouton de la page (s'il existe) garde sa logique propre.
+    const btnPage = document.getElementById('btn-logout');
+    if (btnPage) { btnPage.click(); return; }
+    await logout();
+    window.location.href = '/index.html';
+  });
+}
+
+/** Remplit le menu du compte une fois le rôle et les assos connus. */
+function _construireCompte(role, user, orgs, navOrgId) {
+  if (!document.querySelector('.side-nav')) _construireSide();
+  const c = document.getElementById('side-compte');
+  if (!c) return;
+  c.innerHTML = _contenuCompte({ role, user, orgs, navOrgId });
+  _brancherCompte();
 }
 
 // ── Thème couleur organisation ────────────────────────────────────
@@ -529,30 +591,8 @@ function _setPlatformIcon(icon, base64) {
   icon.style.padding = '0';
 }
 
-function _open() {
-  // Le bouton existe dès le chargement, le tiroir seulement une fois le rôle
-  // connu : un clic trop tôt ne fait rien plutôt que de planter.
-  const drawer = document.getElementById('nav-drawer');
-  const overlay = document.getElementById('nav-overlay');
-  if (!drawer || !overlay) return;
-  drawer.style.transform = 'translateX(0)';
-  overlay.style.display = 'block';
-  // Attach logout after render
-  setTimeout(() => {
-    const btn = document.getElementById('nav-logout-btn');
-    if (btn && !btn.dataset.bound) {
-      btn.dataset.bound = '1';
-      btn.addEventListener('click', async () => {
-        await logout();
-        window.location.href = '/index.html';
-      });
-    }
-  }, 50);
-}
-
-function _close() {
-  const d = document.getElementById('nav-drawer');
-  const o = document.getElementById('nav-overlay');
-  if (d) d.style.transform = 'translateX(-100%)';
-  if (o) o.style.display = 'none';
-}
+// Posée dès le chargement du module, une fois toutes les déclarations faites
+// (les icônes du menu sont définies plus haut dans le fichier).
+_preparerNav();
+installerIcones();
+if (document.querySelector('.nav .nav-links')) _installerInfobulles();

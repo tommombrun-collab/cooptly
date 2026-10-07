@@ -16,10 +16,15 @@
        découvre qu'en arrivant au script, tout en bas de la page. -->
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js" />
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js" />
+  <!-- modules du site préchargés (scripts/precharger-modules.mjs) -->
+  <link rel="modulepreload" href="/js/firebase-config.js" />
+  <link rel="modulepreload" href="/js/langue.js" />
+  <link rel="modulepreload" href="/js/utils.js" />
+  <!-- /modules -->
   <!-- Polices en <link> et non plus en @import dans main.css : l'@import
        obligeait à télécharger la feuille de style avant même de découvrir
        les polices, trois allers-retours à la suite avant le texte. -->
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Antic&family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;600;700&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" />
   <link rel="stylesheet" href="/css/main.css" />
   <style>
     /* ── Timeline de candidature ──────────────────────────────── */
@@ -82,8 +87,6 @@
       <div class="ct-step" id="ct-2"><div class="ct-dot"></div><div class="ct-label" data-en="Interview">Entretien</div></div>
       <div class="ct-line" id="ct-line-2"></div>
       <div class="ct-step" id="ct-3"><div class="ct-dot"></div><div class="ct-label" data-en="Done">Terminé</div></div>
-      <div class="ct-line" id="ct-line-3"></div>
-      <div class="ct-step" id="ct-4"><div class="ct-dot"></div><div class="ct-label" data-en="Decision">Décision</div></div>
     </div>
 
     <!-- Loading state -->
@@ -142,7 +145,7 @@
         </div>
         <div class="iv-detail-row">
           <div class="iv-detail-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
-          <div class="iv-detail-body"><div class="iv-detail-label" data-en="Interviewers">Jury</div><div class="iv-detail-value" id="interview-jury">·</div></div>
+          <div class="iv-detail-body"><div class="iv-detail-label" data-en="With">Avec</div><div class="iv-detail-value" id="interview-jury">·</div></div>
         </div>
       </div>
 
@@ -168,33 +171,7 @@
       <h2 style="color:var(--text);" data-en="Interview done">Entretien réalisé</h2>
       <p class="mt-8" style="font-size:15px;">
         <span data-en="Hi">Bonjour</span> <strong id="candidat-prenom-fait"></strong>,<br/>
-        <span data-en="your interview took place. The board is deliberating and will contact you soon with its decision.">ton entretien a bien eu lieu. Le bureau délibère et te contactera prochainement pour t'annoncer la décision.</span>
-      </p>
-      <div class="candidat-tip" data-en="⏳ Thanks for your patience: the decision is coming soon!">
-        ⏳ Merci pour ta patience : la décision arrive bientôt !
-      </div>
-    </div>
-
-    <!-- Status: accepté -->
-    <div id="status-accepte" style="display:none;">
-      <div class="result-icon">🥳</div>
-      <h2 style="color:var(--green);" data-en="Congratulations!">Félicitations !</h2>
-      <p class="mt-8" style="font-size:15px;">
-        <span data-en="Hi">Bonjour</span> <strong id="candidat-prenom-accepte"></strong>,<br/>
-        <span data-en="you've been accepted into the association. Welcome to the team!">tu as été accepté(e) dans l'association. Bienvenue dans l'équipe !</span>
-      </p>
-      <div class="candidat-tip" style="background:var(--green-light);border-color:var(--green-mid);color:var(--green);" data-en="🎉 The board will contact you soon about the next steps.">
-        🎉 Le bureau va te contacter prochainement pour les prochaines étapes de ton intégration.
-      </div>
-    </div>
-
-    <!-- Status: refusé -->
-    <div id="status-refuse" style="display:none;">
-      <div class="result-icon">💌</div>
-      <h2 style="color:var(--text);" data-en="Thank you for applying">Merci pour ta candidature</h2>
-      <p class="mt-8" style="font-size:15px;">
-        <span data-en="Hi">Bonjour</span> <strong id="candidat-prenom-refuse"></strong>,<br/>
-        <span data-en="unfortunately we can't offer you a place this year. Feel free to apply again next year!">nous ne pouvons malheureusement pas te proposer un poste cette année. N'hésite pas à repostuler l'an prochain !</span>
+        <span data-en="your interview took place. Thank you for coming! The rest happens directly with the association's board.">ton entretien a bien eu lieu. Merci d'être venu·e ! La suite se passe directement avec le bureau de l'association.</span>
       </p>
     </div>
 
@@ -210,7 +187,7 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getFirestore, collection, query, where, getDocs, getDoc, doc }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { firebaseConfig } from '/js/firebase-config.js';
-import { paramLien } from '/js/utils.js';
+import { paramLien, texteSurFond } from '/js/utils.js';
 import { EN, LOCALE, tr, traduirePage, selecteurLangue } from '/js/langue.js';
 
 traduirePage();
@@ -222,7 +199,9 @@ const db  = getFirestore(app);
 const token = paramLien('token');
 let org = null;
 
-const SECTIONS = ['loading-state','error-state','status-recu','status-place','status-fait','status-accepte','status-refuse'];
+// Pas d'écran « accepté / refusé » : l'application ne sert pas à annoncer
+// la décision, elle se donne en dehors (statuts recu → place → entretien_fait).
+const SECTIONS = ['loading-state','error-state','status-recu','status-place','status-fait'];
 
 function showSection(id) {
   SECTIONS.forEach(s => {
@@ -233,7 +212,7 @@ function showSection(id) {
 
 function showTimeline(activeStep) {
   document.getElementById('candidat-timeline').style.display = 'flex';
-  for (let i = 1; i <= 4; i++) {
+  for (let i = 1; i <= 3; i++) {
     const step = document.getElementById(`ct-${i}`);
     const line = document.getElementById(`ct-line-${i}`);
     if (i < activeStep)       { step?.classList.add('done');   line?.classList.add('done'); }
@@ -281,24 +260,37 @@ async function loadCandidate() {
 
     const candidate = { id: snap.docs[0].id, ...snap.docs[0].data() };
 
-    let campaign = null;
-    if (candidate.campaignId) {
-      const campDoc = await getDoc(doc(db, 'campaigns', candidate.campaignId));
-      if (campDoc.exists()) campaign = { id: campDoc.id, ...campDoc.data() };
-    }
+    // Asso et entretien EN MÊME TEMPS : avant, candidature, recrutement, asso,
+    // entretien, salle puis chaque staffeur partaient l'un après l'autre (6 à 9
+    // allers-retours, 1,5 à 3 s sur téléphone). La candidature porte l'asso ;
+    // le recrutement n'est relu que pour les plus anciennes, qui ne l'ont pas.
+    const lireAsso = async () => {
+      let orgId = candidate.organizationId;
+      if (!orgId && candidate.campaignId) {
+        const campDoc = await getDoc(doc(db, 'campaigns', candidate.campaignId));
+        orgId = campDoc.exists() ? campDoc.data().organizationId : null;
+      }
+      return orgId ? getDoc(doc(db, 'organizations', orgId)) : null;
+    };
+    const [orgDoc, intSnap] = await Promise.all([
+      lireAsso(),
+      candidate.statut === 'place'
+        ? getDocs(query(collection(db, 'interviews'), where('candidateId', '==', candidate.id)))
+        : Promise.resolve(null),
+    ]);
 
     // Load org + branding
-    if (campaign?.organizationId) {
-      const orgDoc = await getDoc(doc(db, 'organizations', campaign.organizationId));
-      if (orgDoc.exists()) {
+    {
+      if (orgDoc?.exists()) {
         org = { id: orgDoc.id, ...orgDoc.data() };
         document.getElementById('org-name').textContent = org.name || "Cooptly";
         const wrap  = document.getElementById('org-logo-wrap');
         const color = org.primaryColor || 'var(--indigo)';
+        const couleurInitiale = org.primaryColor ? texteSurFond(org.primaryColor) : '#fff';
         const init  = (org.name || 'C')[0].toUpperCase();
         wrap.innerHTML = org.logoBase64
           ? `<img src="${org.logoBase64}" style="width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid var(--border);" />`
-          : `<div style="width:52px;height:52px;background:${color};border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:20px;">${init}</div>`;
+          : `<div style="width:52px;height:52px;background:${color};border-radius:50%;display:flex;align-items:center;justify-content:center;color:${couleurInitiale};font-weight:800;font-size:20px;">${init}</div>`;
       }
     }
 
@@ -328,9 +320,8 @@ async function loadCandidate() {
             `/postuler.html?org=${org.slug || org.id}&modif=${encodeURIComponent(token)}${EN ? '&lang=en' : ''}`;
         }
 
-        // Load interview
-        const intSnap = await getDocs(query(collection(db, 'interviews'), where('candidateId', '==', candidate.id)));
-        if (!intSnap.empty) {
+        // Entretien (déjà lu, en même temps que l'asso)
+        if (intSnap && !intSnap.empty) {
           const iv    = intSnap.docs[0].data();
           const start = iv.datetimeStart?.toDate ? iv.datetimeStart.toDate() : new Date(iv.datetimeStart);
           const end   = iv.datetimeEnd?.toDate   ? iv.datetimeEnd.toDate()   : new Date(iv.datetimeEnd);
@@ -338,16 +329,14 @@ async function loadCandidate() {
           document.getElementById('interview-date').textContent  = fmtDate(start);
           document.getElementById('interview-heure').textContent = `${fmtTime(start)} - ${fmtTime(end)}`;
 
-          // Room
+          // Salle et staffeurs : tout part en même temps (avant : la salle, puis
+          // chaque staffeur l'un après l'autre).
           const A_CONFIRMER = tr('À confirmer', 'To be confirmed');
-          let roomLabel = A_CONFIRMER;
-          if (iv.roomId) {
+          const lireSalle = async () => {
+            if (!iv.roomId) return iv.salleNom || A_CONFIRMER;
             const roomDoc = await getDoc(doc(db, 'rooms', iv.roomId));
-            if (roomDoc.exists()) roomLabel = roomDoc.data().code || roomDoc.data().nom || tr('Salle à confirmer', 'Room to be confirmed');
-          } else if (iv.salleNom) {
-            roomLabel = iv.salleNom;
-          }
-          document.getElementById('interview-salle').textContent = roomLabel;
+            return roomDoc.exists() ? (roomDoc.data().code || roomDoc.data().nom || tr('Salle à confirmer', 'Room to be confirmed')) : A_CONFIRMER;
+          };
 
           // Jury
           // Les jurés portent en général l'id de leur entrée dans la liste du
@@ -357,16 +346,19 @@ async function loadCandidate() {
           // jury » alors que le jury était bien attribué. On lit donc la liste
           // du staff, puis les fiches de dispos, toutes deux publiques, comme
           // le fait déjà planning-public.html.
-          const juryNames = [];
-          for (const juryId of [iv.jury1Id, iv.jury2Id, iv.jury3Id].filter(Boolean)) {
+          const nomStaffeur = async juryId => {
             try {
               const r = await getDoc(doc(db, 'roster_members', juryId));
-              if (r.exists() && r.data().displayName) { juryNames.push(r.data().displayName); continue; }
+              if (r.exists() && r.data().displayName) return r.data().displayName;
               const sa = await getDocs(query(collection(db, 'staff_availabilities'), where('userId', '==', juryId)));
-              const nom = sa.docs.map(d => d.data().displayName).find(Boolean);
-              juryNames.push(nom || tr('Membre du jury', 'Interviewer'));
-            } catch { juryNames.push(tr('Membre du jury', 'Interviewer')); }
-          }
+              return sa.docs.map(d => d.data().displayName).find(Boolean) || tr('Membre du staff', 'Staff member');
+            } catch { return tr('Membre du staff', 'Staff member'); }
+          };
+          const [roomLabel, ...juryNames] = await Promise.all([
+            lireSalle().catch(() => A_CONFIRMER),
+            ...[iv.jury1Id, iv.jury2Id, iv.jury3Id].filter(Boolean).map(nomStaffeur),
+          ]);
+          document.getElementById('interview-salle').textContent = roomLabel;
           document.getElementById('interview-jury').textContent = juryNames.length ? juryNames.join(' · ') : A_CONFIRMER;
 
           // Calendar
@@ -388,20 +380,8 @@ async function loadCandidate() {
 
       case 'entretien_fait':
         document.getElementById('candidat-prenom-fait').textContent = prenom;
-        showTimeline(3);
+        showTimeline(4);   // les trois étapes faites
         showSection('status-fait');
-        break;
-
-      case 'accepte':
-        document.getElementById('candidat-prenom-accepte').textContent = prenom;
-        showTimeline(4);
-        showSection('status-accepte');
-        break;
-
-      case 'refuse':
-        document.getElementById('candidat-prenom-refuse').textContent = prenom;
-        showTimeline(4);
-        showSection('status-refuse');
         break;
 
       default:

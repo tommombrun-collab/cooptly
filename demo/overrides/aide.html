@@ -19,991 +19,520 @@
   <!-- Polices en <link> et non plus en @import dans main.css : l'@import
        obligeait à télécharger la feuille de style avant même de découvrir
        les polices, trois allers-retours à la suite avant le texte. -->
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Antic&family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;600;700&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" />
   <link rel="stylesheet" href="/css/main.css" />
   <style>
-    .aide-layout {
-      display: grid;
-      grid-template-columns: 248px 1fr;
-      gap: 32px;
-      align-items: start;
-      max-width: 1120px;
-      margin: 0 auto;
-      padding: 32px 24px 80px;
-    }
-    @media (max-width: 860px) {
-      .aide-layout { grid-template-columns: 1fr; }
-      .aide-sidebar { display: none; }
-    }
-    .aide-sidebar {
-      position: sticky;
-      top: 88px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 16px 0;
-      box-shadow: var(--shadow-sm);
-    }
-    .aide-sidebar-title {
-      font-size: 10px; font-weight: 700;
-      letter-spacing: .09em; text-transform: uppercase;
-      color: var(--text-light); padding: 0 20px 8px;
-    }
-    .aide-nav-link {
-      display: flex; align-items: center; gap: 8px;
-      padding: 7px 20px; font-size: 13px; color: var(--text-muted);
-      text-decoration: none; transition: background .1s, color .1s; font-weight: 450;
-    }
-    .aide-nav-link:hover { background: var(--bg); color: var(--text); }
-    .aide-nav-link.active { color: var(--indigo); font-weight: 600; background: var(--indigo-light); }
-    .aide-nav-sep { height: 1px; background: var(--border); margin: 8px 0; }
-    .aide-nav-sub {
-      padding: 5px 20px 5px 36px; font-size: 12.5px;
-      color: var(--text-muted); text-decoration: none; display: block; transition: color .1s;
-    }
-    .aide-nav-sub:hover { color: var(--indigo); }
-    .aide-content { min-width: 0; }
-    .aide-section {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 32px 36px;
-      margin-bottom: 24px; box-shadow: var(--shadow-sm);
-    }
-    .aide-section-header {
-      display: flex; align-items: center; gap: 14px;
-      margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--border);
-    }
-    .aide-section-icon {
-      width: 44px; height: 44px; border-radius: 11px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 22px; flex-shrink: 0;
-    }
-    .aide-section h2 { font-size: 1.2rem; font-weight: 800; letter-spacing: -0.02em; color: var(--text); }
-    .aide-section-subtitle { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
-    .aide-section h3 {
-      font-size: 14px; font-weight: 700; color: var(--text);
-      margin: 24px 0 8px; letter-spacing: -0.01em;
-    }
-    .aide-section h3:first-of-type { margin-top: 0; }
-    .aide-section p { font-size: 14px; color: var(--text-muted); line-height: 1.7; margin-bottom: 10px; }
-    .aide-section p:last-child { margin-bottom: 0; }
-    .aide-section ul, .aide-section ol { margin: 8px 0 10px 18px; font-size: 14px; color: var(--text-muted); line-height: 1.8; }
-    .aide-section li { margin-bottom: 2px; }
+    .aide-barre { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 24px;
+      background: var(--surface); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 50; }
+    .aide-marque { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text); font-weight: 600; }
+    .aide-marque .nav-brand-icon { width: 30px; height: 30px; border-radius: 6px; background: var(--indigo); color: #fff;
+      display: grid; place-items: center; font-family: var(--font-display); overflow: hidden; }
+    .aide-layout { display: grid; grid-template-columns: 236px minmax(0, 1fr); gap: 36px; align-items: start;
+      max-width: 1180px; margin: 0 auto; padding: 32px 24px 80px; }
+    @media (max-width: 880px) { .aide-layout { grid-template-columns: 1fr; padding: 20px 16px 60px; } .aide-sommaire { display: none; } }
+    .aide-sommaire { position: sticky; top: 72px; max-height: calc(100vh - 90px); overflow-y: auto; padding-right: 4px; }
+    .aide-sommaire a { display: block; text-decoration: none; color: var(--text-muted); font-size: 13.5px; padding: 5px 10px; border-radius: 5px; }
+    .aide-sommaire a.niv1 { color: var(--text); font-weight: 600; margin-top: 10px; }
+    .aide-sommaire a.niv2 { padding-left: 22px; font-size: 13px; }
+    .aide-sommaire a:hover { background: var(--teal-soft-alt); color: var(--text); }
+    .aide-sommaire a.actif { background: var(--indigo-light); color: var(--indigo-dark); }
+    .aide-contenu { min-width: 0; }
+    .aide-entete h1 { margin: 0 0 6px; }
+    .aide-entete p { color: var(--text-muted); font-size: 15px; margin: 0 0 14px; max-width: 64ch; }
+    .aide-raccourcis { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 28px; }
+    .aide-raccourcis a { font-size: 13px; padding: 5px 11px; border: 1px solid var(--border); border-radius: 6px; text-decoration: none;
+      color: var(--text); background: var(--surface); }
+    .aide-raccourcis a:hover { border-color: var(--indigo); color: var(--indigo-dark); }
+    .aide-section { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 28px 32px; margin-bottom: 20px; }
+    @media (max-width: 640px) { .aide-section { padding: 20px 18px; } }
+    .aide-section > h2 { margin: 0 0 4px; font-size: 1.35rem; }
+    .aide-section > .sous { color: var(--text-muted); font-size: 13.5px; margin: 0 0 18px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+    .aide-section h3 { font-size: 15px; font-weight: 700; margin: 26px 0 8px; scroll-margin-top: 70px; }
+    .aide-section h4 { font-size: 14px; font-weight: 600; margin: 18px 0 6px; }
+    .aide-section p, .aide-section li { font-size: 14.5px; line-height: 1.65; color: var(--text-muted); max-width: 72ch; }
+    .aide-section p { margin: 0 0 10px; }
+    .aide-section ul, .aide-section ol { margin: 6px 0 12px 20px; padding: 0; }
+    .aide-section li { margin-bottom: 4px; }
     .aide-section strong { color: var(--text); font-weight: 600; }
-    .aide-section code {
-      background: var(--bg); border: 1px solid var(--border);
-      border-radius: 5px; padding: 1px 6px; font-size: 12.5px;
-      font-family: monospace; color: var(--indigo);
-    }
-    .callout {
-      display: flex; gap: 12px; padding: 12px 16px;
-      border-radius: 9px; font-size: 13.5px; line-height: 1.6; margin: 12px 0;
-    }
-    .callout-icon { flex-shrink: 0; font-size: 16px; margin-top: 1px; }
-    .callout-indigo { background: var(--indigo-light); border: 1px solid var(--indigo-mid); color: var(--indigo); }
-    .callout-green  { background: var(--green-light);  border: 1px solid var(--green-mid);  color: var(--green); }
-    .callout-orange { background: var(--orange-light); border: 1px solid var(--orange-mid); color: var(--orange); }
-    .callout-gray   { background: var(--bg); border: 1px solid var(--border); color: var(--text-muted); }
-    .role-chip {
-      display: inline-flex; align-items: center; gap: 5px;
-      font-size: 11.5px; font-weight: 600; padding: 3px 9px;
-      border-radius: 99px; vertical-align: middle;
-    }
-    .role-admin  { background: var(--red-light);    color: var(--red);    border: 1px solid var(--red-mid); }
-    .role-secge  { background: var(--orange-light); color: var(--orange); border: 1px solid var(--orange-mid); }
-    .role-membre { background: var(--indigo-light); color: var(--indigo); border: 1px solid var(--indigo-mid); }
-    .steps { counter-reset: step; display: flex; flex-direction: column; gap: 14px; margin: 12px 0; }
-    .step  { display: flex; gap: 14px; align-items: flex-start; counter-increment: step; }
-    .step-num {
-      width: 28px; height: 28px; border-radius: 50%;
-      background: var(--indigo); color: #fff;
-      font-size: 13px; font-weight: 800;
-      display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0; margin-top: 1px;
-    }
-    .step-body { font-size: 13.5px; color: var(--text-muted); line-height: 1.65; padding-top: 3px; }
-    .step-body strong { color: var(--text); }
-    .status-table { width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 12px 0; }
-    .status-table th {
-      text-align: left; padding: 8px 12px;
-      font-size: 11px; font-weight: 700;
-      letter-spacing: .06em; text-transform: uppercase;
-      color: var(--text-light); border-bottom: 1px solid var(--border);
-    }
-    .status-table td {
-      padding: 9px 12px; border-bottom: 1px solid var(--bg);
-      vertical-align: top; color: var(--text-muted); line-height: 1.55;
-    }
-    .status-table tr:last-child td { border-bottom: none; }
-    .faq-item { border: 1px solid var(--border); border-radius: 9px; overflow: hidden; margin-bottom: 8px; }
-    .faq-q {
-      width: 100%; text-align: left; padding: 13px 16px;
-      background: var(--bg); border: none; cursor: pointer;
-      font-size: 13.5px; font-weight: 600; color: var(--text);
-      display: flex; justify-content: space-between; align-items: center;
-      font-family: inherit; letter-spacing: -0.005em;
-    }
-    .faq-q:hover { background: var(--bg); }
-    .faq-a {
-      display: none; padding: 12px 16px 14px;
-      font-size: 13.5px; color: var(--text-muted); line-height: 1.65;
-      background: var(--surface); border-top: 1px solid var(--border);
-    }
-    .faq-a.open { display: block; }
-    .faq-chevron { transition: transform .2s; font-size: 11px; color: var(--text-light); }
-    .faq-chevron.open { transform: rotate(180deg); }
-    .aide-hero {
-      background: linear-gradient(135deg, var(--indigo) 0%, #7C3AED 100%);
-      color: #fff; padding: 40px 36px; border-radius: var(--radius);
-      margin-bottom: 24px; position: relative; overflow: hidden;
-    }
-    .aide-hero::before {
-      content: ''; position: absolute; top: -40px; right: -40px;
-      width: 200px; height: 200px; border-radius: 50%;
-      background: rgba(255,255,255,.06);
-    }
-    .aide-hero::after {
-      content: ''; position: absolute; bottom: -60px; right: 60px;
-      width: 140px; height: 140px; border-radius: 50%;
-      background: rgba(255,255,255,.04);
-    }
-    .aide-hero h1 { color: #fff; font-size: 1.7rem; margin-bottom: 8px; position: relative; }
-    .aide-hero p  { color: rgba(255,255,255,.78); font-size: 14.5px; line-height: 1.6; position: relative; }
-    .aide-hero-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; position: relative; }
-    .aide-hero-chip {
-      background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.25);
-      color: #fff; font-size: 12px; font-weight: 600;
-      padding: 4px 12px; border-radius: 99px;
-      cursor: pointer; text-decoration: none; transition: background .15s;
-    }
-    .aide-hero-chip:hover { background: rgba(255,255,255,.25); }
-    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 12px 0; }
-    @media (max-width: 600px) { .two-col { grid-template-columns: 1fr; } }
-    .mini-card {
-      background: var(--bg); border: 1px solid var(--border);
-      border-radius: 9px; padding: 14px 16px;
-    }
-    .mini-card-title { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
-    .mini-card-body  { font-size: 12.5px; color: var(--text-muted); line-height: 1.6; }
-    .path-divider {
-      display: flex; align-items: center; gap: 12px;
-      margin: 16px 0; font-size: 12px; font-weight: 700;
-      color: var(--text-light); letter-spacing: .06em; text-transform: uppercase;
-    }
-    .path-divider::before, .path-divider::after {
-      content: ''; flex: 1; height: 1px; background: var(--border);
-    }
+    .aide-section kbd { font-family: inherit; font-size: 12px; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; background: var(--bg); color: var(--text); }
+    .encadre { border: 1px solid var(--border); background: var(--bg); border-radius: 8px; padding: 11px 14px; margin: 12px 0; font-size: 14px; line-height: 1.6; color: var(--text-muted); max-width: 72ch; }
+    .encadre strong { color: var(--text); }
+    .encadre.attention { border-color: var(--orange-mid); background: var(--orange-light); }
+    .etapes { list-style: none; margin: 10px 0 14px !important; padding: 0; counter-reset: e; }
+    .etapes li { counter-increment: e; position: relative; padding-left: 34px; margin-bottom: 10px; }
+    .etapes li::before { content: counter(e); position: absolute; left: 0; top: 1px; width: 22px; height: 22px; border-radius: 50%;
+      background: var(--indigo-light); color: var(--indigo-dark); font-size: 12px; font-weight: 700; display: grid; place-items: center; }
+    .deux { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0 14px; max-width: 760px; }
+    @media (max-width: 640px) { .deux { grid-template-columns: 1fr; } }
+    .carte { border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; background: var(--bg); }
+    .carte b { display: block; color: var(--text); font-size: 14px; margin-bottom: 3px; }
+    .carte span { font-size: 13.5px; color: var(--text-muted); line-height: 1.55; }
+    .tableau { width: 100%; max-width: 760px; border-collapse: collapse; font-size: 14px; margin: 8px 0 14px; }
+    .tableau th { text-align: left; font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-light); font-weight: 600; padding: 7px 10px; border-bottom: 1px solid var(--border); }
+    .tableau td { padding: 9px 10px; border-bottom: 1px solid var(--border); color: var(--text-muted); vertical-align: top; line-height: 1.55; }
+    .tableau tr:last-child td { border-bottom: none; }
+    .faq details { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; background: var(--surface); }
+    .faq summary { cursor: pointer; padding: 12px 14px; font-weight: 600; font-size: 14.5px; color: var(--text); list-style: none; display: flex; justify-content: space-between; gap: 10px; }
+    .faq summary::-webkit-details-marker { display: none; }
+    .faq summary::after { content: '+'; color: var(--text-light); font-weight: 500; }
+    .faq details[open] summary::after { content: '−'; }
+    .faq details > div { padding: 0 14px 14px; font-size: 14px; line-height: 1.65; color: var(--text-muted); }
+    .aide-pied { text-align: center; font-size: 12px; color: var(--text-light); padding-top: 10px; }
   </style>
 </head>
 <body>
 
-<nav class="nav">
-  <a href="/" class="nav-brand">
-    <div class="nav-brand-icon">C</div>
-    <span class="nav-brand-name">Cooptly</span>
-  </a>
-  <div class="nav-links">
-    <span class="nav-link active" style="cursor:default;">📖 Documentation</span>
-  </div>
-  <div class="nav-right">
-    <button class="btn btn-ghost btn-sm" onclick="history.back()">← Back</button>
-  </div>
-</nav>
+<header class="aide-barre">
+  <a href="/" class="aide-marque"><span class="nav-brand-icon">C</span><span>Cooptly · Help</span></a>
+  <button class="btn btn-secondary btn-sm" type="button" onclick="history.length > 1 ? history.back() : (location.href = '/')">Back</button>
+</header>
 
 <div class="aide-layout">
 
-  <!-- SIDEBAR -->
-  <aside class="aide-sidebar">
-    <div class="aide-sidebar-title">Documentation</div>
+  <nav class="aide-sommaire" aria-label="Contents">
+    <a class="niv1" href="#prise-en-main">First steps</a>
+    <a class="niv2" href="#menu">The menu and search</a>
+    <a class="niv2" href="#roles">Who does what</a>
+    <a class="niv2" href="#deroule">How a recruitment runs</a>
+    <a class="niv2" href="#tableau-de-bord">The dashboard</a>
+    <a class="niv1" href="#formulaire">The form</a>
+    <a class="niv2" href="#diffuser">Sharing the links</a>
+    <a class="niv2" href="#reserver">Booking a slot</a>
+    <a class="niv2" href="#stand">Stand mode</a>
+    <a class="niv2" href="#anglais">In English</a>
+    <a class="niv2" href="#plusieurs">Group interviews</a>
+    <a class="niv2" href="#changer">Changing a slot</a>
+    <a class="niv1" href="#cooptants">Candidates</a>
+    <a class="niv2" href="#fiche">A candidate's record</a>
+    <a class="niv2" href="#statuts">Statuses and no-shows</a>
+    <a class="niv2" href="#classement">Ranking and deliberation</a>
+    <a class="niv2" href="#score">The score</a>
+    <a class="niv1" href="#staff">Staff</a>
+    <a class="niv2" href="#dispos">Availability</a>
+    <a class="niv2" href="#fiche-staffeur">A staff member's record</a>
+    <a class="niv2" href="#attribution">Who runs the interview</a>
+    <a class="niv1" href="#planning">The schedule</a>
+    <a class="niv2" href="#vue">One view, three displays</a>
+    <a class="niv2" href="#placer">Scheduling someone</a>
+    <a class="niv2" href="#optimiser">Optimise</a>
+    <a class="niv2" href="#generer">Generating the schedule</a>
+    <a class="niv1" href="#evaluations">Evaluations</a>
+    <a class="niv1" href="#parametres">Settings</a>
+    <a class="niv2" href="#p-quand">When?</a>
+    <a class="niv2" href="#p-comment">How?</a>
+    <a class="niv2" href="#p-qui">Who?</a>
+    <a class="niv2" href="#p-formulaire">Form</a>
+    <a class="niv2" href="#p-evaluation">Evaluation</a>
+    <a class="niv2" href="#p-acces">Access and security</a>
+    <a class="niv1" href="#fin">End of recruitment</a>
+    <a class="niv2" href="#cloturer">Closing</a>
+    <a class="niv2" href="#suivant">Preparing the next one</a>
+    <a class="niv2" href="#passation">Handing over</a>
+    <a class="niv1" href="#faq">Frequently asked questions</a>
+  </nav>
 
-    <a class="aide-nav-link" href="#intro">🏠 Introduction</a>
-    <a class="aide-nav-sub"  href="#roles">Roles</a>
-    <a class="aide-nav-sub"  href="#modes">The two modes</a>
-    <a class="aide-nav-sub"  href="#jurys">How interviewers are assigned</a>
-    <a class="aide-nav-sub"  href="#staff-libre">Without staff availability</a>
-    <a class="aide-nav-sub"  href="#flow">End-to-end process</a>
+  <main class="aide-contenu">
 
-    <div class="aide-nav-sep"></div>
-
-    <a class="aide-nav-link" href="#formulaire">📋 Form & application</a>
-    <a class="aide-nav-sub"  href="#lien">Sharing the form</a>
-    <a class="aide-nav-sub"  href="#self-booking">Self-booking</a>
-    <a class="aide-nav-sub"  href="#collectif">Group interviews</a>
-    <a class="aide-nav-sub"  href="#deadline">Application deadline</a>
-    <a class="aide-nav-sub"  href="#reschedule">Changing a slot</a>
-
-    <div class="aide-nav-sep"></div>
-
-    <a class="aide-nav-link" href="#cooptants">👥 Managing candidates</a>
-    <a class="aide-nav-sub"  href="#statuts">Statuses</a>
-    <a class="aide-nav-sub"  href="#delib">Deliberation mode</a>
-    <a class="aide-nav-sub"  href="#score">How the score works</a>
-    <a class="aide-nav-sub"  href="#dossier">Viewing an application</a>
-    <a class="aide-nav-sub"  href="#export">CSV export</a>
-
-    <div class="aide-nav-sep"></div>
-
-    <a class="aide-nav-link" href="#dispos">🗓 Staff availability</a>
-    <a class="aide-nav-sub"  href="#saisie-dispos">Submitting availability (link)</a>
-    <a class="aide-nav-sub"  href="#vue-dispos">Combined view</a>
-
-    <div class="aide-nav-sep"></div>
-
-    <a class="aide-nav-link" href="#planning">📅 Interview schedule</a>
-    <a class="aide-nav-sub"  href="#generation">Generating the schedule</a>
-    <a class="aide-nav-sub"  href="#manual">Manual scheduling</a>
-
-    <div class="aide-nav-sep"></div>
-
-    <a class="aide-nav-link" href="#entretien">🎙 Evaluations</a>
-    <a class="aide-nav-sub"  href="#brief">Interviewer guidelines</a>
-
-    <div class="aide-nav-sep"></div>
-
-    <a class="aide-nav-link" href="#parametres">⚙️ Settings</a>
-    <a class="aide-nav-sub"  href="#param-campagne">Recruitment & rules</a>
-    <a class="aide-nav-sub"  href="#param-form">Form</a>
-    <a class="aide-nav-sub"  href="#param-consignes">Guidelines & question guide</a>
-    <a class="aide-nav-sub"  href="#param-criteres">Criteria</a>
-    <a class="aide-nav-sub"  href="#param-salles">Rooms</a>
-    <a class="aide-nav-sub"  href="#param-codes">Invite codes</a>
-    <a class="aide-nav-sub"  href="#multi-asso">Multiple associations</a>
-
-    <div class="aide-nav-sep"></div>
-
-    <a class="aide-nav-link" href="#faq">❓ FAQ</a>
-  </aside>
-
-  <!-- CONTENU -->
-  <main class="aide-content">
-
-    <div class="aide-hero">
-      <h1>📖 Cooptly Documentation</h1>
-      <p>Everything you need to run a recruitment drive, from the first applications through to the final decision.</p>
-      <div class="aide-hero-chips">
-        <a class="aide-hero-chip" href="#flow">End-to-end process</a>
-        <a class="aide-hero-chip" href="#modes">The two modes</a>
-        <a class="aide-hero-chip" href="#delib">Deliberations</a>
-        <a class="aide-hero-chip" href="#dispos">Availability</a>
-        <a class="aide-hero-chip" href="#planning">Schedule</a>
-        <a class="aide-hero-chip" href="#param-codes">Invite codes</a>
-        <a class="aide-hero-chip" href="#faq">FAQ</a>
+    <div class="aide-entete">
+      <h1>Help</h1>
+      <p>Everything you need to run a recruitment: share the form, organise interviews, collect evaluations, rank.</p>
+      <div class="aide-raccourcis">
+        <a href="#deroule">Step by step</a>
+        <a href="#reserver">Booking a slot</a>
+        <a href="#placer">Scheduling someone</a>
+        <a href="#statuts">No-shows</a>
+        <a href="#classement">Deliberate</a>
+        <a href="#faq">Frequently asked questions</a>
       </div>
     </div>
 
-    <!-- ─── INTRODUCTION ──────────────────────────────────────── -->
-    <div class="aide-section" id="intro">
-      <div class="aide-section-header">
-        <div class="aide-section-icon" style="background:var(--indigo-light);">🏠</div>
-        <div>
-          <h2>Introduction</h2>
-          <div class="aide-section-subtitle">Roles, access and the end-to-end recruitment process</div>
-        </div>
-      </div>
+    <!-- ── PRENDRE EN MAIN ─────────────────────────────────────── -->
+    <section class="aide-section" id="prise-en-main">
+      <h2>First steps</h2>
+      <p class="sous">The menu, search, roles and the order of things.</p>
 
-      <p><strong>Cooptly</strong> brings the whole recruitment process into one secure interface: receiving applications, booking appointments, scheduling interviews, collecting evaluations and making final decisions.</p>
+      <h3 id="menu">The menu and search</h3>
+      <p>On a computer, the <strong>menu is on the left</strong>: Dashboard, Candidates, Schedule, Settings. On a narrower screen, it shrinks to a column of icons. On a phone, the pages are in the <strong>tabs at the bottom</strong>, and everything else is behind <strong>More</strong>.</p>
+      <p>At the bottom of the menu, <strong>your name</strong> opens the account menu: switch association, join another association with a code, light or dark theme, replay the page's tour, change your password, help and sign out.</p>
+      <p><strong>Search</strong> opens from any page with <kbd>Ctrl</kbd> <kbd>K</kbd> (<kbd>⌘</kbd> <kbd>K</kbd> on a Mac), the “Search” field in the menu, or the magnifying glass on a phone. Type a few letters:</p>
+      <ul>
+        <li>a <strong>candidate</strong> opens their record, without leaving the page;</li>
+        <li>a <strong>staff member</strong> opens their staff member's record;</li>
+        <li>an <strong>action</strong> takes you to the right place or copies a link: “link”, “stand”, “ranking”, “rooms”, “recycle bin”…</li>
+      </ul>
+      <p>With nothing typed, it suggests the next interviews. Arrow keys to choose, <kbd>Enter</kbd> to open, <kbd>Esc</kbd> to close.</p>
+      <p>Hover over a button, a number or a chart bar, and a tooltip tells you what it's for or gives the details.</p>
+      <div class="encadre">Each page has a <strong>short guided tour</strong> the first time you open it. To see it again: account menu, <strong>Replay the tour</strong>.</div>
 
-      <div class="callout callout-indigo">
-        <span class="callout-icon">▶️</span>
-        <span>A <strong>six-step walkthrough</strong> appears the first time you sign in. To see it again, open the <strong>☰</strong> menu at the top left and choose <strong>Replay the walkthrough</strong>.</span>
-      </div>
-
-      <h3 id="roles">Roles</h3>
-      <table class="status-table">
-        <thead><tr><th>Role</th><th>Who?</th><th>What they can do</th></tr></thead>
+      <h3 id="roles">Who does what</h3>
+      <table class="tableau">
+        <thead><tr><th>Who</th><th>Access</th><th>What they do</th></tr></thead>
         <tbody>
-          <tr>
-            <td><span class="role-chip role-secge">🟠 Sec-Gen / Board</span></td>
-            <td>Secretary General, board members (with an account)</td>
-            <td>Set up interviews, open and close recruitment, track candidates, manage the schedule, share links and create invite codes.</td>
-          </tr>
-          <tr>
-            <td><span class="role-chip role-membre">🔵 Member / interviewer</span></td>
-            <td>Members who sit on interviews</td>
-            <td><strong>No account needed.</strong> They submit their availability and evaluate candidates through <strong>public links</strong> shared by the board.</td>
-          </tr>
+          <tr><td><strong>The board</strong> (Secretary General, President)</td><td>An account</td><td>Sets up recruitment, follows candidates, keeps the schedule, shares the links, ranks.</td></tr>
+          <tr><td><strong>Staff members</strong></td><td>No account</td><td>Give their availability and evaluate candidates using the links the board sends them.</td></tr>
+          <tr><td><strong>Candidates</strong></td><td>No account</td><td>Fill in the form, book their interview and follow their application with their personal link.</td></tr>
+        </tbody>
+      </table>
+      <p>A single account can manage <strong>several associations</strong>: ask for the second one's invite code, then account menu, <strong>Join an association</strong>. You then switch from one association to the other in the same menu. The code also sets your role, which can differ from one association to the other, and the data stays separate.</p>
+
+      <h3 id="deroule">How a recruitment runs</h3>
+      <ol class="etapes">
+        <li><strong>Set up</strong> in Settings: the period (When?), how interviews are booked (How?), the number of staff members per interview (Who?), the form questions and the evaluation grid.</li>
+        <li><strong>Collect staff availability</strong> with the availability link. If candidates choose their own slot, do this <strong>before</strong> sharing the form: without availability, they have nothing to book.</li>
+        <li><strong>Share the form</strong>: link, QR code, stand.</li>
+        <li><strong>Keep track</strong>: the dashboard tells you what's left to do, the schedule shows the interviews.</li>
+        <li><strong>Get evaluations in</strong>: staff members score with the evaluation link, or the board does it from the candidate's record.</li>
+        <li><strong>Deliberate</strong>: the ranking, in a full-screen meeting view. The decision is then given outside the platform.</li>
+      </ol>
+
+      <h3 id="tableau-de-bord">The dashboard</h3>
+      <p>The title is today's date. Just below, four figures: <strong>applications</strong>, <strong>interview booked</strong>, <strong>interview over</strong> and <strong>evaluated</strong>, with what's missing (no interview, no-shows, no evaluation).</p>
+      <ul>
+        <li><strong>Before the first interview</strong>: a “Getting started” list in six steps, which tick themselves off (period set, staff added, availability received, form shared…).</li>
+        <li><strong>After that</strong>: “To do” (past interviews with no evaluation, rooms missing for tomorrow, staff members with no availability, candidates with no interview, additions to the Messenger group), with a link to the right place. On top of that come <strong>inconsistencies</strong>: upcoming interviews without enough staff members, a staff member scheduled twice at the same time or outside their availability, an interview in English with no English-speaking staff member, hardly any free slots left while the form is open, a very uneven workload between staff members, a likely duplicate, and impractical settings (interviews longer than the gap between two start times, no evaluation grid, applications open after the last bookable slot…). These last ones also appear at the top of Settings, with a button that takes you to the setting; Settings adds a simple tip when a staff member could do 3 hours or more in a row without a break. An unhelpful alert (a staff member who isn't on campus, for example) can be hidden with the cross, for the whole board; it comes back if someone else is affected, and “Show all again” brings them all back. Then <strong>Today</strong>, <strong>Tomorrow</strong> (with the list to copy for the staff) and <strong>The next few days</strong>.</li>
+        <li>At the top: <strong>Stand mode</strong>, <strong>Share</strong> (every link, each with a sentence explaining it) and <strong>Copy the form link</strong>.</li>
+      </ul>
+      <p>The table of recent candidates has a <strong>Messenger</strong> column: tick it when someone has been added to the group. The counter and the “Not in Messenger yet” filter track progress, and <strong>tick all</strong> catches up in one go.</p>
+    </section>
+
+    <!-- ── FORMULAIRE ───────────────────────────────────────────── -->
+    <section class="aide-section" id="formulaire">
+      <h2>The form</h2>
+      <p class="sous">What candidates see, and how they book their interview.</p>
+      <p>The form always asks for the <strong>first name</strong>, <strong>surname</strong>, <strong>emlyon email</strong> and <strong>background</strong> (Prépa, AST, ASTi, MSc, MS or Other), at the stand too. Background is the same question for every association: it's what gives the ratios on the dashboard and in deliberation. An old “Background” question on your form is no longer asked (Settings says so); its answers are carried over.</p>
+      <p>The <strong>association's logo</strong> (at the top of the menu, on the form and on the public pages) is changed in Settings → Form. It's cropped into a circle: a square image, with the logo well centred, works best. Without a logo, the menu shows an empty circle.</p>
+
+      <h3 id="diffuser">Sharing the links</h3>
+      <p>The dashboard's <strong>Share</strong> button gathers all the public links. They're permanent: no need to regenerate them.</p>
+      <table class="tableau">
+        <thead><tr><th>Link</th><th>For whom</th><th>What it's for</th></tr></thead>
+        <tbody>
+          <tr><td>Form</td><td>Candidates</td><td>Apply and book an interview. With a QR code to display or print.</td></tr>
+          <tr><td>Form in English</td><td>Candidates</td><td>The same form, opened in English: the interview will be in English.</td></tr>
+          <tr><td>Staff availability</td><td>Staff members</td><td>Tick their free slots and their languages.</td></tr>
+          <tr><td>Evaluation</td><td>Staff members</td><td>Score a candidate right after their interview, or report a no-show.</td></tr>
+          <tr><td>Public schedule</td><td>Staff members</td><td>The schedule in read-only mode, without internal notes, with add-to-calendar.</td></tr>
+          <tr><td>Stand mode</td><td>Staff at the stand</td><td>Sign someone up on the spot in a few seconds.</td></tr>
         </tbody>
       </table>
 
-      <h3 id="modes">Two ways to schedule interviews</h3>
-      <p>Not every association works the same way. You choose the mode in <em>Settings → Interview rules</em>, and it changes what candidates see:</p>
-      <div class="two-col">
-        <div class="mini-card">
-          <div class="mini-card-title">📅 Candidates pick their own slot</div>
-          <div class="mini-card-body">
-            Staff submit their availability <strong>before</strong> the form opens, and
-            candidates book a free slot directly. Nothing to rearrange afterwards:
-            the schedule fills itself. <em>This is the default mode.</em>
-          </div>
-        </div>
-        <div class="mini-card">
-          <div class="mini-card-title">✋ Candidates give their availability</div>
-          <div class="mini-card-body">
-            Candidates tick the times they are free, without seeing any slots. Once
-            applications close, you <strong>generate the whole schedule in one go</strong>
-            from the dashboard. Handy if your staff can't plan ahead.
-          </div>
-        </div>
-      </div>
-      <h3 id="staff-libre">Doing without staff availability</h3>
-      <p>Getting the whole board to fill in a grid before the form opens isn't always realistic. In <em>Settings → Interview rules</em>, tick <strong>“Staff don't need to declare their availability”</strong>: the whole board is then treated as free throughout the period, from 8 am until the end time for slots (7 pm by default).</p>
-      <p>By default, candidates can't book an interview for today or tomorrow: the first day offered is the day after tomorrow. Adjust <strong>“Minimum notice before an interview”</strong> in the same tab (anything from no notice to one week).</p>
-      <p>For evening video interviews, set <strong>“Slots end at”</strong> in the same tab (up to 11 pm): the application form, the staff availability grid and the schedules all extend automatically.</p>
-      <div class="steps">
-        <div class="step"><div class="step-num">1</div><div class="step-body">Candidates can pick <strong>any slot</strong> in the period, not just the ones where enough people had declared themselves free.</div></div>
-        <div class="step"><div class="step-num">2</div><div class="step-body">Scheduling works <strong>without any availability submitted</strong>. Previously, the algorithm refused to schedule anyone and showed “no usable staff availability”.</div></div>
-        <div class="step"><div class="step-num">3</div><div class="step-body">Interviewers are drawn from the <strong>staff list</strong> (<em>Availability</em> tab), with the same continuity rules. So make sure it's filled in.</div></div>
-      </div>
-      <div class="callout callout-gray">
-        <span class="callout-icon">💡</span>
-        <span>It's then up to you to sort things out: the platform assumes everyone can make it and no longer checks. You can adjust panels from the <a href="#planning">schedule</a> if needed.</span>
-      </div>
-
-      <p><strong>What stays the same in both modes:</strong> staff submit their availability up front, and <strong>interviewers are assigned automatically</strong>. The only real difference is <em>who sets the time</em>: the candidate, or the board by generating the whole schedule in one go.</p>
-
-      <h3 id="jurys">🎙 How interviewers are assigned</h3>
-      <p>Whether candidates book their own slot or you generate the schedule, the rule is the same: <strong>the same people cover back-to-back slots</strong>. Tying up two members for three hours straight costs an association far less than disturbing six people for an hour each.</p>
-      <div class="steps">
-        <div class="step"><div class="step-num">1</div><div class="step-body">First, anyone <strong>already booked</strong> on an overlapping slot is ruled out, break included.</div></div>
-        <div class="step"><div class="step-num">2</div><div class="step-body">Priority goes to those who <strong>have just finished</strong> the previous slot, so a pair already in the room stays together.</div></div>
-        <div class="step"><div class="step-num">3</div><div class="step-body">Otherwise, the <strong>least-used</strong> members so far, to spread the load across the whole board.</div></div>
-        <div class="step"><div class="step-num">4</div><div class="step-body">Beyond <strong>N interviews in a row</strong>, a changeover is forced. Set N in <em>Settings → Back-to-back interviews per interviewer</em> (4 by default, <strong>0 = no limit</strong>).</div></div>
-      </div>
-
-      <div class="callout callout-indigo">
-        <span class="callout-icon">💡</span>
-        <span>A break in the day <strong>breaks the chain</strong>: two interviews an hour apart don't count as back-to-back, since the person has had time to leave. And nothing is set in stone: you can change any panel from the <a href="#planning">schedule</a>.</span>
-      </div>
-
-      <h4 style="margin-top:16px;">Limiting simultaneous interviews</h4>
-      <p>If you only have two rooms, set <em>Settings → Simultaneous interviews (maximum)</em> to 2: a slot becomes <strong>Full</strong> as soon as two interviews are taking place at that time, even if some interviewers are still free. The limit applies to the form, stand mode and automatic scheduling. An interview for two counts as one. <strong>0 = no limit</strong> (the default). From the schedule, you can still place an interview by hand beyond the limit.</p>
-
-      <h3 id="flow">End-to-end recruitment process</h3>
-      <p>Each association sets up its own recruitment: either over an <strong>interview period</strong> you define, or on a rolling basis over the coming weeks if you leave the dates blank. In practice:</p>
-      <div class="steps">
-        <div class="step"><div class="step-num">1</div><div class="step-body"><strong>Setup</strong>: the Secretary General chooses the <em>mode</em> and the <em>interview rules</em> in <em>Settings</em> (period, length, break, number of interviewers, questions, criteria, rooms), then switches <strong>recruitment</strong> on.</div></div>
-        <div class="step"><div class="step-num">2</div><div class="step-body"><strong>Staff availability</strong>: the Secretary General shares the <strong>availability link</strong>; each member adds their slots there <strong>without an account</strong>. In “candidates pick their own slot” mode, <strong>do this before sharing the form</strong>. Without availability, no slots appear.</div></div>
-        <div class="step"><div class="step-num">3</div><div class="step-body"><strong>Sharing the form</strong>: the Secretary General shares the <strong>application link</strong> (email, social media, QR code). It's public, no account needed.</div></div>
-        <div class="step"><div class="step-num">4</div><div class="step-body"><strong>Applications</strong>: depending on the mode, candidates either <strong>book their slot</strong> (and get a confirmation they can add to their calendar) or <strong>submit their availability</strong>.</div></div>
-        <div class="step"><div class="step-num">5</div><div class="step-body"><strong>Schedule</strong>: in “availability” mode, you run <strong>schedule generation</strong>. In both modes, the Secretary General assigns interviewers and rooms, and schedules any exceptions by hand.</div></div>
-        <div class="step"><div class="step-num">6</div><div class="step-body"><strong>Interviews &amp; evaluations</strong>: after each interview, interviewers score candidates through the <strong>evaluation link</strong> (no account needed). The board can see every form.</div></div>
-        <div class="step"><div class="step-num">7</div><div class="step-body"><strong>Deliberations</strong>: once all interviews are done, the board meets and settles the ranking in <a href="#delib">deliberation mode</a>.</div></div>
-      </div>
-    </div>
-
-    <!-- ─── FORMULAIRE & CANDIDATURE ─────────────────────────── -->
-    <div class="aide-section" id="formulaire">
-      <div class="aide-section-header">
-        <div class="aide-section-icon" style="background:var(--green-light);">📋</div>
-        <div>
-          <h2>Form & application</h2>
-          <div class="aide-section-subtitle">Sharing, self-booking and changing a slot</div>
-        </div>
-      </div>
-
-      <h3 id="messenger">Tracking who's been added to the Messenger group</h3>
-      <p>In the <strong>dashboard</strong> table, the <strong>Messenger</strong> column has a checkbox for each candidate: tick it once you've added them to the group. It's saved straight away, for the whole board. The “Messenger: 12/40 added” counter shows your progress, and the <strong>Not yet in Messenger</strong> filter lists those still to add. The <strong>✓ tick all</strong> link, under the column heading, ticks every candidate shown in one go: handy for catching up, then you just untick anyone missing.</p>
-
-      <h3 id="lien">Sharing the form</h3>
-      <p>At the top right of the <strong>dashboard</strong>, there are three buttons:</p>
+      <h3 id="reserver">Booking a slot</h3>
+      <p>Once staff have given their availability, the form shows a <strong>calendar</strong>: days in columns, hours in rows. A slot only appears if <strong>enough staff members are free</strong> at the same time (the number set in Settings → Who?); slots already taken show as “Full”.</p>
       <ul>
-        <li><strong>Copy the form link</strong>: the URL to share by email or messaging app.</li>
-        <li><strong>🔗 Share</strong>: all the other links, each with a sentence explaining what it's for. For candidates: the form, the <strong>English form</strong> and its <strong>QR code</strong>. For staff: <strong>availability</strong>, <strong>evaluation</strong>, the <strong>public schedule</strong> and <strong>stand mode</strong>. Each link can be copied or opened in one click.</li>
-        <li><strong>📍 Stand mode</strong>: opens the short form so you can sign someone up in person.</li>
+        <li><strong>Recommended slots (star)</strong>: those right next to an interview already booked, or the first one of an empty day, three per day at most. Staff do their interviews back to back instead of having gaps.</li>
+        <li><strong>Fill recommended slots first</strong> (Settings → How?): the form then offers <strong>only</strong> these recommended slots. Every day stays open; only the times are selected, so the days fill up in order. Not at the stand.</li>
+        <li><strong>Minimum notice</strong>: by default, no interview today or tomorrow (Settings → When?).</li>
       </ul>
-      <h4 style="margin-top:16px;">📍 Signing someone up at a stand</h4>
-      <p>The <strong>📍 Stand mode</strong> button on the dashboard opens a short version of the form, on your phone or a tablet. For people running stands without an account, copy the <strong>📍 Stand mode</strong> link from the <strong>🔗 Share</strong> panel and send it to them: it works without signing in. Together with the person, you fill in their first name, surname and slot, plus whatever you chose in <strong>Settings → Form → Stand mode</strong> (for example their Facebook name, with or without their email). At the stand, there's <strong>no minimum notice</strong>: you can book for tomorrow, or for today if the slot hasn't passed.</p>
-      <p>That's the whole sign-up: <strong>the person has nothing to fill in afterwards</strong>, and they aren't asked the form's other questions. At the end, a <strong>QR code</strong> appears: they scan it to find their interview and add it to their calendar (optional). Then <strong>Next candidate</strong> clears the form for the next person.</p>
-      <p><strong>👥 Interview for two</strong>: two people who want to go in together? The “+ Add a 2nd person” button opens a second block (same fields). Both are signed up for the same slot, with the same interviewers, and the slot only counts once. The final screen shows a QR code for each of them.</p>
-      <p>In the candidate list, people signed up at a stand have a <strong>📍 Stand</strong> badge. The dashboard counts in-person sign-ups. Without an email, the form warns you if someone with the same name is already signed up.</p>
-      <div class="callout callout-gray">
-        <span class="callout-icon">💡</span>
-        <span>Stand mode needs an internet connection. If the network in the hall is poor, keep a paper list as a backup.</span>
-      </div>
-      <h4 style="margin-top:16px;">English form</h4>
-      <p>Candidates choose their language with the form's <strong>FR / EN</strong> button: <strong>choosing English means choosing an interview in English</strong>, and the form tells them so (“Your interview will be in English”). By default, the form opens in French; it opens in English with the English link from the dashboard. The confirmation and tracking pages follow the same choice. At the stand, there's a Français / English box for each person.</p>
-      <p><strong>Your questions</strong> are translated in Settings → Form → <strong>English form</strong>: all the questions side by side, with what's left to translate and a preview. Without a translation, a question is shown in French.</p>
-      <p><strong>English-speaking staff</strong>: on the availability page, each staff member ticks the languages they can interview in. Once enough people have answered, turn on <strong>“Interviews in English: English-speaking staff only”</strong> in Settings → Recruitment: a candidate interviewing in English then only sees slots where enough English-speaking staff are free, and their interviewers are chosen from among them. The setting shows how many staff members have ticked English. In the schedule, English-speaking staff have a 🇬🇧, and a warning appears if you put someone who hasn't ticked English on an interview in English.</p>
-      <p>Candidates interviewing in English have a 🇬🇧 everywhere: dashboard, Candidates, schedules, copied list, evaluation link.</p>
-      <p>The form is fully public (no account required). It shows your association's name and colours, along with the custom questions set up in Settings. The link is <strong>permanent</strong> (<code>?org=…</code>): there's no need to regenerate it.</p>
+      <p>After submitting, a <strong>confirmation page</strong> sums up the appointment and adds it to Google Calendar or the phone's calendar. The candidate keeps a <strong>personal link</strong> to the tracking page for their application.</p>
+      <div class="encadre">In “the candidate gives their availability” mode, there's no calendar: candidates tick their free hours, and you <a href="#generer">generate the schedule</a> in one go.</div>
 
-      <h4 style="margin-top:16px;">Interviews in your calendar</h4>
-      <p>On the <strong>public schedule</strong>, each day has a <strong>📅</strong> button: it offers an <strong>.ics</strong> file with that day's interviews (opens in Apple Calendar and Outlook, can be imported into Google Calendar) and a <strong>Google Calendar</strong> button that adds the day as <strong>a single event</strong> (from the first interview to the last, each one detailed in the description): Google only accepts one event per link. For separate events in Google, import the .ics file from a computer, or add them one by one (collapsed list). First choose your name from the “Everyone” list: only <strong>your</strong> interviews are added. The <strong>📅 Whole period</strong> button does the same for all upcoming interviews. Once you've chosen your name, the page also shows your count: “12 interviews, 5 of them done”.</p>
-      <p>In the <strong>internal schedule</strong>, the <strong>📊 Interviews per staff member</strong> table, below the grid, shows each person's past, upcoming and total interviews, busiest first: handy for balancing the load.</p>
-
-      <h3 id="self-booking">Self-booking a slot</h3>
-      <p>Once members have entered their availability, the form automatically shows a <strong>list of available slots</strong> that candidates can pick from directly.</p>
-      <p><strong>⭐ Recommended slots</strong>: shown in green, these are the slots right next to an interview already booked (just before or just after, break included), and the first slot of a day that's still empty. That way staff do their interviews back to back instead of having hours of gaps. The other slots can still be booked.</p>
-      <p><strong>“Only if there's no other option” availability</strong>: on the availability page, clicking a box a 2nd time turns it orange. These slots can still be used, but a slot that only exists thanks to them is never recommended, and interviewers in orange are only chosen as a last resort. In the schedule, they have a “Last resort” badge.</p>
-      <div class="callout callout-indigo">
-        <span class="callout-icon">💡</span>
-        <span>A slot is only offered if <strong>at least N members are free at the same time</strong> (N = the number of interviewers set in Settings → Interview rules). Slots already taken by other candidates are greyed out automatically.</span>
-      </div>
-      <p>After choosing a slot and submitting the form, candidates are taken to a <strong>confirmation page</strong> that:</p>
+      <h3 id="stand">Stand mode</h3>
+      <p>For signing someone up on the spot, on a phone or a tablet. The dashboard's <strong>Stand mode</strong> button opens it; for staff without an account, send them the “Stand mode” link from the Share panel. Together with the person, you fill in their first name, surname, slot, and the questions chosen in Settings → Form → Stand mode. No minimum notice: you can book for today.</p>
       <ul>
-        <li>Summarises the date and time of the interview.</li>
-        <li>Lets them add the appointment to <strong>Google Calendar</strong> or download an <strong>.ics</strong> file (Apple Calendar, Outlook).</li>
+        <li>The person <strong>has nothing to fill in afterwards</strong>. At the end, a QR code gives them their interview and lets them add it to their calendar.</li>
+        <li><strong>Interview for two</strong>: “+ Add a 2nd person” signs up a friend for the same slot, with the same staff members.</li>
+        <li>People signed up at the stand are marked <strong>Stand</strong> in the lists.</li>
       </ul>
+      <div class="encadre attention">Stand mode needs an internet connection. If the network is poor, keep a paper list as a backup.</div>
 
-      <div class="callout callout-orange">
-        <span class="callout-icon">⚠️</span>
-        <span>In “candidates pick their own slot” mode, if <strong>no member</strong> has submitted their availability, there's nothing to book: the form switches to an availability grid and the schedule will have to be built by hand. Remember to share the availability link <em>before</em> the form.</span>
-      </div>
+      <h3 id="anglais">In English</h3>
+      <p>Candidates choose their language with <strong>FR / EN</strong>: choosing English means choosing an <strong>interview in English</strong>. The English link in the Share panel opens the form straight in English. Questions are translated in Settings → Form → <strong>Form in English</strong>; without a translation, a question stays in French.</p>
+      <p>On the availability page, each staff member ticks their languages. With <strong>“Interviews in English: English-speaking staff only”</strong> (Settings → Who?), a candidate interviewing in English only sees slots where enough English-speaking staff members are free. Candidates interviewing in English have a 🇬🇧 everywhere.</p>
 
-      <h3 id="dispos-cooptant">When candidates submit their availability</h3>
-      <p>In <em>“candidates give their availability”</em> mode, the form shows no slots: candidates simply tick the hours they're free during the interview period. No interview is created at this point: <a href="#generation">schedule generation</a> takes care of that later.</p>
+      <h3 id="plusieurs">Group interviews</h3>
+      <p>With <strong>group interviews</strong> (Settings → How?), a candidate who has just booked gets a <strong>link to pass on</strong>: the friend who opens it joins their slot. Nobody is ever paired with a stranger. The group takes up only one slot and one team of staff members, but each person keeps their own evaluation.</p>
 
-      <h3 id="collectif">Interviewing together</h3>
-      <p>If your association turns on <strong>group interviews</strong> (Settings → Interview rules), a candidate who has just booked sees a <strong>link to pass on</strong> on their confirmation page. A friend who opens it lands on the form with the <strong>slot already set</strong>: they'll be interviewed together.</p>
-      <div class="callout callout-indigo">
-        <span class="callout-icon">💡</span>
-        <span>Nobody is ever paired up automatically: you need to have received the link. It's designed for two friends who want to go in together, not for grouping strangers.</span>
-      </div>
+      <h3 id="changer">Changing a slot</h3>
       <ul>
-        <li>The group <strong>takes up just one slot</strong> and one panel: two friends together don't take two places in the schedule.</li>
-        <li>You set the maximum number of candidates per interview (2 to 4).</li>
-        <li>If the group is full, the link is no longer valid or the slot has passed, the friend is told and can simply apply as normal.</li>
-        <li>Each candidate keeps their <strong>own evaluation form</strong>: the ranking stays individual.</li>
+        <li><strong>The candidate</strong>: from the button on their confirmation or tracking page, the form reopens pre-filled. Simply by retyping their email, they can also find their application; their answers are kept without being shown again, because an emlyon address is easy to guess.</li>
+        <li><strong>The board</strong>: <strong>Move</strong>, in the candidate's record (next to the interview) or in the interview's details in the schedule. On a computer, you can also <strong>drag the interview</strong> from one cell to another. See <a href="#placer">Scheduling someone</a>.</li>
       </ul>
+    </section>
 
-      <h3 id="deadline">Application deadline</h3>
-      <p>You can set a <strong>closing date for applications</strong> in Settings. After that date, the form shows a closed message. It's optional: without a deadline, the form stays open for as long as recruitment is.</p>
+    <!-- ── COOPTANTS ────────────────────────────────────────────── -->
+    <section class="aide-section" id="cooptants">
+      <h2>Candidates</h2>
+      <p class="sous">The table, the record, no-shows, the ranking.</p>
+      <p>The <strong>Candidates</strong> page has two views: the <strong>table</strong> (one row per candidate: sign-up date, interview, staff members, status, evaluations, score, <strong>Messenger</strong> checkbox with “tick all”, internal note, link to their tracking page) and the <strong>ranking</strong>. Search ignores accents; the <strong>chips</strong> filter (Received, Scheduled, Interview over, No-shows, No interview, Not evaluated, Not in Messenger, English) and clicking a column header sorts.</p>
 
-      <h3 id="reschedule">Changing a slot (candidate)</h3>
-      <p>A candidate who wants a different time has two options:</p>
-      <div class="steps">
-        <div class="step"><div class="step-num">1</div><div class="step-body"><strong>Using their personal link</strong>, via the “change slot” button on their confirmation or tracking page. The form reopens <strong>fully pre-filled</strong>, answers included, with their current slot already selected.</div></div>
-        <div class="step"><div class="step-num">2</div><div class="step-body"><strong>By re-entering their email address</strong> in the form. The platform finds their application and interview. Their answers are <strong>kept but not shown again</strong>: they don't need to retype anything to change slot, and can re-enter them if they wish.</div></div>
-      </div>
-      <div class="callout callout-gray">
-        <span class="callout-icon">🔒</span>
-        <span>Why not show the answers again in the second case? Because an emlyon email address is easy to guess. Without this safeguard, anyone could read a classmate's phone number or cover letter just by typing their name.</span>
-      </div>
-    </div>
-
-    <!-- ─── COOPTANTS ─────────────────────────────────────────── -->
-    <div class="aide-section" id="cooptants">
-      <div class="aide-section-header">
-        <div class="aide-section-icon" style="background:var(--indigo-light);">👥</div>
-        <div>
-          <h2>Managing candidates</h2>
-          <div class="aide-section-subtitle">Table, record, filters, statuses and export</div>
-        </div>
-      </div>
-
-      <p>The <strong>Candidates</strong> tab has two views:</p>
-      <div class="two-col" style="margin-bottom:10px;">
-        <div class="mini-card">
-          <div class="mini-card-title">👥 Candidates</div>
-          <div class="mini-card-body">A compact table, one row per candidate: interview, panel, status, number of evaluations, score, and 📝 if they have an internal note. Click a row to open their record.</div>
-        </div>
-        <div class="mini-card">
-          <div class="mini-card-title">🏆 Ranking</div>
-          <div class="mini-card-body">Sorting by score or manual order, number of places and cut-off line, deliberation mode.</div>
-        </div>
-      </div>
-
-      <h3>Searching, filtering, sorting</h3>
+      <h3 id="fiche">A candidate's record</h3>
+      <p>Everything is in <strong>a single record</strong>, the same everywhere (Dashboard, Candidates, ranking, schedule, search). Three tabs:</p>
       <ul>
-        <li><strong>Search</strong>: first name, surname or email, ignoring accents.</li>
-        <li><strong>Filter chips</strong>: Received, Scheduled, Interview over (they add up), then No interview, Not evaluated, 🇬🇧 English (they stack). The number of candidates shown is on the right.</li>
-        <li><strong>Sorting</strong>: click a column header (Candidate, Interview, Status, Eval., Score); a second click reverses the order. The sort is remembered.</li>
+        <li><strong>Profile</strong>: email, phone, interview (<strong>Move</strong>, and <strong>No-show?</strong>, even before the time if the candidate let you know), room and staff members (clicking a name opens their record; <strong>Change</strong> edits them on the spot, showing who is available at that time), form answers. <strong>Edit profile</strong> corrects the name, email or an answer.</li>
+        <li><strong>Evaluations</strong>: score, average per criterion, staff members' answers and comments. <strong>Fill in the interview form</strong> opens the evaluation right inside the record.</li>
+        <li><strong>Internal note</strong>: visible to the board only, saved when you leave the field. The interview's note, written in the schedule, shows here too.</li>
       </ul>
+      <p>At the bottom: the <strong>status</strong> and <strong>Delete</strong> (to the recycle bin, recoverable for 30 days). <kbd>↑</kbd> <kbd>↓</kbd> move to the next candidate, <kbd>Esc</kbd> closes.</p>
 
-      <h3 id="fiche">📄 A candidate's record</h3>
-      <p>Everything about a candidate is in <strong>a single record</strong>, the same everywhere: from the dashboard, the Candidates page, the ranking, and an interview's <strong>📋 Record</strong> button in the schedule. Three tabs:</p>
-      <ul>
-        <li><strong>Profile</strong>: email, phone, interview (✏️ to change the slot), room, panel, form answers. <strong>✏️ Edit profile</strong> corrects the name, email or an answer.</li>
-        <li><strong>Evaluations</strong>: score, average for each criterion, the panel's answers and comments, and <strong>🎙 Fill in the interview form</strong>.</li>
-        <li><strong>Internal note</strong>: visible only to the board, saved when you leave the field. The note added to the interview in the schedule shows here too.</li>
-      </ul>
-      <p>At the bottom: the <strong>Status</strong> (saved as soon as you change it) and <strong>Delete</strong> (recycle bin, recoverable for 30 days). The <strong>↑ ↓</strong> arrows, or your keyboard's, move to the next candidate in the order shown.</p>
-
-      <h3 id="statuts">Candidate statuses</h3>
-      <table class="status-table">
-        <thead><tr><th>Status</th><th>Meaning</th><th>Updated by</th></tr></thead>
+      <h3 id="statuts">Statuses and no-shows</h3>
+      <table class="tableau">
+        <thead><tr><th>Status</th><th>What it means</th></tr></thead>
         <tbody>
-          <tr>
-            <td><span class="badge badge-orange">Received</span></td>
-            <td>Application submitted, not yet processed.</td>
-            <td>Automatic on submission</td>
-          </tr>
-          <tr>
-            <td><span class="badge badge-blue">Scheduled</span></td>
-            <td>Interview slot booked or assigned.</td>
-            <td>Self-booking or the schedule</td>
-          </tr>
-          <tr>
-            <td><span class="badge badge-green">Interview over</span></td>
-            <td>The interview time has passed. In the <em>Eval.</em> column, a <strong style="color:var(--red);">✗</strong> means no evaluation has been received: the candidate didn't turn up, or the evaluation was forgotten.</td>
-            <td>Automatic (time passed or evaluation received), or by hand</td>
-          </tr>
+          <tr><td><span class="badge badge-orange">Received</span></td><td>Application sent, no interview yet.</td></tr>
+          <tr><td><span class="badge badge-blue">Scheduled</span></td><td>An interview is booked.</td></tr>
+          <tr><td><span class="badge badge-green">Interview over</span></td><td>The time has passed. A <strong style="color:var(--red);">✗</strong> in the Eval. column means no evaluation has come in.</td></tr>
+          <tr><td><span class="badge badge-absent">No-show</span></td><td>The candidate didn't turn up for this slot.</td></tr>
         </tbody>
       </table>
-      <div class="callout callout-gray">
-        <span class="callout-icon">ℹ️</span>
-        <span>The final decision (accepted / rejected) is handled outside the platform and communicated to candidates directly. Use <strong>internal notes</strong> to keep track of your deliberations.</span>
-      </div>
+      <p><strong>Reporting a no-show</strong>: in the record, <strong>No-show?</strong> next to the interview; or in the evaluation form (public link included), the <strong>“Did not show up”</strong> box, which replaces the grid. A candidate who didn't show up no longer counts towards missing evaluations. <strong>Cancel</strong> removes the mark.</p>
+      <div class="encadre">The no-show <strong>stays visible after a new slot</strong>: “1 no-show” next to the name, in the list as in the ranking, and in the export. It's up to you to take it into account in the ranking: the score isn't changed.</div>
+      <p>The platform never announces a decision: the candidate's tracking page stops at “Done”. The decision is given outside the platform.</p>
 
-      <div class="callout callout-indigo">
-        <span class="callout-icon">💡</span>
-        <span>To change a status: open the candidate's record, then change the <strong>Status</strong> menu at the bottom: it's saved straight away.</span>
-      </div>
-
-      <h3>Score and visuals</h3>
-      <p>As soon as a candidate has at least one evaluation, their <strong>score</strong> (0 to 100%) appears in the table and in their record. The colour shows the level: <strong style="color:var(--green);">green ≥ 70%</strong>, <strong style="color:var(--orange);">orange ≥ 45%</strong>, <strong style="color:var(--red);">red &lt; 45%</strong>.</p>
-      <p>The record's <em>Evaluations</em> tab gives the breakdown by criterion (progress bars), Yes/No answers with their tallies, and interviewers' free-text comments.</p>
-      <p>The <strong>Ranking view</strong> shows one short row per candidate (rank, name, a mini bar for each criterion, score, number of evaluations), so you can see around twenty at once. It starts from the <strong>score</strong>; as soon as you move someone, the order becomes yours and is saved. To move someone:</p>
+      <h3 id="classement">Ranking and deliberation</h3>
+      <p>The ranking shows one short row per candidate: rank, name, a mini bar per criterion, score, and below the name their background and where their interview stands (upcoming date, no-show, not yet evaluated). Above it, a summary: evaluated, past and upcoming interviews, and the breakdown by background of the selected candidates and of everyone. It starts from the <strong>score</strong>; as soon as you move someone, the order becomes yours and is saved. To move someone:</p>
       <ul>
-        <li><strong>drag the row</strong> by its ⋮⋮ handle;</li>
-        <li>or <strong>click the row</strong> to select it, then <strong>↑ ↓</strong> (with <strong>Shift</strong>: 5 places at a time). <strong>Enter</strong> opens their record, <strong>Esc</strong> deselects it;</li>
-        <li>or <strong>type a rank</strong> in the number box, then Enter.</li>
+        <li>drag the row by its handle;</li>
+        <li>or click the row, then <kbd>↑</kbd> <kbd>↓</kbd> (with <kbd>Shift</kbd>: five places), <kbd>Enter</kbd> for their record;</li>
+        <li>or type a rank in the number box.</li>
       </ul>
-      <p>The number of <strong>available places</strong> shows a cut-off line. <strong>↺ Back to score</strong> discards the manual order.</p>
+      <p><strong>Adjusting a score on the spot</strong>: on each row, <strong>−</strong> and <strong>+</strong> lower or raise the score (by half a point out of 20, or by one percentage point with a numeric grid), for example to separate two tied candidates. The adjustment is kept with the application and shows in the record and the export. The ranking recalculates itself if it follows the scores; if you've moved rows by hand, <strong>Re-rank by score</strong> takes it into account.</p>
+      <p>The <strong>available places</strong> draw a cut-off line. <strong>Re-rank by score</strong> discards the manual order. <strong>Deliberate</strong> switches to a full-screen meeting view, in a larger size, with the number of selected candidates always visible and, just below, the <strong>breakdown by background</strong> of the selected candidates (above the line) and of all candidates, recalculated with every move; clicking a name opens their record on top. The dashboard also shows the breakdown of applications and of evaluated candidates, and the Candidates tab that of the list shown, with a filter and a Background column.</p>
+      <h4 id="zone-grise">Grey zone</h4>
+      <p>With available places set, the <strong>grey zone</strong> highlights the last selected candidates and the first ones not selected: the ones you really need to discuss. Set how many ranks on each side of the line (a fifth of the places is suggested, 0 removes it). <strong>Show only the grey zone</strong> collapses the clear-cut selections and the bottom of the list, so the meeting only talks about the ones in between; “Show all” brings everyone back. During deliberation, the banner counts those still “to discuss”.</p>
 
-      <h3 id="delib">🗳 Deliberation mode</h3>
-      <p>Once all interviews are done, the board meets to settle the ranking. The <strong>🗳 Deliberate</strong> button (at the top of the ranking) switches to a <strong>full-screen meeting view</strong>: the rest of the interface disappears, rows and text get bigger so everyone in the room can read them, and a banner shows at all times how many candidates are in.</p>
-      <div class="steps">
-        <div class="step"><div class="step-num">1</div><div class="step-body">Enter the number of <strong>available places</strong>: a cut-off line separates those who are in from those who aren't.</div></div>
-        <div class="step"><div class="step-num">2</div><div class="step-body">The ranking starts from the <strong>evaluation score</strong>: it's a starting point, not a decision.</div></div>
-        <div class="step"><div class="step-num">3</div><div class="step-body"><strong>Grab a row and move it</strong> to put someone above someone else. A line shows where the person will land.</div></div>
-        <div class="step"><div class="step-num">4</div><div class="step-body">Every move is <strong>saved instantly</strong>: you can leave and come back, and the ranking will still be there. Press <strong>Esc</strong> or <strong>✕ Exit</strong> to leave.</div></div>
-      </div>
-      <div class="callout callout-indigo">
-        <span class="callout-icon">💡</span>
-        <span><strong>↺ Back to score</strong> re-sorts by score if you want to start over. The final ranking is also included in the <a href="#export">CSV export</a>, in the <em>Rank</em> column.</span>
-      </div>
-
-      <h3 id="dossier">📄 Viewing an application during deliberation</h3>
-      <p>To reread an application without leaving the meeting, click a <strong>candidate's name</strong> (or <strong>📄</strong> at the right of their row): their record opens over the ranking, in a larger size. The <strong>↑ ↓</strong> arrows follow the current ranking order; close it to go back to reordering.</p>
-
-      <h3 id="score">How the score is calculated</h3>
-      <p>Each numeric criterion is converted to <strong>0 to 100%</strong>, and the overall score is the <strong>average of those percentages</strong>. A 1-to-5 scale starts at 0% for a 1 and reaches 100% at 5; a mark out of 20 starts at 0% for a 0. The two types are therefore comparable.</p>
-      <div class="callout callout-orange">
-        <span class="callout-icon">⚠️</span>
-        <span><strong>No score until the grid is filled in completely.</strong> A 5/5 on a single criterion isn't worth 100%: it rests on far less evidence than an average across five criteria, and the two can't be compared. While any box is still empty, the ring stays blank and an orange <strong>“2/5 criteria”</strong> badge shows what's missing, in the list, the ranking and the application. A <em>Criteria scored</em> column also appears in the CSV export.</span>
-      </div>
-
-      <h3>Searching, filtering, sorting</h3>
-      <p>Search ignores accents and capitals: “celeste” finds “Céleste”. The filter menu offers the statuses, plus <strong>No interview</strong>, <strong>📍 Signed up at a stand</strong>, <strong>🇬🇧 Interview in English</strong> and <strong>Not yet evaluated</strong>. The sort menu orders the list by sign-up date (newest or oldest first), by interview date, by name or by best score; your choice is remembered for next time.</p>
-
-      <h3>Editing a candidate's profile</h3>
-      <p>In the expanded entry, <strong>Edit profile</strong> lets you correct the first name, surname, email and every form answer, including ones left blank (for example the Facebook name of someone who signed up at a stand). If you change the email, the candidate will find their application with the new address if they come back to the form.</p>
-
-      <h3>Sign-in statistics</h3>
-      <p>When you're signed in with a board account, the platform records the <strong>date of your last activity</strong> and the <strong>number of sessions per day</strong> (one session = one tab opened that day). Only the platform administrator can see them; nothing is recorded for staff using the links without an account, or for candidates.</p>
-
-      <h3>Internal notes</h3>
-      <p>Each entry has an <strong>Internal notes</strong> field, and so does each interview in the schedule. They're stored separately and <strong>can only be read by your association's board</strong>: the public schedule, the staff links and the form have no access to them. Useful for recording impressions or decisions during deliberations.</p>
-
-      <h3 id="export">CSV export</h3>
-      <p>The <strong>⬇ Export CSV</strong> button generates a file containing every application: identity, status, submission date, interview slot and answers to the custom questions.</p>
-    </div>
-
-    <!-- ─── DISPONIBILITÉS ───────────────────────────────────── -->
-    <div class="aide-section" id="dispos">
-      <div class="aide-section-header">
-        <div class="aide-section-icon" style="background:var(--green-light);">🗓</div>
-        <div>
-          <h2>Staff availability</h2>
-          <div class="aide-section-subtitle">Individual entry and combined view</div>
-        </div>
-      </div>
-
-      <div class="callout callout-orange">
-        <span class="callout-icon">⚠️</span>
-        <span><strong>Do this first, before sharing the form.</strong> Without availability entered, candidates won't see any slots to book.</span>
-      </div>
-
-      <h3 id="saisie-dispos">Submitting availability (via the public link)</h3>
-      <p>Members <strong>don't have an account</strong>. The Secretary General shares the <strong>availability link</strong> (the <em>📅 Availability (staff)</em> button below the dashboard statistics). Each person opens the link and:</p>
-      <div class="steps">
-        <div class="step"><div class="step-num">1</div><div class="step-body"><strong>Picks their name</strong> from the list (or adds it if it's missing). No password.</div></div>
-        <div class="step"><div class="step-num">2</div><div class="step-body">Ticks their slots on the grid for the <strong>coming weeks</strong> (hour by hour, from 8 am until the end time set by the association, 7 pm by default). Click a <strong>day</strong> or an <strong>hour</strong> to toggle the whole row or column.</div></div>
-        <div class="step"><div class="step-num">3</div><div class="step-body">Clicks <strong>Send</strong>. It's reflected immediately in the candidate form and the schedule.</div></div>
-      </div>
-      <div class="callout callout-indigo">
-        <span class="callout-icon">💡</span>
-        <span>Slots where an interview is <strong>already booked</strong> are flagged and protected: you'll get a warning before removing them.</span>
-      </div>
-
-      <h3 id="vue-dispos">Combined view (Secretary General)</h3>
-      <p>On the <strong>Schedule</strong> page, the <strong>👥 Member availability</strong> tab shows a heatmap of the whole staff's availability over the coming weeks:</p>
+      <h4 id="severite">Correct for strict or lenient staff</h4>
+      <p>A 14 from a demanding staff member is often worth more than a 16 from a generous one. <strong>Correct for strict or lenient staff</strong> (below the ranking bar) compares the scores of each staff member's candidates with those of the others. When a staff member's scores are clearly higher, they're counted as more lenient, and the gap is taken off their candidates; it's the other way round for a stricter staff member. The average of all scores doesn't change: only the order moves.</p>
       <ul>
-        <li><strong>The greener the cell</strong>, the more members are free in that slot.</li>
-        <li>The slots with the most availability are highlighted as <em>Best slots</em>.</li>
-        <li>Interviews already scheduled are shown as an overlay.</li>
-        <li><strong>Click a cell</strong> (or a <em>Best slots</em> chip) to see <strong>who</strong> is free in that slot, who isn't, and what's already scheduled there.</li>
+        <li><strong>See details</strong> shows each staff member's gap and the number of scored interviews it's based on.</li>
+        <li>A staff member who has done few interviews is only partly corrected, and no score moves by more than 15 points. You need at least 8 scored candidates to turn it on.</li>
+        <li>The calculation assumes candidates are spread more or less randomly between staff members. If one of them only did the interviews of one day or of one particular group, their gap may come from their candidates, not from them: look at the details before relying on it.</li>
+        <li>The setting applies to the whole board. Hover over a score to see the score from the evaluations and the correction; the candidate's record keeps the raw score.</li>
       </ul>
-      <p>This view helps the Secretary General quickly spot the best slots for candidates who need to be scheduled by hand.</p>
-    </div>
 
-    <!-- ─── PLANNING ──────────────────────────────────────────── -->
-    <div class="aide-section" id="planning">
-      <div class="aide-section-header">
-        <div class="aide-section-icon" style="background:var(--green-light);">📅</div>
-        <div>
-          <h2>Interview schedule</h2>
-          <div class="aide-section-subtitle">Automatic and manual scheduling, and visualisation</div>
-        </div>
-      </div>
+      <p>The <strong>CSV export</strong> (CSV button) contains everything: identity, status, no-shows, interview, answers, scores per criterion, comments, and the rank in the ranking. When they're in use, it also includes the staff correction, the grey zone and, once the vote is closed, the favourites, the voters who expressed a view, the abstentions and “Widely backed”.</p>
 
-      <p>The <strong>Schedule</strong> page has three tabs: <em>Schedule grid</em> (overview of interviews), <em>Manual allocation</em> and <em>Member availability</em> (heatmap). The grid covers the <strong>coming weeks</strong>.</p>
-
-      <div class="callout callout-indigo">
-        <span class="callout-icon">💡</span>
-        <span>In “candidates pick their own slot” mode, interviews schedule <strong>themselves</strong>. The schedule is then mainly for <strong>viewing</strong>, assigning interviewers and rooms, and handling exceptions.</span>
-      </div>
-
-      <h3 id="generation">⚡ Generating the schedule (“availability” mode)</h3>
-      <p>If your candidates submit their availability, a <strong>Generate schedule</strong> card appears on the dashboard. One click matches candidates' availability against the staff's and schedules everyone in one go.</p>
-      <p>The allocation isn't random:</p>
+      <h4 id="vote">Letting the association's members vote</h4>
+      <p>In the Ranking tab, the <strong>Members' vote</strong> card lets members vote through a link, without an account: each person ticks the candidates they <strong>really</strong> want to see join the association (their “favourites”).</p>
       <ul>
-        <li>Candidates with the <strong>least availability</strong> are scheduled first: they're the hardest to fit in, and this maximises the number of people scheduled.</li>
-        <li>The <strong>interviewer workload is balanced</strong>: the least-used member goes first.</li>
-        <li>A <strong>room hosts only one interview at a time</strong>.</li>
-        <li>A log details the outcome and, for each candidate left unscheduled, <strong>the reason</strong> (no availability entered, or no slot in common with the staff).</li>
+        <li><strong>Set up a vote</strong>: choose the number of favourites per person (a third of the places is suggested) and who votes (the staff list, to which you can add names). Only these names can vote. Voters see the candidates' name and background, not their score.</li>
+        <li><strong>Copy link</strong>, then send it to the members. It's only offered in this tab. Each person picks their name, ticks, sends. Several people can vote one after another on the same phone: nothing is kept, and picking a name never shows that person's previous vote.</li>
+        <li><strong>Abstain</strong>: a close friend, a flatmate? The <strong>Abstentions</strong> button on the voting page lets you abstain on up to 5 candidates. The vote then counts neither for nor against them.</li>
+        <li>The <strong>dashboard</strong> (To do) tells you who hasn't voted yet, so you can chase them up, then when everyone has voted.</li>
+        <li><strong>Voting again replaces</strong> the previous vote: only the last one counts. If the same name has voted several times, the card says so (“Camille (2)”): if it's abuse, delete the vote and start again.</li>
+        <li>Votes stay <strong>secret until the vote is closed</strong>, for the board too: the card only shows who has voted. <strong>Close the vote</strong> closes the link and shows the favourites received on each row of the ranking; you can still <strong>Reopen the vote</strong>.</li>
+        <li>Once the vote is closed, each row of the ranking shows the favourites received and the abstentions. <strong>Widely backed</strong> marks those who are a favourite of at least two thirds of voters (not counting those who abstained on them).</li>
+        <li><strong>Rank by votes</strong> puts the highest share of favourites first, among the voters who didn't abstain, then uses the score to break ties. Then adjust as usual (move, − / +).</li>
+        <li><strong>Delete the vote</strong> erases the vote, all the ballots and the link; the ranking doesn't change. Closing the recruitment also erases votes.</li>
       </ul>
-      <div class="callout callout-orange">
-        <span class="callout-icon">⚠️</span>
-        <span>Running generation again <strong>replaces</strong> interviews that haven't happened yet, which is handy when new applications come in. Interviews already held are never touched.</span>
-      </div>
 
-      <h3 id="manual">✋ Manual scheduling</h3>
-      <div class="steps">
-        <div class="step"><div class="step-num">1</div><div class="step-body">In the <em>Manual allocation</em> tab, select a candidate from the list on the left.</div></div>
-        <div class="step"><div class="step-num">2</div><div class="step-body">Available slots are shown in <strong style="color:var(--green);">green</strong>, conflicts in <strong style="color:var(--red);">red</strong>, and unavailable times in grey.</div></div>
-        <div class="step"><div class="step-num">3</div><div class="step-body">Click a green slot to schedule the candidate. Add a room if needed.</div></div>
-        <div class="step"><div class="step-num">4</div><div class="step-body">To remove an interview: select the candidate and click <strong>Unassign</strong>. They go back to <em>Received</em> status.</div></div>
-      </div>
+      <h3 id="score">The score</h3>
+      <p>Each numeric criterion is converted to <strong>0 to 100%</strong>, and the score is the average of these percentages: a 1-to-5 scale and a mark out of 20 can be compared. Green from 70%, orange from 45%, red below.</p>
+      <div class="encadre attention"><strong>No score until the grid is complete</strong>: a 5/5 on a single criterion isn't worth 100%. A “2/5 criteria” badge says what's missing.</div>
+    </section>
 
-      <h3>📋 Interview details (pop-up)</h3>
-      <p>Click any occupied block in the grid to open the interview details: candidate information, panel, room and notes. You can edit the room and notes directly from this pop-up.</p>
+    <!-- ── STAFF ───────────────────────────────────────────────── -->
+    <section class="aide-section" id="staff">
+      <h2>Staff</h2>
+      <p class="sous">Availability, a staff member's record, choosing the staff members for each interview.</p>
 
-      <h3>📤 Exporting candidate links</h3>
-      <p>The <strong>📤 Candidate links</strong> button generates a list of every scheduled candidate with their personal confirmation link, handy for notifying them by email.</p>
-    </div>
-
-    <!-- ─── ÉVALUATIONS ───────────────────────────────────────── -->
-    <div class="aide-section" id="entretien">
-      <div class="aide-section-header">
-        <div class="aide-section-icon" style="background:var(--orange-light);">🎙</div>
-        <div>
-          <h2>Candidate evaluations</h2>
-          <div class="aide-section-subtitle">Interview forms for interviewers</div>
-        </div>
-      </div>
-
-      <h3 id="brief">📌 Guidelines shown to interviewers</h3>
-      <p>Your <a href="#param-consignes">guidelines and question guide</a> appear at the top of every interview form, for the board and for interviewers without an account alike. It's how you remind everyone <strong>what not to ask</strong> and give them something to fall back on when the conversation dries up.</p>
-      <div class="callout callout-indigo">
-        <span class="callout-icon">💡</span>
-        <span>An interviewer new to the process often has nothing but this page in front of them: what you write here is your only way to brief them. Until something is entered, nothing is shown.</span>
-      </div>
-
-      <h3>Evaluating a candidate (via the public link)</h3>
-      <p>Interviewers <strong>don't have an account</strong>. The Secretary General shares the <strong>evaluation link</strong> (the <em>🎙 Evaluation link</em> button below the dashboard statistics). Each interviewer opens it and:</p>
-      <div class="steps">
-        <div class="step"><div class="step-num">1</div><div class="step-body"><strong>Picks their name</strong> from the list (or adds it). No password.</div></div>
-        <div class="step"><div class="step-num">2</div><div class="step-body">Reads the association's <strong>guidelines</strong>, shown before they even choose a candidate.</div></div>
-        <div class="step"><div class="step-num">3</div><div class="step-body">Selects the <strong>candidate</strong> to evaluate: their <strong>form answers</strong> are shown (motivation, team…), to help prepare the interview. Their phone number isn't included. The list only offers interviews <strong>from 2 hours before to 2 hours after now</strong> (or the day's interviews, as chosen in Settings → Interview → Panel evaluation link): the link circulates among all the staff, so it mustn't give access to every candidate. To score later, the board uses the interview form on the Candidates page.</div></div>
-        <div class="step"><div class="step-num">4</div><div class="step-body">Fills in the <strong><a href="#param-criteres">criteria</a></strong> set by the board, plus an overall score, an opinion and a comment.</div></div>
-        <div class="step"><div class="step-num">5</div><div class="step-body">Submits. They can then move straight on to another candidate.</div></div>
-      </div>
-
-      <div class="callout callout-indigo">
-        <span class="callout-icon">ℹ️</span>
-        <span>Anyone with the link can <strong>submit</strong> an evaluation, but only signed-in board members can <strong>read</strong> them: scores and opinions are never exposed.</span>
-      </div>
-
-      <h3>Viewing evaluations (Secretary General)</h3>
-      <p>Open the record of an evaluated candidate: the <em>Evaluations</em> tab shows the <strong>average for each criterion</strong> (coloured bars), Yes/No answers (✓/✗ tallies), free-text comments and the average overall score. Scores are aggregated across all interviewers.</p>
-      <p>To see at a glance who hasn't been evaluated yet: the <em>Not evaluated</em> chip in the candidates table, or sort by the <em>Eval.</em> column.</p>
-    </div>
-
-    <!-- ─── PARAMÈTRES ────────────────────────────────────────── -->
-    <div class="aide-section" id="parametres">
-      <div class="aide-section-header">
-        <div class="aide-section-icon" style="background:var(--bg);">⚙️</div>
-        <div>
-          <h2>Settings</h2>
-          <div class="aide-section-subtitle">Configuring your association's workspace</div>
-        </div>
-      </div>
-
-      <h3 id="param-campagne">🟢 Recruitment & interview rules</h3>
-      <p>Each association sets up <strong>its own</strong> recruitment to match the way it works. In the <em>Recruitment</em> tab:</p>
+      <h3 id="dispos">Availability</h3>
+      <p>Staff members don't have an account. Send them the <strong>availability link</strong> (Share panel). Each person picks their name, ticks their hours over the period and their languages, and sends. It's taken into account straight away, in the form as in the schedule.</p>
       <ul>
-        <li><strong>Recruitment open / closed</strong>: when open, the form accepts applications; when closed, it shows a holding message.</li>
-        <li><strong>Hold interviews</strong>: untick this if your association recruits <strong>on applications alone</strong>. The form then asks for neither a slot nor availability, and all the settings below disappear.</li>
-        <li><strong>Booking mode</strong>: who chooses the slot; see <a href="#modes">the two ways to schedule interviews</a>.</li>
-        <li><strong>Interview start and end dates</strong>: the period everything revolves around (staff availability, slots offered, schedule). Leave blank to run on a rolling basis over the next 4 weeks. The two dates go together: one on its own isn't enough.</li>
-        <li><strong>Application deadline</strong>: optional closing date. Blank = no deadline.</li>
-        <li><strong>Interview days</strong>: untick days without interviews (Saturday, Sunday…) and remove specific dates (bank holiday, exams). They disappear from the form, the availability page and automatic scheduling. An interview already booked on that day stays visible in the schedule.</li>
-        <li><strong>Interview length</strong>: in minutes.</li>
-        <li><strong>Break between interviews</strong>: an enforced pause between two interviews, so you're not going non-stop. 0 = back to back.</li>
-        <li><strong>Interviewers per interview (minimum)</strong>: the number of members present at the same time (1 to 3). This also sets how many members must be free for a slot to appear on the form.</li>
-        <li><strong>Extra interviewer when someone is free</strong>: for example “2 minimum, up to 3”. A 3rd staff member is added to the interview if they're free, but only if no other candidate needs them: with 3 people free, all 3 do the interview; with 4, a pair is kept for another candidate. Applies to bookings and automatic scheduling.</li>
-        <li><strong>Group interviews</strong>: lets a candidate invite a friend to their slot; see <a href="#collectif">interviewing together</a>.</li>
-        <li><strong>Available places</strong>: the threshold used for the cut-off line in the ranking and in <a href="#delib">deliberations</a>.</li>
+        <li>A <strong>second click</strong> turns a cell orange, “only if there's no other option”: usable, but never recommended, and these staff members are only picked as a last resort.</li>
+        <li>An hour where the staff member already has an interview is protected: you're warned before removing it.</li>
       </ul>
-      <div class="callout callout-orange">
-        <span class="callout-icon">⚠️</span>
-        <span>Changing the <strong>booking mode</strong> mid-recruitment doesn't delete anything, but candidates who went through the old mode won't be converted: those who booked keep their slot, and those who gave their availability wait for schedule generation. It's best to choose the mode before sharing the form.</span>
-      </div>
+      <p>No time to get availability filled in? In Settings → Who?, <strong>“Staff don't need to declare their availability”</strong>: everyone is treated as free throughout the period, and it's up to you to sort things out afterwards.</p>
 
-      <h3 id="param-form">📝 Form</h3>
-      <p>Add <strong>custom questions</strong> to the application form:</p>
-      <div class="two-col">
-        <div class="mini-card"><div class="mini-card-title">📝 Text</div><div class="mini-card-body"><strong>Short</strong> for a single line (city, programme, year group), <strong>long</strong> for a motivation statement or project idea.</div></div>
-        <div class="mini-card"><div class="mini-card-title">📞 Guided fields</div><div class="mini-card-body">Phone, email, number, date, link. They bring up the <strong>right keyboard</strong> on mobile.</div></div>
-        <div class="mini-card"><div class="mini-card-title">📋 Drop-down list</div><div class="mini-card-body">A drop-down menu. For campus, team, year of study…</div></div>
-        <div class="mini-card"><div class="mini-card-title">✔️ Checkbox</div><div class="mini-card-body">For a commitment or charter to accept.</div></div>
-      </div>
-      <p>Any question can be made mandatory, and given an optional <strong>English version</strong>, shown to candidates filling in the form in English. For a drop-down list, write the English options in the same order as the French ones: the answer saved stays the French option, so everyone can be compared.</p>
+      <h3 id="fiche-staffeur">A staff member's record</h3>
+      <p>Clicking a staff member's name (a candidate's record, an interview's details, search) opens their record: their <strong>availability</strong> over the period (available, last resort, in an interview), their <strong>interviews</strong> with ✓ or ✗ depending on the evaluation, and their languages. <strong>Edit their availability</strong> corrects it on their behalf, from the schedule.</p>
 
-      <h4 style="margin-top:16px;">Reordering questions</h4>
-      <p>Grab a question by its <strong>⋮⋮ handle</strong> on the left and drag it to its new position: a line shows where it will land. The <strong>↑ ↓ arrows</strong> do the same one step at a time, and they're what you use on mobile, where dragging doesn't work. The new order is saved instantly and applies to the candidate form.</p>
-      <div class="callout callout-gray">
-        <span class="callout-icon">💡</span>
-        <span>Reordering doesn't mix up answers already received: each answer stays attached to its question, and a candidate's application shows them in the new order.</span>
-      </div>
+      <h3 id="attribution">Who runs the interview</h3>
+      <p>Whether candidates book themselves or you generate the schedule, staff members are chosen by the same rule: <strong>the same people cover</strong> consecutive slots. Bringing in two people for three hours costs less than disturbing six for an hour each.</p>
+      <ol class="etapes">
+        <li>Anyone <strong>already busy</strong> at that time is ruled out, break included.</li>
+        <li>Priority goes to those who <strong>have just run</strong> the interview right before.</li>
+        <li>Otherwise, the <strong>least busy</strong> so far.</li>
+        <li>Beyond N interviews in a row, <strong>a changeover is forced</strong> (Settings → Who?, 4 by default, 0 = no limit).</li>
+      </ol>
+      <p>A break in the day breaks the chain. And nothing is set in stone: you can change the staff members of any interview from the schedule.</p>
+    </section>
 
-      <h3 id="param-consignes">📌 Guidelines & question guide</h3>
-      <p>In the <em>Interview</em> tab, there are two free-text areas you can write however you like. They appear <strong>at the top of the interview form</strong>, for the board and the panel alike.</p>
+    <!-- ── PLANNING ────────────────────────────────────────────── -->
+    <section class="aide-section" id="planning">
+      <h2>The schedule</h2>
+      <p class="sous">See interviews and availability, schedule someone, spread the staff.</p>
+
+      <h3 id="vue">One view, three displays</h3>
+      <p>At the top of the grid:</p>
       <ul>
-        <li><strong>Guidelines</strong>: always visible. This is the place for <strong>things that are off limits</strong> (a question you're not allowed to ask), what to remember to do, and information to keep to hand. An interviewer new to the form should be able to rely on it.</li>
-        <li><strong>Question guide</strong>: collapsed by default, opens with a click. Something to fall back on when the questions run dry.</li>
+        <li><strong>Interviews / Availability / Both</strong>: availability colours the grid; the darker the cell, the more staff members are free, with their number in each cell.</li>
+        <li><strong>Day / Week / All</strong>, with the arrows to move forward; clicking the date takes you back to today. On a phone, one day at a time.</li>
+        <li>Search (candidate, staff member, room) and the <strong>All staff</strong> filter, to see only one person's interviews.</li>
       </ul>
-      <div class="callout callout-indigo">
-        <span class="callout-icon">💡</span>
-        <span>Both are <strong>empty to begin with</strong> and don't appear on the form at all until you've written something. Nothing is pre-filled: every association has its own rules.</span>
-      </div>
+      <p>An interview's colour: green, complete; orange, room to be set; red, staff members to be set. Clicking the date of a column <strong>copies the day's list</strong>, ready to paste for the staff. Clicking an interview opens its <strong>details</strong>: room, interview in English, staff members (🇬🇧 = speaks English), private note, and the Candidate tab. Every change saves itself; at the bottom, Delete and Move.</p>
+      <p>Below the grid, <strong>Interviews per staff member</strong> gives each person's workload. The <strong>public schedule</strong> link lets staff see the schedule and add their interviews to their calendar.</p>
 
-      <h3 id="param-criteres">🎙 Evaluation criteria</h3>
-      <p>Define what interviewers will assess during interviews. Criteria can be reordered and deleted. There are <strong>two families</strong>, and this is the key distinction:</p>
-
-      <h4 style="font-size:13px;font-weight:700;color:var(--text);margin:18px 0 6px;">Count towards the score</h4>
-      <div class="two-col">
-        <div class="mini-card">
-          <div class="mini-card-title">⭐ Scale</div>
-          <div class="mini-card-body"><strong>Buttons</strong> from 1 to the maximum value, in whole numbers. For a quick gut feeling: <em>Motivation 1→5</em>.</div>
-        </div>
-        <div class="mini-card">
-          <div class="mini-card-title">🔢 Mark</div>
-          <div class="mini-card-body">A <strong>field to fill in</strong>, from 0 to the maximum value, <strong>half-points allowed</strong>. For fine-grained marking: <em>14.5/20</em>.</div>
-        </div>
-      </div>
-      <p style="margin-top:10px;">Both types are converted to a percentage, then averaged to give the <a href="#delib">ranking score</a>.</p>
-
-      <h4 style="font-size:13px;font-weight:700;color:var(--text);margin:18px 0 6px;">Don't count towards the score</h4>
+      <h3 id="placer">Scheduling someone</h3>
+      <p>Clicking a <strong>free cell</strong> shows the staff members free at that time, the <strong>no-shows to reschedule</strong> (candidates marked as no-shows: “Reschedule here” moves their interview, and the no-show stays on record) and the <strong>candidates with no interview</strong> (those available at that time first). <strong>Schedule here</strong> opens a confirmation with <strong>staff members already suggested</strong>: adjust if needed, add the room, confirm.</p>
+      <p><strong>Moving an interview</strong> (the Move button in its details, or dragging it on a computer): a banner appears at the top of the schedule and each cell shows whether it works.</p>
       <ul>
-        <li><strong>✅ Yes / No</strong>: two buttons. Shown as a tally: <em>✓ 3 · ✗ 1</em>.</li>
-        <li><strong>📋 Drop-down list</strong>: a single answer from your options. Useful for a question that isn't a mark: <em>“Which team would suit them best?”</em>.</li>
-        <li><strong>☑️ Checkboxes</strong>: several possible answers, for example <em>“Strengths observed”</em>.</li>
-        <li><strong>✔️ Single checkbox</strong>: ticked or left blank, for example <em>“Came prepared for the interview”</em>.</li>
-        <li><strong>💬 Free text</strong>: a comment. Every interviewer's answer is kept.</li>
+        <li><strong>Light cell</strong>: enough staff members free. Not necessarily the same ones as before: they're suggested automatically, the previous ones first if they're free.</li>
+        <li><strong>⭐</strong>: the cell sits right next to an interview already planned, so the staff carry on instead of waiting (same rule as the stars on the form).</li>
+        <li><strong>Striped cell</strong>: staff members are missing, or the limit of simultaneous interviews has been reached. You can still choose it.</li>
+        <li>A <strong>green dot</strong>: the candidate said they were available at that time (“the candidate gives their availability” mode).</li>
       </ul>
-      <p>For lists and checkboxes, enter your options <strong>one per line</strong> (at least two).</p>
-      <div class="callout callout-indigo">
-        <span class="callout-icon">💡</span>
-        <span>On the candidate's entry, these answers are shown as a <strong>breakdown</strong>: each option with the number of interviewers who chose it, with the most popular highlighted. They're also included in the <a href="#export">CSV export</a>.</span>
-      </div>
+      <p>Click the cell: a confirmation shows the old and new times, the staff members and the room. A <strong>group interview</strong> (candidates interviewed together) moves as a whole; untick to move only the chosen person. Afterwards, a <strong>ready-to-copy message</strong> lets you tell the candidate (their tracking page already shows the new time). Cancel or Esc leaves the choice.</p>
+      <p>The <strong>Schedule a candidate</strong> tab lists the candidates with no interview, those to reschedule and the others: a click opens the same choice in the schedule.</p>
+      <p>The <strong>Availability by person</strong> tab shows the map of everyone's availability, or one person's, with <strong>Edit their availability</strong>. At the top, <strong>Copy the availability link</strong> to send to the staff again; at the bottom, <strong>Availability per staff member</strong>: hours declared over the period (including “last resort”, and what's still to come), planned interviews and languages, to see whom to chase up.</p>
 
-      <h3 id="param-salles">🏫 Rooms & Bookings</h3>
-      <p><strong>Rooms</strong>: add the rooms available for interviews. In the schedule, you can also type in any room name, even if it isn't on this list.</p>
-      <p><strong>Bookings</strong>: set when each room is available. Useful when scheduling interviews, so you don't book a room outside its available times.</p>
-
-      <h3 id="param-codes">🔑 Invite codes</h3>
-      <p>Invite codes let new <strong>board</strong> members create an account. (Panel members don't have an account: they use the public links.)</p>
+      <h3 id="optimiser">Optimise</h3>
+      <p>The <strong>Optimise</strong> button reassigns the staff members of interviews <strong>from tomorrow onwards</strong> to avoid bringing someone in for a single interview, cut the waiting between two interviews and balance the workload.</p>
       <ul>
-        <li>Format: <code>ASSO1234</code> (the association's prefix + 4 digits).</li>
-        <li>Each code is tied to a role: <em>Sec-Gen / Board</em> or <em>President</em>.</li>
-        <li>A code can be used by several people.</li>
-        <li>Share it by email or private message; don't make it public.</li>
+        <li>It <strong>never changes the time</strong> of an interview, only the staff members.</li>
+        <li>It respects availability, English and the number of interviews in a row.</li>
+        <li>It shows before and after, then the list of changes: untick the ones you don't want, then Apply.</li>
+        <li>If there's nothing to improve, it says so.</li>
       </ul>
-      <div class="callout callout-green">
-        <span class="callout-icon">✅</span>
-        <span>For <strong>members / interviewers</strong>, there's nobody to invite: just share the <em>📅 availability</em> and <em>🎙 evaluation</em> links from the dashboard. No account is needed.</span>
-      </div>
+      <div class="encadre">Remember to let the staff members concerned know: the public schedule is updated straight away.</div>
 
-      <h3 id="multi-asso">🏢 Belonging to several associations</h3>
-      <p>A single account can manage <strong>several associations</strong>: there's no need to create a second account if you sit on two boards.</p>
-      <div class="steps">
-        <div class="step"><div class="step-num">1</div><div class="step-body">Ask the second association's board for its <a href="#param-codes">invite code</a>.</div></div>
-        <div class="step"><div class="step-num">2</div><div class="step-body">☰ menu → <strong>Join another association</strong>, then enter the code.</div></div>
-        <div class="step"><div class="step-num">3</div><div class="step-body">The ☰ menu now shows a <strong>Switch association</strong> section so you can move between them.</div></div>
-      </div>
-      <div class="callout callout-indigo">
-        <span class="callout-icon">💡</span>
-        <span>It's the <strong>code</strong> that determines the association and your role: you can be President of one and a board member of the other. The two associations' data stays completely separate.</span>
-      </div>
+      <h3 id="generer">Generating the schedule</h3>
+      <p>In “the candidate gives their availability” mode, the dashboard offers <strong>Generate schedule</strong>: it matches the candidates' availability against the staff's and schedules everyone in one go, the least available candidates first. A log gives the reason for each candidate left unscheduled. Running it again replaces upcoming interviews; those already held never move.</p>
+    </section>
 
-      <h3>👥 Staff & availability</h3>
-      <p>The <em>Staff</em> tab lists the board's accounts (which you can add or remove), lets you <strong>pre-fill the list of names</strong> for the public links (availability & evaluation), and lets you copy the <strong>availability link</strong>.</p>
-    </div>
+    <!-- ── ÉVALUATIONS ─────────────────────────────────────────── -->
+    <section class="aide-section" id="evaluations">
+      <h2>Evaluations</h2>
+      <p class="sous">Scoring a candidate, with or without an account.</p>
+      <p><strong>Staff members</strong> use the <strong>evaluation link</strong>: they choose the candidate (only interviews around now are offered, adjustable in Settings → Evaluation), read their answers and your guidelines, fill in the grid, and send. If the person didn't come, the <strong>“Did not show up”</strong> box reports the no-show to the board.</p>
+      <p><strong>The board</strong> evaluates from the candidate's record, Evaluations tab, <strong>Fill in the interview form</strong>. The same no-show box is there too.</p>
+      <p>Evaluations can only be read by the board. To see who hasn't been evaluated yet: the <strong>Not evaluated</strong> chip in Candidates, or the “Past interviews with no evaluation” line on the dashboard.</p>
+      <p><strong>Guidelines and question guide</strong> (Settings → Evaluation) appear at the top of every interview form, including for staff members without an account: that's the place for questions not to ask.</p>
+    </section>
 
-    <!-- ─── FAQ ───────────────────────────────────────────────── -->
-    <div class="aide-section" id="faq">
-      <div class="aide-section-header">
-        <div class="aide-section-icon" style="background:var(--green-light);">❓</div>
-        <div>
-          <h2>Frequently asked questions</h2>
-          <div class="aide-section-subtitle">Common issues and how to fix them</div>
-        </div>
-      </div>
+    <!-- ── PARAMÈTRES ──────────────────────────────────────────── -->
+    <section class="aide-section" id="parametres">
+      <h2>Settings</h2>
+      <p class="sous">One tab per question. Everything saves itself.</p>
+      <p>Settings are arranged by question: <strong>When? How? Who?</strong>, then Form, Evaluation, Access and security. There's <strong>no Save button</strong>: every change goes through by itself, and the time of the last save shows at the top. Each block has an <strong>“In plain English”</strong> summary that spells out what your settings produce, for example the list of times candidates will be able to choose. The <strong>Find a setting</strong> field takes you to the right place (“English”, “room”, “notice”).</p>
 
-      <div class="faq-item">
-        <button class="faq-q" onclick="toggleFaq(this)">
-          The form doesn't show any slots to book
-          <span class="faq-chevron">▼</span>
-        </button>
-        <div class="faq-a">
-          There are four possible causes: <strong>(1)</strong> The <strong>mode</strong> is set to “candidates give their availability”, in which case this is expected and no slots are offered. <strong>(2)</strong> No member has entered their availability → share the <em>availability link</em> and ask members to tick their slots. <strong>(3)</strong> The number of interviewers required is higher than the number of members whose availability overlaps → check that enough members are free at the same times. <strong>(4)</strong> The <strong>interview period</strong> has ended or was set incorrectly → check the start and end dates in Settings.
-        </div>
-      </div>
+      <h3 id="p-quand">When?</h3>
+      <ul>
+        <li><strong>Recruitment open or paused</strong>: when paused, the form shows a holding message.</li>
+        <li><strong>Interview start and end</strong>: left blank, it's the next four weeks. The two dates go together. <strong>Application deadline</strong>: optional.</li>
+        <li><strong>Interview days</strong>: untick days without interviews (weekends) and remove dates (bank holiday, exams). An interview already set on that day stays.</li>
+        <li><strong>Length</strong>, <strong>break</strong> between two interviews, <strong>slots end</strong> (up to 11 pm for evening video interviews), <strong>offered slots</strong> (every quarter of an hour, half hour or hour) and <strong>minimum notice</strong> before an interview.</li>
+      </ul>
 
-      <div class="faq-item">
-        <button class="faq-q" onclick="toggleFaq(this)">
-          What's the difference between a “Scale” criterion and a “Mark” criterion?
-          <span class="faq-chevron">▼</span>
-        </button>
-        <div class="faq-a">
-          <strong>Scale</strong> shows <strong>buttons</strong> from 1 to the maximum value, in whole numbers: one click and you're done. <strong>Mark</strong> shows a <strong>field to fill in</strong> from 0 to the maximum value, and accepts half-points (14.5). In practice: Scale for a quick gut feeling (Motivation 1→5), Mark for fine-grained marking such as out of 20. Both count towards the score in the same way, converted to a percentage.
-        </div>
-      </div>
+      <h3 id="p-comment">How?</h3>
+      <ul>
+        <li><strong>Organise interviews</strong>: untick to recruit on applications alone.</li>
+        <li><strong>The candidate picks their slot</strong> (the default, the schedule fills itself) or <strong>the candidate gives their availability</strong> (you generate the schedule afterwards). Best to choose before sharing the form.</li>
+        <li><strong>Group interviews</strong>, <strong>Fill recommended slots first</strong>, <strong>flats</strong> as a venue, and <strong>simultaneous interviews (maximum)</strong>, for example the number of rooms. In the schedule, you can always schedule someone beyond that by hand.</li>
+        <li><strong>Rooms</strong> and their bookings. In the schedule, you can also type a room that isn't on the list.</li>
+      </ul>
 
-      <div class="faq-item">
-        <button class="faq-q" onclick="toggleFaq(this)">
-          How do I remind interviewers which questions not to ask?
-          <span class="faq-chevron">▼</span>
-        </button>
-        <div class="faq-a">
-          Write them in <strong>Settings → Interview → Guidelines</strong>. The text appears at the top of every interview form, including for interviewers without an account who use the public link: often the only page they have in front of them. Add a <strong>question guide</strong> too, for anyone who runs out of things to ask: it stays collapsed and opens with a click. Both are empty to begin with and don't appear until you've written something.
-        </div>
-      </div>
+      <h3 id="p-qui">Who?</h3>
+      <ul>
+        <li><strong>Staff members per interview (minimum)</strong>, from 1 to 3: that many must be free for a slot to exist.</li>
+        <li><strong>An extra staff member when someone is free</strong>: for example “2 minimum, up to 3”, only if it doesn't cost any other interview.</li>
+        <li><strong>Back-to-back interviews per staff member</strong>, <strong>interviews in English with English-speaking staff</strong>, and <strong>staff don't need to declare their availability</strong>.</li>
+        <li><strong>Staff members</strong> (board accounts and their role) and <strong>availability without an account</strong>: the list of names offered on the availability and evaluation links.</li>
+      </ul>
 
-      <div class="faq-item">
-        <button class="faq-q" onclick="toggleFaq(this)">
-          Which booking mode should I choose?
-          <span class="faq-chevron">▼</span>
-        </button>
-        <div class="faq-a">
-          If your board can submit its availability <strong>before</strong> applications open, choose “<strong>candidates pick their own slot</strong>”: the schedule fills itself and there's nothing left for you to organise. If that's too restrictive, or you'd rather see how many applications come in first, choose “<strong>candidates give their availability</strong>” and generate the schedule in one go at the end. Ideally, decide <em>before</em> sharing the form.
-        </div>
-      </div>
+      <h3 id="p-formulaire">Form</h3>
+      <p>Your questions: short or long text, phone, email, number, date, link (these bring up the right keyboard on a phone), drop-down list, checkbox. Each one can be required and translated into English. To reorder them, drag them by their handle or use the arrows: answers already received stay attached to their question. The <strong>Stand mode</strong> block chooses what's asked on the spot.</p>
 
-      <div class="faq-item">
-        <button class="faq-q" onclick="toggleFaq(this)">
-          Some candidates weren't scheduled by schedule generation
-          <span class="faq-chevron">▼</span>
-        </button>
-        <div class="faq-a">
-          The log shown after generation gives <strong>the reason for each candidate</strong>. There are two cases: “<em>no availability entered</em>” (they submitted their application without ticking any slots, so chase them up) or “<em>no slot in common with the staff</em>” (their availability doesn't overlap with enough interviewers). In the second case, ask a few members to widen their availability and run generation again, or schedule the person by hand from the schedule.
-        </div>
-      </div>
+      <h3 id="p-evaluation">Evaluation</h3>
+      <ul>
+        <li><strong>Staff evaluation link</strong>: interviews from 2 hours before to 2 hours after now, or the whole day's.</li>
+        <li><strong>Guidelines</strong> (always visible) and <strong>question guide</strong> (collapsed), empty to begin with.</li>
+        <li><strong>Criteria</strong>: the scale (buttons 1 to N) and the mark (a field, half-points accepted) count towards the score; yes / no, list, checkboxes, single checkbox and free text don't count, they're shown as a tally in the record.</li>
+        <li><strong>Available places</strong>: the ranking's cut-off line.</li>
+      </ul>
 
-      <div class="faq-item">
-        <button class="faq-q" onclick="toggleFaq(this)">
-          Can two candidates be interviewed together?
-          <span class="faq-chevron">▼</span>
-        </button>
-        <div class="faq-a">
-          Yes, if you turn on <strong>group interviews</strong> in Settings → Interview rules. Whoever books receives a link to pass on to their friend, who then joins their slot. It's always down to the candidates: the platform never puts strangers together. Each keeps their own evaluation form, so the ranking stays individual.
-        </div>
-      </div>
+      <h3 id="p-acces">Access and security</h3>
+      <ul>
+        <li><strong>Invite codes</strong>: so new <strong>board</strong> members can create an account (the association's prefix and four digits, with a role). Staff members don't need one. Don't make them public.</li>
+        <li><strong>Recycle bin</strong>: everything the board deletes stays there for 30 days, with <strong>Restore</strong>.</li>
+        <li><strong>Danger zone</strong>: bulk deletions, after confirming with the association's name. They also go through the recycle bin.</li>
+      </ul>
+    </section>
 
-      <div class="faq-item">
-        <button class="faq-q" onclick="toggleFaq(this)">
-          A candidate wants to change their time after submitting
-          <span class="faq-chevron">▼</span>
-        </button>
-        <div class="faq-a">
-          The candidate just needs to <strong>reopen the form</strong> (same application link) and enter the <strong>same email address</strong>. The platform detects their existing application, shows their current slot and lets them pick another. Submitting updates the interview without creating a duplicate.
-        </div>
-      </div>
+    <!-- ── FIN DU RECRUTEMENT ──────────────────────────────────── -->
+    <section class="aide-section" id="fin">
+      <h2>End of recruitment</h2>
+      <p class="sous">Closing, erasing, and handing over to the next board.</p>
+      <p>The next board is often recruited <strong>from this year's candidates</strong>: they mustn't see how they were scored. So when you close, all candidate data is erased, selected candidates included. All that remains are <strong>anonymous figures</strong> per year (applications, interviews, evaluated, no-shows), and everything the board has set up.</p>
 
-      <div class="faq-item">
-        <button class="faq-q" onclick="toggleFaq(this)">
-          How does a member submit their availability or evaluate a candidate?
-          <span class="faq-chevron">▼</span>
-        </button>
-        <div class="faq-a">
-          Members <strong>don't have an account</strong>. The board shares two links from its dashboard (the buttons below the statistics): <em>📅 Availability (staff)</em> and <em>🎙 Evaluation link</em>. The member opens the link, picks their name (or adds it) and fills it in, with no sign-in. If someone tries to sign in as a “member”, a message points them to these links.
-        </div>
-      </div>
+      <h3 id="cloturer">Closing</h3>
+      <ol class="etapes">
+        <li>When all interviews are over and the ranking is settled, <strong>download the ranking</strong>: Candidates page, CSV button.</li>
+        <li>Settings → When?, <strong>End of recruitment</strong> block: <strong>Close the recruitment</strong>. The form closes straight away.</li>
+        <li>Candidate data (answers, interviews, evaluations, notes, no-shows, staff availability, recycle bin) is <strong>erased 30 days later</strong>, permanently. Until then, you can <strong>reopen</strong> in case of a mistake, or <strong>erase now</strong>.</li>
+      </ol>
+      <p>The dashboard reminds you to close once the period is over, and shows the erasure date once it's closed. Erasure happens the first time the dashboard is opened after the planned date.</p>
 
-      <div class="faq-item">
-        <button class="faq-q" onclick="toggleFaq(this)">
-          How do I pause recruitment?
-          <span class="faq-chevron">▼</span>
-        </button>
-        <div class="faq-a">
-          In <strong>Settings → Recruitment</strong>, untick <em>Recruitment open</em>. The application form will then show a holding message and stop accepting applications. Tick it again to reopen.
-        </div>
-      </div>
+      <h3 id="suivant">Preparing the next one</h3>
+      <p><strong>Prepare the next recruitment</strong> (same block) erases the data if that hasn't been done yet, removes last year's dates and keeps the rest: settings, questions, evaluation grid, guidelines, rooms. The next time the dashboard is opened, the <strong>setup assistant</strong> offers to set everything up in five screens: dates, interviews, staff members, appointments, form. Each screen starts from last year's choices; you can open recruitment at the end, or later.</p>
 
-      <div class="faq-item">
-        <button class="faq-q" onclick="toggleFaq(this)">
-          How do I add custom questions to the form?
-          <span class="faq-chevron">▼</span>
-        </button>
-        <div class="faq-a">
-          Go to <strong>Settings → Form</strong>, click <em>+ Add a question</em>, choose the type (short text, long text or drop-down list) and tick whether an answer is required. The question appears on the public form straight away.
-        </div>
-      </div>
+      <h3 id="passation">Handing over</h3>
+      <p>Settings → Access and security, <strong>Board handover</strong>:</p>
+      <ol class="etapes">
+        <li><strong>Create the new board's code</strong>, and copy the ready-made message to send them: each person creates their account with it.</li>
+        <li>Once the new board is in, <strong>remove the old one</strong>: tick those who are leaving. You can't remove yourself: the new board does it.</li>
+        <li><strong>Clear the staff list</strong>, so the new staff sign up on the availability and evaluation links.</li>
+      </ol>
+      <div class="encadre">If nobody from the old board is available, the platform administrator can do all these steps on their behalf.</div>
+    </section>
 
-      <div class="faq-item">
-        <button class="faq-q" onclick="toggleFaq(this)">
-          How do I delete a scheduled interview?
-          <span class="faq-chevron">▼</span>
-        </button>
-        <div class="faq-a">
-          In the schedule, <em>Manual allocation</em> tab → select the candidate from the list → click <strong>Unassign</strong>. The candidate goes back to <em>Received</em> status and is available to be scheduled again.
-        </div>
-      </div>
+    <!-- ── FAQ ──────────────────────────────────────────────────── -->
+    <section class="aide-section faq" id="faq">
+      <h2>Frequently asked questions</h2>
+      <p class="sous">The most common cases.</p>
 
-      <div class="faq-item">
-        <button class="faq-q" onclick="toggleFaq(this)">
-          I deleted a candidate by mistake. Can I get them back?
-          <span class="faq-chevron">▼</span>
-        </button>
-        <div class="faq-a">
-          Yes, for <strong>30 days</strong>. Anything the board deletes (a candidate along with their interview and evaluation, or a whole batch from the danger zone) goes to <strong>Settings → Recycle bin</strong>. Click <em>Restore</em> to put everything back. After 30 days, the item is deleted automatically. For a data erasure request, use <em>Delete permanently</em>.
-        </div>
-      </div>
+      <details><summary>The form doesn't offer any slots</summary><div>
+        There are four possible causes. The mode is “the candidate gives their availability”: that's expected. No staff member has given their availability: send the availability link. Not enough staff members are free <strong>at the same time</strong> for the number required per interview: ask a few of them to widen their availability, or lower the number in the Who? tab of Settings. The period is over or set incorrectly: check the When? tab of Settings.
+      </div></details>
 
-      <div class="faq-item">
-        <button class="faq-q" onclick="toggleFaq(this)">
-          A candidate's tracking page still shows "Received" despite the decision
-          <span class="faq-chevron">▼</span>
-        </button>
-        <div class="faq-a">
-          The tracking page (<code>/candidat.html?token=…</code>) updates as soon as you change the status in the Candidates list: it saves automatically, and a “Status updated” message confirms it. If the change doesn't show up, check that no error message appeared.
-        </div>
-      </div>
+      <details><summary>A candidate didn't show up</summary><div>
+        Open their record and click <strong>No-show?</strong> next to the interview, or tick “Did not show up” in the evaluation form. To give them a second chance: <strong>Move</strong> to choose the time yourself, or <strong>Their link</strong> to send them their personal link, where they choose a new slot themselves (the form is already filled in). Either way, the no-show stays on record, visible in the ranking.
+      </div></details>
 
-      <div class="faq-item">
-        <button class="faq-q" onclick="toggleFaq(this)">
-          Can I take screenshots of the platform?
-          <span class="faq-chevron">▼</span>
-        </button>
-        <div class="faq-a">
-          The platform displays a <strong>discreet watermark</strong> (email + date) on every page for non-admin roles. It's barely visible on screen but clearly legible in a screenshot, so the source can be traced in the event of a data leak. These measures are there to protect candidates' personal information.
-        </div>
-      </div>
+      <details><summary>The schedule brings staff members in for a single interview</summary><div>
+        Click <strong>Optimise</strong> in the schedule: it suggests new staff members for interviews from tomorrow onwards, without touching the times, and you approve each change. For the future, the <strong>Fill recommended slots first</strong> option (Settings → How?) groups bookings together.
+      </div></details>
 
-    </div>
+      <details><summary>How do I schedule someone by hand?</summary><div>
+        In the schedule, click a free cell, then <strong>Schedule here</strong> next to the candidate. Staff members are suggested: all that's left is the room and confirming. Or, from their record, <strong>Schedule</strong>: the schedule opens and you choose the cell.
+      </div></details>
 
-    <div style="text-align:center;padding:16px 0 0;font-size:12px;color:var(--text-light);">
-      Cooptly · Internal documentation · Not for distribution outside the staff
-    </div>
+      <details><summary>How do I delete an interview?</summary><div>
+        In the schedule, click the interview, then <strong>Delete</strong> at the bottom of its details. It goes to the recycle bin, recoverable for 30 days.
+      </div></details>
+
+      <details><summary>I deleted a candidate by mistake</summary><div>
+        Settings → Access and security, <strong>Recycle bin</strong>, then Restore: their interview, evaluations, notes and no-shows come back with them. After 30 days, the item is erased. For an erasure request, use Delete permanently.
+      </div></details>
+
+      <details><summary>How do I remind staff which questions not to ask?</summary><div>
+        Write them in Settings → Evaluation, <strong>Guidelines</strong>. They appear at the top of every interview form, including through the public link, which is often the only page the staff member has in front of them.
+      </div></details>
+
+      <details><summary>Which booking mode should I choose?</summary><div>
+        If staff can give their availability <strong>before</strong> the form opens, go for “the candidate picks their slot”: the schedule fills itself. Otherwise, choose “the candidate gives their availability”, and generate the schedule at the end.
+      </div></details>
+
+      <details><summary>How do I pause recruitment?</summary><div>
+        Settings → When?, the <strong>Recruitment open</strong> switch. The form then shows a holding message.
+      </div></details>
+
+      <details><summary>Recruitment is over: what now?</summary><div>
+        Download the ranking (Candidates, CSV button), then Settings → When?, <strong>Close the recruitment</strong>. Candidate data will be erased 30 days later. For what comes next, see <a href="#fin">End of recruitment</a>.
+      </div></details>
+
+      <details><summary>Why is there a watermark on the pages?</summary><div>
+        A discreet watermark (email and date) shows up in screenshots. It makes it possible to trace the source of a leak and protects candidates' personal data.
+      </div></details>
+    </section>
+
+    <p class="aide-pied">Cooptly · Internal documentation · Not for distribution outside the staff</p>
 
   </main>
 </div>
 
 <script type="module">
   // Applique le thème + logo de l'asso si on arrive depuis un contexte organisé
-  const { paramLien } = await import('/js/utils.js');
+  const { paramLien, accentLisible, texteSurFond } = await import('/js/utils.js');
   const orgId = paramLien('org') || sessionStorage.getItem('currentOrgId');
   if (orgId) {
     try {
@@ -1025,50 +554,33 @@
             icon.style.padding = '0';
           } else if (org.primaryColor) {
             icon.style.background = org.primaryColor;
+            icon.style.color = texteSurFond(org.primaryColor);
           }
         }
         // Couleur primaire → variables CSS
         if (org.primaryColor) {
+          // Assombrie si trop claire : boutons à texte blanc et liens lisibles.
+          const accent = accentLisible(org.primaryColor);
           const r = document.documentElement;
-          r.style.setProperty('--indigo', org.primaryColor);
-          r.style.setProperty('--indigo-hover', org.primaryColor);
-          r.style.setProperty('--indigo-dark', org.primaryColor);
+          r.style.setProperty('--indigo', accent);
+          r.style.setProperty('--indigo-hover', accent);
+          r.style.setProperty('--indigo-dark', accent);
         }
       }
     } catch(e) { /* silently ignore */ }
   }
 </script>
 <script>
-  function toggleFaq(btn) {
-    const answer  = btn.nextElementSibling;
-    const chevron = btn.querySelector('.faq-chevron');
-    const isOpen  = answer.classList.contains('open');
-    answer.classList.toggle('open', !isOpen);
-    chevron.classList.toggle('open', !isOpen);
-  }
-
-  const sections = document.querySelectorAll('.aide-section[id], h3[id]');
-  const navLinks  = document.querySelectorAll('.aide-nav-link, .aide-nav-sub');
-  const observer = new IntersectionObserver(entries => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        navLinks.forEach(l => l.classList.remove('active'));
-        const match = document.querySelector(`.aide-nav-link[href="#${entry.target.id}"], .aide-nav-sub[href="#${entry.target.id}"]`);
-        if (match) match.classList.add('active');
-      }
+  // Sommaire : surligne la partie en cours de lecture.
+  const liens = [...document.querySelectorAll('.aide-sommaire a')];
+  const cibles = liens.map(a => document.querySelector(a.getAttribute('href'))).filter(Boolean);
+  const obs = new IntersectionObserver(entrees => {
+    entrees.forEach(e => {
+      if (!e.isIntersecting) return;
+      liens.forEach(a => a.classList.toggle('actif', a.getAttribute('href') === '#' + e.target.id));
     });
-  }, { rootMargin: '-80px 0px -60% 0px', threshold: 0 });
-  sections.forEach(s => observer.observe(s));
-
-  document.querySelectorAll('.aide-nav-link, .aide-nav-sub, .aide-hero-chip').forEach(a => {
-    a.addEventListener('click', e => {
-      const href = a.getAttribute('href');
-      if (!href || !href.startsWith('#')) return;
-      e.preventDefault();
-      const target = document.querySelector(href);
-      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
-  });
+  }, { rootMargin: '-70px 0px -70% 0px' });
+  cibles.forEach(c => obs.observe(c));
 </script>
 </body>
 </html>

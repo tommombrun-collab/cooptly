@@ -17,10 +17,21 @@
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js" />
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js" />
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js" />
+  <!-- modules du site préchargés (scripts/precharger-modules.mjs) -->
+  <link rel="modulepreload" href="/js/auth.js" />
+  <link rel="modulepreload" href="/js/firebase-config.js" />
+  <link rel="modulepreload" href="/js/icones.js" />
+  <link rel="modulepreload" href="/js/nav.js" />
+  <link rel="modulepreload" href="/js/org-lookup.js" />
+  <link rel="modulepreload" href="/js/recherche.js" />
+  <link rel="modulepreload" href="/js/sauvegarde.js" />
+  <link rel="modulepreload" href="/js/tuto.js" />
+  <link rel="modulepreload" href="/js/utils.js" />
+  <!-- /modules -->
   <!-- Polices en <link> et non plus en @import dans main.css : l'@import
        obligeait à télécharger la feuille de style avant même de découvrir
        les polices, trois allers-retours à la suite avant le texte. -->
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Antic&family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;600;700&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" />
   <link rel="stylesheet" href="/css/main.css" />
   <style>
     body { background: var(--bg); }
@@ -42,6 +53,8 @@
       height: calc(100vh - 64px);
       overflow-y: auto;
     }
+    .db-sauvegarde { display:flex; flex-direction:column; gap:6px; padding:0 4px 14px; margin-bottom:12px; border-bottom:1px solid var(--border); }
+    .db-sauvegarde small { font-size:11.5px; color:var(--text-muted); line-height:1.4; }
     .db-sidebar-label {
       font-size: 10.5px;
       font-weight: 700;
@@ -206,6 +219,13 @@
 
   <!-- ── Sidebar ──────────────────────────────────────────────── -->
   <aside class="db-sidebar">
+    <!-- Sauvegarde complète : un fichier JSON sur l'ordinateur de l'admin.
+         Seule copie des données tant que la base n'a pas de sauvegardes
+         automatiques (formule Blaze). -->
+    <div class="db-sauvegarde">
+      <button type="button" class="btn btn-primary btn-sm" id="btn-sauvegarde" style="width:100%;"><i data-icone="telecharger"></i>Télécharger une sauvegarde</button>
+      <small id="sauvegarde-info">Toutes les données de toutes les assos, dans un fichier.</small>
+    </div>
     <div class="db-sidebar-label">Collections</div>
     <div id="coll-list"></div>
   </aside>
@@ -215,7 +235,7 @@
 
     <!-- Empty state -->
     <div id="db-empty" class="empty-state" style="margin-top:80px;">
-      <div class="empty-state-icon">🗄️</div>
+      <div class="empty-state-icon"><i data-icone="liste"></i></div>
       <p>Sélectionne une collection dans le menu à gauche.</p>
     </div>
 
@@ -267,8 +287,8 @@
       <pre id="doc-json"></pre>
     </div>
     <div id="doc-modal-footer">
-      <button class="btn btn-ghost btn-sm" onclick="copyDocJson()">📋 Copier JSON</button>
-      <button class="btn btn-danger btn-sm" id="btn-delete-doc" style="margin-left:auto;" onclick="deleteCurrentDoc()">🗑 Supprimer ce document</button>
+      <button class="btn btn-ghost btn-sm" onclick="copyDocJson()"><i data-icone="copier"></i>Copier le JSON</button>
+      <span class="text-sm text-muted" style="margin-left:auto;">Lecture seule : supprimez depuis les pages du bureau (corbeille).</span>
       <button class="btn btn-ghost btn-sm" onclick="closeDocModal()">Fermer</button>
     </div>
   </div>
@@ -277,16 +297,17 @@
 <script type="module">
 import { requireAdmin, logout, app } from '/js/auth.js';
 import { initBurgerMenu } from '/js/nav.js';
-import { getFirestore, collection, getDocs, doc, deleteDoc }
+import { getFirestore, collection, getDocs, doc }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-import { showToast, confirmDialog } from '/js/utils.js';
+import { showToast } from '/js/utils.js';
+import { sauvegardeComplete } from '/js/sauvegarde.js';
 
 const db = getFirestore(app);
 
 // ─── Collection schema ────────────────────────────────────────
 const COLLECTIONS = {
   organizations: {
-    label: '🏢 Organisations',
+    label: 'Organisations',
     cols: [
       { key: 'id',           label: 'ID',          type: 'mono' },
       { key: 'name',         label: 'Nom',         type: 'text' },
@@ -295,7 +316,7 @@ const COLLECTIONS = {
     search: ['name', 'id'],
   },
   memberships: {
-    label: '👥 Membres',
+    label: 'Membres',
     cols: [
       { key: 'displayName',    label: 'Nom',           type: 'text' },
       { key: 'email',          label: 'Email',         type: 'text' },
@@ -306,7 +327,7 @@ const COLLECTIONS = {
     search: ['email', 'displayName', 'organizationId'],
   },
   campaigns: {
-    label: '📣 Campagnes',
+    label: 'Recrutements',
     cols: [
       { key: 'name',           label: 'Nom',          type: 'text' },
       { key: 'statut',         label: 'Statut',       type: 'badge' },
@@ -318,43 +339,43 @@ const COLLECTIONS = {
     search: ['name', 'organizationId'],
   },
   candidates: {
-    label: '🧑 Cooptants',
+    label: 'Cooptants',
     cols: [
       { key: 'prenom',     label: 'Prénom',    type: 'text' },
       { key: 'nom',        label: 'Nom',       type: 'text' },
       { key: 'email',      label: 'Email',     type: 'text' },
       { key: 'statut',     label: 'Statut',    type: 'badge' },
-      { key: 'campaignId', label: 'Campagne',  type: 'mono' },
+      { key: 'campaignId', label: 'Recrutement',type: 'mono' },
       { key: 'createdAt',  label: 'Soumis le', type: 'date' },
     ],
     search: ['prenom', 'nom', 'email'],
   },
   interviews: {
-    label: '📅 Entretiens',
+    label: 'Entretiens',
     cols: [
       { key: 'candidateId',   label: 'Cooptant',  type: 'mono' },
       { key: 'datetimeStart', label: 'Début',     type: 'date' },
       { key: 'datetimeEnd',   label: 'Fin',       type: 'date' },
       { key: 'statut',        label: 'Statut',    type: 'badge' },
-      { key: 'jury1Id',       label: 'Jury 1',    type: 'mono' },
+      { key: 'jury1Id',       label: 'Staffeur 1',    type: 'mono' },
       { key: 'salleNom',      label: 'Salle',     type: 'text' },
     ],
     search: ['candidateId', 'campaignId'],
   },
   interview_evaluations: {
-    label: '📝 Évaluations',
+    label: 'Évaluations',
     cols: [
       { key: 'candidateId', label: 'Cooptant',   type: 'mono' },
       { key: 'evaluatedBy', label: 'Évaluateur', type: 'mono' },
       { key: 'decision',    label: 'Décision',   type: 'badge' },
       { key: 'noteGlobale', label: 'Note /20',   type: 'text' },
-      { key: 'campaignId',  label: 'Campagne',   type: 'mono' },
+      { key: 'campaignId',  label: 'Recrutement', type: 'mono' },
       { key: 'updatedAt',   label: 'Modifié le', type: 'date' },
     ],
     search: ['candidateId', 'evaluatedBy', 'campaignId'],
   },
   invite_codes: {
-    label: '🔑 Codes invitation',
+    label: 'Codes invitation',
     cols: [
       { key: 'id',             label: 'Code',         type: 'text' },
       { key: 'label',          label: 'Libellé',      type: 'text' },
@@ -365,15 +386,15 @@ const COLLECTIONS = {
     search: ['id', 'label', 'organizationId'],
   },
   staff_availabilities: {
-    label: '🗓 Disponibilités',
+    label: 'Disponibilités',
     cols: [
       { key: 'userId',     label: 'Membre',    type: 'mono' },
-      { key: 'campaignId', label: 'Campagne',  type: 'mono' },
+      { key: 'campaignId', label: 'Recrutement',type: 'mono' },
     ],
     search: ['userId', 'campaignId'],
   },
   rooms: {
-    label: '🏫 Salles',
+    label: 'Salles',
     cols: [
       { key: 'code',           label: 'Code',         type: 'text' },
       { key: 'name',           label: 'Nom',          type: 'text' },
@@ -383,7 +404,7 @@ const COLLECTIONS = {
     search: ['code', 'name'],
   },
   users: {
-    label: '👤 Utilisateurs',
+    label: 'Utilisateurs',
     cols: [
       { key: 'displayName', label: 'Nom',       type: 'text' },
       { key: 'email',       label: 'Email',     type: 'text' },
@@ -392,12 +413,25 @@ const COLLECTIONS = {
     search: ['email', 'displayName'],
   },
   platform_admins: {
-    label: '🔐 Admins plateforme',
+    label: 'Admins plateforme',
     cols: [
       { key: 'id',    label: 'UID',   type: 'mono' },
       { key: 'email', label: 'Email', type: 'text' },
     ],
     search: ['email', 'id'],
+  },
+  // Envois ratés du formulaire (postuler.html) : relevé anonyme, sans donnée personnelle.
+  echecs_envoi: {
+    label: 'Envois ratés du formulaire',
+    cols: [
+      { key: 'createdAt',      label: 'Quand',        type: 'date' },
+      { key: 'etape',          label: 'Étape',        type: 'badge' },
+      { key: 'code',           label: 'Code',         type: 'mono' },
+      { key: 'enLigne',        label: 'En ligne',     type: 'text' },
+      { key: 'organizationId', label: 'Organisation', type: 'mono' },
+      { key: 'navigateur',     label: 'Navigateur',   type: 'text' },
+    ],
+    search: ['code', 'message', 'navigateur'],
   },
 };
 
@@ -611,20 +645,9 @@ window.copyDocJson = () => {
   showToast('JSON copié !', 'success');
 };
 
-window.deleteCurrentDoc = async () => {
-  if (!currentDoc || !currentColl) return;
-  if (!await confirmDialog(
-        `Supprimer ce document ? ID : ${currentDoc._id}. Cette action est irréversible.`,
-        { title: 'Supprimer le document', confirmLabel: 'Supprimer', danger: true })) return;
-  try {
-    await deleteDoc(doc(db, currentColl, currentDoc._id));
-    showToast('Document supprimé.', 'success');
-    closeDocModal();
-    selectCollection(currentColl);
-  } catch(e) {
-    showToast('Erreur : ' + e.message, 'error');
-  }
-};
+// Plus de suppression ici : elle effaçait un document brut, sans corbeille ni
+// nettoyage de ce qui en dépend (un cooptant supprimé laissait ses entretiens
+// orphelins dans le planning). Les pages du bureau le font proprement.
 
 // Close modal on backdrop click
 document.getElementById('doc-overlay').addEventListener('click', e => {
@@ -632,6 +655,41 @@ document.getElementById('doc-overlay').addEventListener('click', e => {
 });
 
 init();
+
+// ── Sauvegarde complète ──────────────────────────────────────────
+const DERNIERE = '_derniereSauvegarde';
+function majInfoSauvegarde() {
+  let t = null;
+  try { t = Number(localStorage.getItem(DERNIERE)) || null; } catch { /* stockage indisponible */ }
+  if (!t) return;
+  const h = Math.round((Date.now() - t) / 3600000);
+  document.getElementById('sauvegarde-info').textContent = `Dernière sur cet ordinateur : ${h < 1 ? 'il y a moins d\'une heure' : h < 48 ? `il y a ${h} h` : `il y a ${Math.round(h / 24)} jours`}.`;
+}
+majInfoSauvegarde();
+document.getElementById('btn-sauvegarde').addEventListener('click', async e => {
+  const btn = e.currentTarget;
+  btn.disabled = true;
+  const avant = btn.innerHTML;
+  btn.textContent = 'Lecture de la base…';
+  try {
+    const { fichier, nbDocuments, erreurs } = await sauvegardeComplete(db);
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(fichier.blob);
+    a.download = fichier.nom;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+    try { localStorage.setItem(DERNIERE, String(Date.now())); } catch { /* sans importance */ }
+    majInfoSauvegarde();
+    showToast(erreurs.length
+      ? `Sauvegarde téléchargée (${nbDocuments} documents), sauf : ${erreurs.join(', ')}.`
+      : `Sauvegarde téléchargée : ${nbDocuments} documents. Gardez ce fichier en lieu sûr, il contient des données personnelles.`,
+      erreurs.length ? 'info' : 'success');
+  } catch (err) {
+    showToast('Sauvegarde impossible : ' + err.message, 'error');
+  } finally {
+    btn.disabled = false; btn.innerHTML = avant;
+  }
+});
 </script>
 </body>
 </html>

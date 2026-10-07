@@ -17,10 +17,29 @@
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js" />
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js" />
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js" />
+  <!-- modules du site préchargés (scripts/precharger-modules.mjs) -->
+  <link rel="modulepreload" href="/js/absences.js" />
+  <link rel="modulepreload" href="/js/auth.js" />
+  <link rel="modulepreload" href="/js/capacite.js" />
+  <link rel="modulepreload" href="/js/corbeille.js" />
+  <link rel="modulepreload" href="/js/delib.js" />
+  <link rel="modulepreload" href="/js/fiche-cooptant.js" />
+  <link rel="modulepreload" href="/js/firebase-config.js" />
+  <link rel="modulepreload" href="/js/icones.js" />
+  <link rel="modulepreload" href="/js/nav.js" />
+  <link rel="modulepreload" href="/js/notes.js" />
+  <link rel="modulepreload" href="/js/org-lookup.js" />
+  <link rel="modulepreload" href="/js/recherche.js" />
+  <link rel="modulepreload" href="/js/score.js" />
+  <link rel="modulepreload" href="/js/tuto.js" />
+  <link rel="modulepreload" href="/js/utils.js" />
+  <link rel="modulepreload" href="/js/vote-bureau.js" />
+  <link rel="modulepreload" href="/js/vote.js" />
+  <!-- /modules -->
   <!-- Polices en <link> et non plus en @import dans main.css : l'@import
        obligeait à télécharger la feuille de style avant même de découvrir
        les polices, trois allers-retours à la suite avant le texte. -->
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Antic&family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;600;700&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" />
   <link rel="stylesheet" href="/css/main.css" />
   <style>
     /* ── Tableau des cooptants ───────────────────────────────────── */
@@ -47,14 +66,25 @@
     .ct-nom { font-weight:600; white-space:nowrap; }
     .ct-sous { font-size:12px; color:var(--text-light); }
     .ct-rdv { white-space:nowrap; color:var(--text-muted); font-variant-numeric:tabular-nums; }
+    .ct-parcours { display:inline-flex;align-items:center;gap:6px;white-space:nowrap;font-size:13px; }
+    .ct-parcours i { width:7px;height:7px;border-radius:2px;display:inline-block; }
     .ct-jury { color:var(--text-muted); max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .ct-score { font-family:var(--font-mono); font-weight:700; font-variant-numeric:tabular-nums; }
     .ct-evals { font-variant-numeric:tabular-nums; color:var(--text-muted); white-space:nowrap; }
     .ct-vide { color:var(--text-light); }
     .ct-manque { color:var(--red); font-weight:700; font-size:15px; }
+    .ct-absent { color:var(--red); font-weight:600; font-size:12.5px; }
+    .cands-table .col-messenger { text-align:center; }
+    .case-messenger { width:18px; height:18px; cursor:pointer; accent-color:var(--indigo); }
+    .th-mini { display:block; margin:2px auto 0; border:0; background:none; padding:0; font:inherit; font-size:10.5px; font-weight:600; text-transform:none; letter-spacing:0; color:var(--indigo-dark); cursor:pointer; }
+    .th-mini:hover { text-decoration:underline; }
+    .ct-lien { display:inline-grid; place-items:center; width:30px; height:30px; border-radius:6px; border:1px solid var(--border); color:var(--text-muted); }
+    .ct-lien:hover { border-color:var(--indigo); color:var(--indigo-dark); }
+    .ct-lien svg { width:15px; height:15px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; }
+    .nb-absences { color:var(--red); font-size:11.5px; font-weight:600; margin-left:6px; white-space:nowrap; }
     @media (max-width: 760px) {
-      .cands-table .col-jury, .cands-table td:nth-child(3), .cands-table .col-eval, .cands-table td:nth-child(5),
-      .cands-table .col-note, .cands-table td:nth-child(7) { display:none; }
+      .cands-table .col-jury, .cands-table .ct-jury, .cands-table .col-eval, .cands-table .ct-evals,
+      .cands-table .col-note, .cands-table .col-inscr, .cands-table .col-lien, .cands-table .col-parcours { display:none; }
       .cands-table tbody td, .cands-table thead th { padding:9px 10px; }
     }
 
@@ -81,17 +111,43 @@
     .rank-nom { flex:1;min-width:0;font-weight:600;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
       cursor:pointer;background:none;border:none;padding:0;font-family:inherit;color:var(--text);text-align:left; }
     .rank-nom:hover { color:var(--indigo-dark);text-decoration:underline; }
+    /* Nom + une ligne d'infos pour classer (parcours, entretien) */
+    .rank-ident { flex:1;min-width:0;display:flex;flex-direction:column;gap:1px; }
+    .rank-ident .rank-nom { flex:none;max-width:100%; }
+    .rank-infos { display:flex;flex-wrap:wrap;gap:2px 12px;font-size:11.5px;color:var(--text-muted);line-height:1.35; }
+    .rank-infos span { display:inline-flex;align-items:center;gap:5px;white-space:nowrap; }
+    .rank-infos i { width:7px;height:7px;border-radius:2px;display:inline-block; }
+    .rank-infos .ri-alerte { color:var(--orange);font-weight:600; }
+    .rank-infos .ri-absent { color:var(--red);font-weight:600; }
+    body.delib-on .rank-infos { font-size:12.5px; }
     .rank-nom:focus-visible { outline:2px solid var(--indigo);outline-offset:2px;border-radius:4px; }
     .rank-barres { display:flex;gap:4px;align-items:center;flex-shrink:0; }
     .rank-barre { width:30px;height:6px;border-radius:99px;background:var(--bg);overflow:hidden; }
     .rank-barre > div { height:100%;border-radius:99px; }
     .rank-score { font-family:var(--font-mono);font-weight:700;font-size:13.5px;min-width:52px;text-align:right;font-variant-numeric:tabular-nums;flex-shrink:0; }
+    .rank-ajust { display:flex; align-items:center; gap:2px; flex-shrink:0; }
+    .rank-ajust button { width:24px; height:24px; border:1px solid var(--border); background:var(--surface); border-radius:5px; cursor:pointer; color:var(--text-muted); font-size:14px; line-height:1; padding:0; }
+    .rank-ajust button:hover { border-color:var(--indigo); color:var(--indigo-dark); }
+    .rank-ajust span { min-width:30px; text-align:center; font-size:12px; font-weight:600; color:var(--text-light); font-variant-numeric:tabular-nums; }
+    .rank-ajust.actif span { color:var(--indigo-dark); }
+    .rank-row:not(:hover):not(.selection):not(:focus-within) .rank-ajust:not(.actif) { visibility:hidden; }
+    body.delib-on .rank-ajust { visibility:visible !important; }
+    body.delib-on .rank-ajust button { width:30px; height:30px; font-size:16px; }
+    .rank-score.ajuste { text-decoration:underline dotted; text-underline-offset:4px; }
+    .ct-ajust { font-size:11.5px; font-weight:600; color:var(--indigo-dark); }
     .rank-evals { font-size:12px;color:var(--text-muted);min-width:34px;text-align:right;flex-shrink:0;font-variant-numeric:tabular-nums; }
     .rank-aide { font-size:12px;color:var(--text-muted); }
     @media (max-width: 640px) { .rank-barres { display:none; } }
 
     /* ── Mode délibération (plein écran de réunion) ─────────────── */
     #delib-bar { display:none; }
+    /* Profil du classement : visible dans l'onglet Classement comme en délibération */
+    .delib-profil:empty { display:none; }
+    .delib-profil { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:12px 16px; margin:0 0 12px; }
+    .delib-profil .dp-chiffres { display:flex;flex-wrap:wrap;gap:4px 18px;font-size:12.5px;color:var(--text-muted);margin-bottom:10px; }
+    .delib-profil .dp-chiffres b { color:var(--text);font-family:var(--font-mono);font-variant-numeric:tabular-nums; }
+    body.delib-on .delib-profil { margin-top:-6px; }
+    body.delib-on .delib-profil .dp-chiffres { display:none; }
     body.delib-on #delib-bar {
       display:flex;align-items:center;gap:20px;
       padding:16px 22px;margin-bottom:16px;
@@ -146,25 +202,6 @@
       .rank-grip { display:none; }
     }
 
-    /* ── Eval side panel ─────────────────────────────────────────── */
-    #eval-panel-overlay {
-      position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:900;
-      opacity:0;pointer-events:none;transition:opacity .2s;
-    }
-    #eval-panel-overlay.open { opacity:1;pointer-events:all; }
-    #eval-panel {
-      position:fixed;top:0;right:0;bottom:0;width:min(540px,100vw);
-      background:var(--surface);box-shadow:-4px 0 24px rgba(0,0,0,.15);
-      z-index:901;display:flex;flex-direction:column;
-      transform:translateX(100%);transition:transform .25s cubic-bezier(.4,0,.2,1);
-    }
-    #eval-panel.open { transform:translateX(0); }
-    #eval-panel-header {
-      display:flex;align-items:center;justify-content:space-between;
-      padding:14px 18px;border-bottom:1px solid var(--border);flex-shrink:0;
-    }
-    #eval-panel iframe { flex:1;border:none;width:100%; }
-
     .rank-actions { display:flex;flex-direction:column;gap:5px;flex-shrink:0; }
     .rank-move-btn {
       width:26px;height:26px;border-radius:6px;border:1.5px solid var(--border);
@@ -184,6 +221,57 @@
     .cutoff-divider::before,.cutoff-divider::after {
       content:'';flex:1;height:2px;border-radius:1px;background:var(--green);
     }
+
+    /* ── Zone grise : les rangs à discuter autour de la ligne (js/delib.js) ── */
+    .rank-row.zone-grise { background:var(--orange-light); border-color:var(--orange-mid); opacity:1; }
+    .rank-row.zone-grise:hover { border-color:var(--orange); }
+    .zg-divider {
+      display:flex;align-items:center;gap:10px;margin:8px 0 4px;
+      font-size:12px;font-weight:700;color:var(--orange);letter-spacing:.02em;
+    }
+    .zg-divider::before,.zg-divider::after { content:'';flex:1;border-top:2px dashed var(--orange-mid); }
+    .zg-divider.zg-fin { margin:4px 0 8px;font-weight:600;opacity:.85; }
+    body.delib-on .zg-divider { font-size:14px; }
+    .zg-replie {
+      display:flex;align-items:center;gap:8px;width:100%;padding:10px 14px;margin:4px 0;
+      border:1px dashed var(--border);border-radius:10px;background:var(--bg);
+      font:inherit;font-size:13px;color:var(--text-muted);cursor:pointer;text-align:left;
+    }
+    .zg-replie b { font-family:var(--font-mono);color:var(--text); }
+    .zg-replie span { margin-left:auto;font-weight:600;color:var(--indigo-dark);text-decoration:underline;text-underline-offset:2px; }
+    .zg-replie:hover { border-color:var(--indigo-mid); }
+    .zg-replie:focus-visible { outline:2px solid var(--indigo);outline-offset:2px; }
+    .rank-infos .ri-plebiscite { color:var(--green);font-weight:700; }
+    .rank-infos .ri-plebiscite .ico { width:12px;height:12px; }
+    .rank-infos .ri-abst { color:var(--text-light); }
+
+    /* Réglages d'aide sous la barre du classement */
+    .classement-aides {
+      flex-basis:100%;display:flex;align-items:center;gap:8px 16px;flex-wrap:wrap;
+      padding-top:12px;border-top:1px solid var(--border);font-size:13px;color:var(--text-muted);
+    }
+    .classement-aides [hidden] { display:none !important; }
+    .zg-champ { display:inline-flex;align-items:center;gap:6px;font-weight:600; }
+    .zg-champ .places-input { width:52px;padding:4px 6px; }
+    #zg-aide { font-weight:400; }
+    .zg-pastille { width:12px;height:12px;border-radius:3px;background:var(--orange-light);border:1.5px dashed var(--orange); }
+    .aide-bascule {
+      padding:5px 12px;border-radius:999px;border:1.5px solid var(--border);background:var(--surface);
+      font:inherit;font-size:12.5px;font-weight:600;color:var(--text-muted);cursor:pointer;
+    }
+    .aide-bascule:hover { border-color:var(--orange); }
+    .aide-bascule[aria-pressed="true"] { background:var(--orange-light);border-color:var(--orange);color:var(--text); }
+    .aide-bascule:focus-visible { outline:2px solid var(--indigo);outline-offset:2px; }
+    .sev-bascule { display:inline-flex;align-items:center;gap:6px;font-weight:600;color:var(--text);cursor:pointer; }
+    .sev-bascule input { width:16px;height:16px;accent-color:var(--indigo); }
+    .sev-etat { font-size:12px;color:var(--text-light); }
+    .sev-table-wrap { overflow-x:auto; }
+    .sev-table { width:100%;border-collapse:collapse;font-size:13.5px; }
+    .sev-table th { text-align:left;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);padding:6px 8px;border-bottom:1px solid var(--border); }
+    .sev-table td { padding:7px 8px;border-bottom:1px solid var(--border); }
+    .sev-table .sev-n { font-family:var(--font-mono);font-variant-numeric:tabular-nums;white-space:nowrap; }
+    .sev-genereux { color:var(--orange);font-weight:600; }
+    .sev-severe { color:var(--indigo-dark);font-weight:600; }
 
     /* ── Classement header ───────────────────────────────────────── */
     .classement-toolbar {
@@ -212,6 +300,7 @@
       padding:6px 14px;border-radius:7px;border:none;background:none;
       cursor:pointer;font-size:13px;font-weight:600;font-family:inherit;
       color:var(--text-muted);transition:all .14s;
+      display:inline-flex;align-items:center;gap:6px;
     }
     .view-toggle-btn.active {
       background:var(--surface);color:var(--indigo);
@@ -242,7 +331,7 @@
     <div><h1>Cooptants</h1><p>Réponses aux formulaires et gestion des statuts</p></div>
     <div class="flex-gap">
       <select class="form-select" id="campaign-select" style="display:none;width:220px;font-size:14px;"><option value="">Recrutement</option></select>
-      <button class="btn btn-secondary" id="btn-export">⬇️ CSV</button>
+      <button class="btn btn-secondary" id="btn-export" title="Télécharger la liste (tableur)"><i data-icone="telecharger"></i>CSV</button>
     </div>
   </div>
 
@@ -250,20 +339,26 @@
   <div class="card mb-16" style="padding:12px 20px;" id="candidats-controls">
     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
       <div class="view-toggle">
-        <button class="view-toggle-btn active" id="btn-view-liste" onclick="setView('liste')">👥 Cooptants</button>
-        <button class="view-toggle-btn" id="btn-view-classement" onclick="setView('classement')">🏆 Classement</button>
+        <button class="view-toggle-btn active" id="btn-view-liste" onclick="setView('liste')"><i data-icone="personnes"></i>Cooptants</button>
+        <button class="view-toggle-btn" id="btn-view-classement" onclick="setView('classement')"><i data-icone="trophee"></i>Classement</button>
       </div>
       <input class="form-input" id="search" type="search" placeholder="Rechercher…" aria-label="Rechercher un cooptant" style="width:200px;font-size:14px;" />
+      <select class="form-select" id="filtre-parcours" aria-label="Filtrer par parcours" style="width:auto;font-size:14px;padding-top:7px;padding-bottom:7px;">
+        <option value="">Tous les parcours</option>
+      </select>
       <div class="filtres" id="filtres" role="group" aria-label="Filtrer la liste">
         <button type="button" class="filtre" data-f="recu" aria-pressed="false">Reçus</button>
         <button type="button" class="filtre" data-f="place" aria-pressed="false">Placés</button>
         <button type="button" class="filtre" data-f="entretien_fait" aria-pressed="false">Entretien passé</button>
+        <button type="button" class="filtre" data-f="absent" aria-pressed="false">Absents</button>
         <span class="filtres-sep" aria-hidden="true"></span>
         <button type="button" class="filtre" data-f="sans-entretien" aria-pressed="false">Sans entretien</button>
         <button type="button" class="filtre" data-f="non-evalue" aria-pressed="false">Pas évalués</button>
+        <button type="button" class="filtre" data-f="messenger-non" aria-pressed="false">Pas dans Messenger</button>
         <button type="button" class="filtre" data-f="en" aria-pressed="false">🇬🇧 Anglais</button>
       </div>
       <span id="compte-liste" class="text-sm text-muted" style="margin-left:auto;"></span>
+      <span id="compte-messenger" class="text-sm text-muted"></span>
       <span id="score-status" class="text-sm text-muted"></span>
     </div>
   </div>
@@ -280,15 +375,22 @@
 
   <!-- ── Vue Liste ─────────────────────────────────────────────── -->
   <div id="list-view" style="display:none;">
+    <!-- Répartition par parcours : la liste affichée (filtres) et tous les cooptants. -->
+    <div id="liste-profil" class="delib-profil"></div>
     <div class="table-wrap">
       <table class="cands-table" id="cands-table"><thead><tr>
         <th aria-sort="none"><button class="th-tri" data-tri="nom">Cooptant <span class="tri-fleche" aria-hidden="true"></span></button></th>
+        <th aria-sort="none" class="col-parcours"><button class="th-tri" data-tri="parcours">Parcours <span class="tri-fleche" aria-hidden="true"></span></button></th>
+        <th aria-sort="none" class="col-inscr"><button class="th-tri" data-tri="inscription">Inscrit le <span class="tri-fleche" aria-hidden="true"></span></button></th>
         <th aria-sort="none"><button class="th-tri" data-tri="entretien">Entretien <span class="tri-fleche" aria-hidden="true"></span></button></th>
-        <th class="col-jury">Jury</th>
+        <th class="col-jury">Staffeurs</th>
         <th aria-sort="none"><button class="th-tri" data-tri="statut">Statut <span class="tri-fleche" aria-hidden="true"></span></button></th>
         <th aria-sort="none" class="col-eval"><button class="th-tri" data-tri="evals">Éval. <span class="tri-fleche" aria-hidden="true"></span></button></th>
         <th aria-sort="none"><button class="th-tri" data-tri="score">Score <span class="tri-fleche" aria-hidden="true"></span></button></th>
-        <th class="col-note" title="Note interne"><span aria-label="Note interne">📝</span></th>
+        <th aria-sort="none" class="col-messenger"><button class="th-tri" data-tri="messenger">Messenger <span class="tri-fleche" aria-hidden="true"></span></button>
+          <button type="button" class="th-mini" id="btn-messenger-tout" title="Cocher « ajouté au groupe Messenger » pour tous les cooptants affichés">✓ tout cocher</button></th>
+        <th class="col-note" title="Note interne"><span aria-label="Note interne"><i data-icone="note"></i></span></th>
+        <th class="col-lien"><span class="sr-only">Lien de suivi</span></th>
       </tr></thead><tbody id="cands-body"></tbody></table>
     </div>
   </div>
@@ -297,15 +399,28 @@
   <div id="classement-view" style="display:none;">
     <!-- Toolbar -->
     <div class="classement-toolbar">
-      <span style="font-weight:700;font-size:14px;color:var(--text);">🏆 Classement</span>
+      <span style="font-weight:700;font-size:14px;color:var(--text);"><i data-icone="trophee"></i> Classement</span>
       <span class="rank-aide" id="rank-aide">Glisse une ligne, ou clique dessus puis ↑ ↓. Un clic sur un nom ouvre sa fiche.</span>
       <div style="display:flex;align-items:center;gap:8px;margin-left:auto;">
         <label style="font-size:13px;font-weight:600;color:var(--text-muted);">Places disponibles :</label>
         <input type="number" class="places-input" id="nb-places-input" min="0" value="0" />
       </div>
-      <button class="btn btn-ghost btn-sm" id="btn-reset-order" style="display:none;" title="Oublier l'ordre manuel et reclasser par score">↺ Revenir au score</button>
-      <button class="btn btn-primary btn-sm" id="btn-delib" title="Plein écran pour délibérer en réunion">🗳 Délibérer</button>
+      <button class="btn btn-ghost btn-sm" id="btn-reset-order" style="display:none;" title="Oublier l'ordre manuel et reclasser selon les notes, ajustements compris">↺ Reclasser selon les notes</button>
+      <button class="btn btn-primary btn-sm" id="btn-delib" title="Plein écran pour délibérer en réunion">Délibérer</button>
+      <!-- Aides à la délibération (js/delib.js) : zone grise, sévérité des staffeurs -->
+      <div class="classement-aides">
+        <label class="zg-champ" id="zg-champ" title="Les derniers retenus et les premiers non retenus, ceux dont on discute en réunion">
+          <span class="zg-pastille" aria-hidden="true"></span>Zone grise : <input type="number" class="places-input" id="zone-grise-input" min="0" max="30" value="0" aria-describedby="zg-aide" /> <span id="zg-aide">rangs de chaque côté de la ligne</span></label>
+        <button type="button" class="aide-bascule" id="btn-zone-seule" aria-pressed="false" title="Replier les retenus d'office et les derniers, pour ne discuter que de la zone grise">Ne montrer que la zone grise</button>
+        <label class="sev-bascule" title="Ramène chaque staffeur à sa propre moyenne : un staffeur sévère ne pénalise plus ses cooptants, un généreux ne les avantage plus">
+          <input type="checkbox" id="corriger-severite" /> Corriger la sévérité des staffeurs</label>
+        <button type="button" class="vote-lien-btn" id="btn-severite">Voir le détail</button>
+        <span class="sev-etat" id="sev-etat"></span>
+      </div>
     </div>
+
+    <!-- Vote des membres par lien (js/vote-bureau.js) : masqué en délibération. -->
+    <div id="vote-carte"></div>
 
     <!-- Bandeau du mode délibération : visible uniquement en plein écran -->
     <div id="delib-bar">
@@ -314,8 +429,11 @@
         <div id="delib-sub"></div>
       </div>
       <div id="delib-counts"></div>
+      <button class="btn btn-ghost btn-sm" id="btn-delib-reclasser" style="display:none;" title="Oublier l'ordre manuel et reclasser selon les notes, ajustements compris">↺ Reclasser selon les notes</button>
       <button class="btn btn-ghost btn-sm" id="btn-delib-exit">✕ Quitter</button>
     </div>
+    <!-- Profil du groupe pendant qu'on délibère : parcours des retenus et de tous. -->
+    <div id="delib-profil" class="delib-profil"></div>
 
     <div id="ranking-list" class="stack" style="gap:6px;"></div>
   </div>
@@ -325,13 +443,19 @@
 import { requireSecge, logout, resolveOrgContext } from '/js/auth.js';
 import { app } from '/js/auth.js';
 import { initBurgerMenu } from '/js/nav.js';
-import { getFirestore, collection, query, where, getDocs, getDoc, doc, updateDoc }
+import { afficherTutoSiBesoin } from '/js/tuto.js';
+import { getFirestore, collection, query, where, getDocs, getDoc, doc, updateDoc, writeBatch }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { showToast, formatDatetime, telephoneCooptant, cleReponse, reponseA, texteReponse,
-  reponsesOrdonnees as reponsesSelonQuestions, paramLien, pourRecherche, campaignConfig } from '/js/utils.js';
+  reponsesOrdonnees as reponsesSelonQuestions, paramLien, pourRecherche, campaignConfig, htmlRepartitionParcours, parcoursCooptant, estQuestionParcours, couleurParcours, PARCOURS, confirmDialog } from '/js/utils.js';
 import { calculerScores, scoreEffectif } from '/js/score.js';
 import { ouvrirFiche, fermerFiche, nomsJures } from '/js/fiche-cooptant.js';
-import { chargerNotes, migrerNotes, texteNote, idNoteCooptant } from '/js/notes.js';
+import { chargerNotes, migrerNotes, texteNote, idNoteCooptant, enregistrerAjustement, ajustementNote } from '/js/notes.js';
+import { chargerAbsences, absencesParCooptant, absentAuCreneau, libelleAbsences } from '/js/absences.js';
+import { icone } from '/js/icones.js';
+import { brancherVote } from '/js/vote-bureau.js';
+import { classerParCoeurs, cooptantPourVote, plebiscite, votantsPour } from '/js/vote.js';
+import { severiteStaffeurs, zoneGrise, largeurZoneConseillee } from '/js/delib.js';
 
 const db = getFirestore(app);
 
@@ -352,29 +476,39 @@ let allCandidates = [], customQuestions = [], allEvaluations = [], criteriaConfi
 let entretienParCooptant = {};   // candidateId → Date du premier entretien
 let ivParCooptant = {};          // candidateId → premier entretien (document) : jury du tableau
 let notesMap = new Map();        // notes internes (privées au bureau), voir js/notes.js
+let absencesMap = new Map();     // candidateId → absences (js/absences.js)
 let currentView    = 'liste';   // 'liste' | 'classement'
 // Manuel par defaut : c'est le mode dans lequel on delibere. Sans ordre
 // enregistre, getSortedCandidates() retombe sur le tri par score, donc
 // l'affichage initial reste le meme qu'en mode auto.
 let rankOrderLocal = [];        // manual order (array of candidateId)
+let resultatsVote = null;       // vote des membres clos : { coeurs, abstentions, votants } (js/vote.js)
+let severite = null;            // sévérité des staffeurs (js/delib.js), recalculée avec les scores
+let zoneSeule = false;          // classement replié sur la zone grise
 
 const STATUTS = ['recu','place','entretien_fait'];
 const BADGES  = {
   recu:           ['badge-orange', 'Reçu'],
   place:          ['badge-blue', 'Placé'],
   entretien_fait: ['badge-green',  'Entretien passé'],
+  absent:         ['badge-absent', 'Absent·e'],
 };
 
 // ─── View / sort mode toggles ────────────────────────────────────
 window.setView = function(v) {
   currentView = v;
+  document.body.dataset.vue = v;   // visite guidée : celle du Classement (js/tuto.js)
   document.getElementById('btn-view-liste').classList.toggle('active', v === 'liste');
   document.getElementById('btn-view-classement').classList.toggle('active', v === 'classement');
   document.getElementById('list-view').style.display       = v === 'liste'       ? '' : 'none';
   document.getElementById('classement-view').style.display = v === 'classement'  ? '' : 'none';
   document.getElementById('filtres').style.display    = v === 'liste' ? '' : 'none';
+  document.getElementById('filtre-parcours').style.display = v === 'liste' ? '' : 'none';
   document.getElementById('compte-liste').style.display = v === 'liste' ? '' : 'none';
-  if (v === 'classement') renderRanking();
+  if (v === 'classement') {
+    renderRanking();
+    if (user) afficherTutoSiBesoin(user);
+  }
   else applyFilters();
 };
 
@@ -404,8 +538,20 @@ async function init() {
   const sel = document.getElementById('campaign-select');
   if (sel) sel.style.display = 'none';
   if (camps.length) { await loadCampaign(camps[0]); }
+  // Lien direct vers le classement (recherche rapide).
+  if (paramLien('vue') === 'classement') setView('classement');
 
   document.getElementById('search').addEventListener('input', applyFilters);
+  const selParcours = document.getElementById('filtre-parcours');
+  selParcours.insertAdjacentHTML('beforeend', PARCOURS.map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('') + '<option value="aucun">Non renseigné</option>');
+  selParcours.addEventListener('change', applyFilters);
+  // Filtre demandé par un lien du tableau de bord (« À faire »).
+  const filtreLien = { 'passe-sans-eval': ['entretien_fait', 'non-evalue'], 'sans-entretien': ['sans-entretien'] }[paramLien('filtre')];
+  if (filtreLien) {
+    document.querySelectorAll('#filtres .filtre').forEach(b => b.setAttribute('aria-pressed', String(filtreLien.includes(b.dataset.f))));
+    applyFilters();
+    const url = new URL(location.href); url.searchParams.delete('filtre'); history.replaceState(null, '', url);
+  }
   document.querySelectorAll('#filtres .filtre').forEach(b => b.addEventListener('click', () => {
     b.setAttribute('aria-pressed', String(b.getAttribute('aria-pressed') !== 'true'));
     applyFilters();
@@ -431,13 +577,41 @@ async function init() {
     updateDelibCounts();
   });
 
-  document.getElementById('btn-reset-order').addEventListener('click', async () => {
+  const reclasser = async () => {
     rankOrderLocal = [];
+    conseilOrdreManuel = false;
     if (currentCampaign) await updateDoc(doc(db, 'campaigns', currentCampaign.id), { rankOrder: [] });
     document.getElementById('btn-reset-order').style.display = 'none';
     renderRanking();
     updateDelibCounts();
+  };
+  document.getElementById('btn-reset-order').addEventListener('click', reclasser);
+  document.getElementById('btn-delib-reclasser').addEventListener('click', reclasser);
+
+  // Aides à la délibération : réglages partagés par le bureau (sur le recrutement).
+  document.getElementById('zone-grise-input').addEventListener('change', e => {
+    const n = Math.max(0, Math.min(30, parseInt(e.target.value) || 0));
+    const avant = currentCampaign.zoneGrise;
+    e.target.value = n;
+    currentCampaign.zoneGrise = n;
+    renderRanking();
+    updateDelibCounts();
+    enregistrerClassement({ zoneGrise: n }, () => { currentCampaign.zoneGrise = avant; renderRanking(); updateDelibCounts(); });
   });
+  document.getElementById('btn-zone-seule').addEventListener('click', () => basculerZoneSeule(!zoneSeule));
+  document.getElementById('corriger-severite').addEventListener('change', e => {
+    const oui = e.target.checked;
+    if (oui && !severite?.suffisant) {
+      e.target.checked = false;
+      return showToast('Pas encore assez d\'évaluations : il faut au moins 8 cooptants notés et 2 staffeurs avec 2 entretiens chacun.', 'info');
+    }
+    const redessiner = () => { if (currentView === 'classement') renderRanking(); else applyFilters(); };
+    currentCampaign.corrigerSeverite = oui;
+    redessiner();
+    if (oui && rankOrderLocal.length) showToast('Ordre manuel en cours : « Reclasser selon les notes » pour classer avec les notes corrigées.', 'info');
+    enregistrerClassement({ corrigerSeverite: oui }, () => { currentCampaign.corrigerSeverite = !oui; redessiner(); });
+  });
+  document.getElementById('btn-severite').addEventListener('click', ouvrirDetailSeverite);
 
   document.getElementById('btn-delib').addEventListener('click', enterDelibMode);
   document.getElementById('btn-delib-exit').addEventListener('click', exitDelibMode);
@@ -467,7 +641,7 @@ async function loadCampaign(campaign) {
   // `organizationId`. Filtrée par campagne seulement, la requête était
   // refusée à tout membre du bureau qui n'est pas admin : la page Cooptants
   // ne s'ouvrait plus du tout pour eux. L'admin passait, d'où l'angle mort.
-  const [candSnap, evalSnap, ivSnap, notes] = await Promise.all([
+  const [candSnap, evalSnap, ivSnap, notes, absences] = await Promise.all([
     getDocs(query(collection(db, 'candidates'), where('campaignId', '==', campaign.id))),
     getDocs(query(collection(db, 'interview_evaluations'),
       where('organizationId', '==', campaign.organizationId),
@@ -475,13 +649,15 @@ async function loadCampaign(campaign) {
     // Pour afficher la date d'entretien directement dans la liste.
     getDocs(query(collection(db, 'interviews'), where('campaignId', '==', campaign.id))),
     chargerNotes(db, campaign.organizationId, campaign.id).catch(e => { console.warn('Notes internes illisibles :', e); return new Map(); }),
+    chargerAbsences(db, campaign.organizationId, campaign.id),
   ]);
   notesMap = notes;
+  absencesMap = absencesParCooptant(absences);
 
   entretienParCooptant = {};
   ivParCooptant = {};
   ivSnap.docs.forEach(d => {
-    const iv = d.data();
+    const iv = { id: d.id, ...d.data() };
     const t = iv.datetimeStart?.toDate?.();
     if (!iv.candidateId || !t) return;
     const deja = entretienParCooptant[iv.candidateId];
@@ -501,9 +677,14 @@ async function loadCampaign(campaign) {
       entretiens: ivSnap.docs.map(d => ({ id: d.id, ...d.data() })),
     });
   } catch (e) { console.warn('Déplacement des notes internes impossible :', e); }
-  allCandidates.forEach(c => { delete c.notesInternes; c._note = texteNote(notesMap, idNoteCooptant(c.id)); });
+  allCandidates.forEach(c => {
+    delete c.notesInternes;
+    c._note = texteNote(notesMap, idNoteCooptant(c.id));
+    c._ajustement = ajustementNote(notesMap, c.id);
+  });
 
   computeAllScores();
+  marquerAbsences();
 
   const withScore = allCandidates.filter(c => c._score !== null).length;
   document.getElementById('score-status').textContent =
@@ -518,6 +699,15 @@ async function loadCampaign(campaign) {
     applyFilters();
   }
 
+  // Vote des membres (onglet Classement) : participation, puis cœurs reçus.
+  brancherVote({
+    db, org: currentOrg, campaign, conteneur: document.getElementById('vote-carte'),
+    cooptants: () => allCandidates.map(c => cooptantPourVote(c, parcoursCooptant(c))),
+    nbPlaces: () => parseInt(document.getElementById('nb-places-input').value) || 0,
+    onResultats: r => { resultatsVote = r; if (currentView === 'classement') renderRanking(); },
+    classer: r => persistRankOrder(classerParCoeurs(allCandidates, r.coeurs, scoreRetenu, r)),
+  });
+
   // Lien direct vers un dossier (ligne cliquée sur le tableau de bord).
   // Le paramètre est retiré ensuite : recharger la page ne le rouvre pas.
   const dossierDemande = paramLien('dossier');
@@ -529,9 +719,78 @@ async function loadCampaign(campaign) {
   }
 }
 
+/**
+ * Absences (js/absences.js) : `_absences` compte tous les créneaux manqués,
+ * même replanifiés (ils restent visibles au classement) ; `_absentMaintenant`
+ * dit si le créneau actuel est marqué manqué.
+ */
+function marquerAbsences() {
+  allCandidates.forEach(c => {
+    const liste = absencesMap.get(c.id) || [];
+    c._absences = liste.length;
+    // Évalué malgré tout (signalement par erreur) : l'évaluation l'emporte.
+    c._absentMaintenant = !c._nbEvals && absentAuCreneau(liste, ivParCooptant[c.id]);
+  });
+}
+const marqueAbsences = c => c._absences
+  ? ` <span class="nb-absences" title="Ne s'est pas présenté·e à un entretien">${libelleAbsences(c._absences)}</span>` : '';
+
+// La fiche a signalé ou retiré une absence : on relit les absences seulement.
+async function rechargerAbsences() {
+  absencesMap = absencesParCooptant(await chargerAbsences(db, currentCampaign.organizationId, currentCampaign.id));
+  marquerAbsences();
+}
+
 // ─── Score computation ───────────────────────────────────────────
 function computeAllScores() {
   calculerScores(criteriaConfig, allCandidates, allEvaluations);
+  calculerSeverite();
+}
+
+/**
+ * Sévérité des staffeurs (js/delib.js) : d'après la note de chaque cooptant
+ * (ajustements non compris) et les staffeurs de son entretien. `_correction`
+ * est en points de % ; elle ne compte que si le bureau l'a activée.
+ */
+function calculerSeverite() {
+  const jures = iv => iv ? [iv.jury1Id, iv.jury2Id, iv.jury3Id].filter(Boolean) : [];
+  severite = severiteStaffeurs(allCandidates
+    .map(c => ({ id: c.id, score: scoreEffectif(c), jures: jures(ivParCooptant[c.id]) })));
+  allCandidates.forEach(c => { c._correction = severite.corrections.get(c.id) || 0; });
+}
+const severiteActive = () => !!currentCampaign?.corrigerSeverite;
+
+// ── Ajustement de délibération (js/notes.js) ─────────────────────
+// « Je le monte d'un point » : dans l'unité du score affiché, points de %
+// avec une grille chiffrée, points sur 20 sinon (note globale).
+const enPourcent = c => c._score != null;
+const pasAjustement = c => enPourcent(c) ? 1 : 0.5;
+const bonusPct = c => (c._ajustement || 0) * (enPourcent(c) ? 1 : 5);
+/** Correction de sévérité des staffeurs, en points de %, si le bureau l'a activée. */
+const correctionPct = c => severiteActive() ? (c._correction || 0) : 0;
+/** Score qui classe : celui des évaluations, correction des staffeurs et ajustement compris (en %). */
+function scoreRetenu(c) {
+  const base = c._score ?? (c._noteGlobaleAvg != null ? c._noteGlobaleAvg * 5 : null);
+  return base == null ? null : base + correctionPct(c) + bonusPct(c);
+}
+const signe = n => (n > 0 ? '+' : n < 0 ? '−' : '±') + (n ? String(Math.abs(n)).replace('.', ',') : '');
+/** Note affichée, correction des staffeurs et ajustement compris. */
+function texteScore(c) {
+  const a = c._ajustement || 0;
+  if (enPourcent(c)) return `${Math.round(c._score + correctionPct(c) + a)} %`;
+  if (c._noteGlobaleAvg != null) return `${String(+(c._noteGlobaleAvg + correctionPct(c) / 5 + a).toFixed(1)).replace('.', ',')}/20`;
+  return null;
+}
+/** Ce qui fait la note affichée, quand elle n'est pas la note brute des évaluations. */
+function detailScore(c) {
+  const base = c._score != null ? `${c._score} %` : c._noteGlobaleAvg != null ? `${String(c._noteGlobaleAvg).replace('.', ',')}/20` : '';
+  const corr = correctionPct(c);
+  if (!base || (!corr && !c._ajustement)) return '';
+  const n = enPourcent(c) ? corr : Math.round(corr / 5 * 10) / 10;
+  const corrTexte = `${signe(n)} point${Math.abs(n) > 1 ? 's' : ''}${enPourcent(c) ? '' : ' sur 20'}`;
+  return `Évaluations : ${base}`
+    + (corr ? ` · correction des staffeurs ${corrTexte}` : '')
+    + (c._ajustement ? ` · ajustement de délibération ${signe(c._ajustement)}` : '');
 }
 
 function scoreColor(pct) {
@@ -545,7 +804,7 @@ function scoreColor(pct) {
 let tri = { cle: 'entretien', sens: 1 };
 let listeAffichee = [];   // ordre du tableau, pour ↑/↓ dans la fiche
 
-const STATUT_RANG = { recu: 0, place: 1, entretien_fait: 2 };
+const STATUT_RANG = { recu: 0, place: 1, entretien_fait: 2, absent: 3 };
 
 /** L'entretien est-il terminé ? (fin enregistrée, sinon début + durée) */
 function entretienPasse(c) {
@@ -560,7 +819,8 @@ function entretienPasse(c) {
  * non. Le statut en base ne change pas (il n'avance qu'avec une évaluation
  * ou à la main) ; la colonne Éval. dit s'il manque l'évaluation (✗).
  */
-const statutAffiche = c => (c.statut === 'entretien_fait' || entretienPasse(c)) ? 'entretien_fait' : (c.statut || 'recu');
+const statutAffiche = c => c._absentMaintenant ? 'absent'
+  : (c.statut === 'entretien_fait' || entretienPasse(c)) ? 'entretien_fait' : (c.statut || 'recu');
 function trierTableau(cands) {
   const nom = c => pourRecherche(`${c.prenom || ''} ${c.nom || ''}`);
   const parNom = (a, b) => nom(a).localeCompare(nom(b), 'fr');
@@ -568,8 +828,11 @@ function trierTableau(cands) {
     nom:       c => nom(c),
     entretien: c => entretienParCooptant[c.id]?.getTime() ?? null,
     statut:    c => STATUT_RANG[statutAffiche(c)] ?? 0,
+    inscription: c => c.createdAt?.toMillis?.() ?? null,
+    parcours:  c => { const i = PARCOURS.indexOf(parcoursCooptant(c)); return i >= 0 ? i : null; },
+    messenger: c => (c.ajouteMessenger ? 1 : 0),
     evals:     c => c._nbEvals || 0,
-    score:     c => scoreEffectif(c),
+    score:     c => scoreRetenu(c),
   }[tri.cle] || (c => entretienParCooptant[c.id]?.getTime() ?? null);
   return [...cands].sort((a, b) => {
     const x = val(a), y = val(b);
@@ -581,6 +844,47 @@ function trierTableau(cands) {
   });
 }
 
+// Recherche rapide : elle reprend ce que la page a déjà lu, au lieu de tout relire.
+window.donneesRecherche = () => currentCampaign && currentOrg ? {
+  org: currentOrg, campaign: currentCampaign, cooptants: allCandidates,
+  entretiens: Object.entries(entretienParCooptant).map(([candidateId, debut]) => ({ candidateId, debut })),
+} : null;
+
+// Recherche rapide (js/recherche.js) : la fiche s'ouvre avec la liste de la page.
+window.ouvrirCooptant = id => {
+  if (!allCandidates.some(x => x.id === id)) return false;
+  ficheDe(id);
+  return true;
+};
+
+// ── Groupe Messenger (même suivi que le tableau de bord) ───────────
+function majCompteMessenger() {
+  const el = document.getElementById('compte-messenger');
+  if (!el) return;
+  const n = allCandidates.filter(c => c.ajouteMessenger).length;
+  el.textContent = allCandidates.length ? `Messenger : ${n}/${allCandidates.length} ajoutés` : '';
+}
+document.getElementById('btn-messenger-tout').addEventListener('click', async e => {
+  e.stopPropagation();
+  const btn = e.currentTarget;   // lu avant l'attente : currentTarget est vidé ensuite
+  const aCocher = listeAffichee.filter(c => !c.ajouteMessenger);
+  if (!aCocher.length) return showToast('Tous les cooptants affichés sont déjà cochés.', 'info');
+  if (!await confirmDialog(`Cocher « ajouté au groupe Messenger » pour ${aCocher.length} cooptant${aCocher.length > 1 ? 's' : ''} ? Vous pourrez décocher ensuite ceux qui manquent.`,
+    { title: 'Groupe Messenger', confirmLabel: 'Tout cocher', danger: false })) return;
+  btn.disabled = true;
+  try {
+    for (let i = 0; i < aCocher.length; i += 400) {
+      const lot = writeBatch(db);
+      aCocher.slice(i, i + 400).forEach(c => lot.update(doc(db, 'candidates', c.id), { ajouteMessenger: true }));
+      await lot.commit();
+    }
+    aCocher.forEach(c => { c.ajouteMessenger = true; });
+    showToast(`${aCocher.length} cooptant${aCocher.length > 1 ? 's' : ''} coché${aCocher.length > 1 ? 's' : ''}.`, 'success');
+    applyFilters();
+  } catch (err) { showToast('Erreur : ' + err.message, 'error'); }
+  finally { btn.disabled = false; }
+});
+
 /** Ouvre la fiche partagée (js/fiche-cooptant.js) d'un cooptant de la page. */
 function ficheDe(id, onglet) {
   const c = allCandidates.find(x => x.id === id);
@@ -588,16 +892,18 @@ function ficheDe(id, onglet) {
   ouvrirFiche(c, {
     org: currentOrg, campaign: currentCampaign, par: user?.email || null, onglet,
     liste: () => currentView === 'classement' ? getSortedCandidates() : listeAffichee,
-    onChange: () => { if (currentView === 'classement') renderRanking(); else applyFilters(); },
+    onChange: async (cc, maj) => {
+      // Salle ou staffeurs changés dans la fiche : la colonne Staffeurs suit.
+      (maj?.entretiens || []).forEach(e => { const iv = ivParCooptant[e.candidateId]; if (iv?.id === e.id) Object.assign(iv, e); });
+      await rechargerAbsences().catch(() => {});
+      if (currentView === 'classement') renderRanking(); else applyFilters();
+    },
     onSupprime: idSuppr => {
       allCandidates = allCandidates.filter(x => x.id !== idSuppr);
       if (currentView === 'classement') renderRanking(); else applyFilters();
     },
-    // La fiche d'entretien s'ouvre en panneau, la fiche revient ensuite sur ses évaluations.
-    ouvrirEvaluation: cand => { fermerFiche(); ficheApresEval = cand.id; openEvalPanel(cand.id); },
   });
 }
-let ficheApresEval = null;
 
 function renderTable(cands) {
   const corps = document.getElementById('cands-body');
@@ -607,6 +913,7 @@ function renderTable(cands) {
   const total = allCandidates.length;
   document.getElementById('compte-liste').textContent = cands.length === total
     ? `${total} cooptant${total > 1 ? 's' : ''}` : `${cands.length} sur ${total}`;
+  majCompteMessenger();
 
   document.querySelectorAll('#cands-table thead th').forEach(th => {
     const b = th.querySelector('.th-tri');
@@ -631,6 +938,7 @@ function renderTable(cands) {
       es.style.display = '';
       document.getElementById('es-clear-filters').addEventListener('click', () => {
         document.getElementById('search').value = '';
+        document.getElementById('filtre-parcours').value = '';
         document.querySelectorAll('#filtres .filtre').forEach(b => b.setAttribute('aria-pressed', 'false'));
         applyFilters();
       });
@@ -643,28 +951,49 @@ function renderTable(cands) {
   corps.innerHTML = cands.map(c => {
     const [bc, label] = BADGES[statutAffiche(c)] || ['badge-gray', c.statut];
     const rdv = entretienParCooptant[c.id];
+    const marqueAjust = c._ajustement ? ` <span class="ct-ajust" title="Ajustement de délibération">${signe(c._ajustement)}</span>` : '';
     const score = c._score != null
-      ? `<span class="ct-score" style="color:${scoreColor(c._score)};">${c._score} %</span>`
+      ? `<span class="ct-score" style="color:${scoreColor(c._score + correctionPct(c))};" title="${esc(detailScore(c))}">${texteScore(c)}</span>${marqueAjust}`
       : c._partiel ? `<span class="badge badge-orange" title="Le score apparaît quand la grille est remplie en entier">${c._nbCriteresNotes}/${c._nbCriteresTotal}</span>`
-      : c._noteGlobaleAvg != null ? `<span class="ct-score">${c._noteGlobaleAvg}/20</span>` : '<span class="ct-vide">·</span>';
+      : c._noteGlobaleAvg != null ? `<span class="ct-score" title="${esc(detailScore(c))}">${texteScore(c)}</span>${marqueAjust}` : '<span class="ct-vide">·</span>';
     const iv = ivParCooptant[c.id];
     const nbJures = iv ? [iv.jury1Id, iv.jury2Id, iv.jury3Id].filter(Boolean).length : 0;
     return `<tr tabindex="0" data-id="${esc(c.id)}">
-      <td><div class="ct-nom">${esc(`${c.prenom || ''} ${c.nom || ''}`.trim() || c.email || 'Cooptant')}${c.langue === 'en' ? ' <span title="Entretien en anglais">🇬🇧</span>' : ''}</div></td>
+      <td><div class="ct-nom">${esc(`${c.prenom || ''} ${c.nom || ''}`.trim() || c.email || 'Cooptant')}${c.langue === 'en' ? ' <span title="Entretien en anglais">🇬🇧</span>' : ''}${marqueAbsences(c)}</div></td>
+      <td class="col-parcours">${parcoursCooptant(c) ? `<span class="ct-parcours"><i style="background:${couleurParcours(parcoursCooptant(c))}"></i>${esc(parcoursCooptant(c))}</span>` : '<span class="ct-vide">·</span>'}</td>
+      <td class="col-inscr ct-rdv" title="${c.createdAt ? esc(formatDatetime(c.createdAt)) : ''}">${c.createdAt?.toDate ? esc(c.createdAt.toDate().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })) : '<span class="ct-vide">·</span>'}</td>
       <td class="ct-rdv">${rdv ? `${rdv.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })}, ${rdv.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : '<span class="ct-vide">Pas planifié</span>'}</td>
       <td class="ct-jury" data-jury="${esc(c.id)}">${iv ? (nbJures ? '<span class="ct-vide">…</span>' : '<span style="color:var(--red);">À définir</span>') : '<span class="ct-vide">·</span>'}</td>
       <td><span class="badge ${bc}">${label}</span></td>
       <td class="ct-evals">${c._nbEvals ? `${c._nbEvals} ✓`
+        : c._absentMaintenant ? '<span class="ct-absent" title="Ne s\'est pas présenté·e : rien à évaluer">Absent</span>'
         : entretienPasse(c) ? '<span class="ct-manque" title="Entretien passé, aucune évaluation : absent ou évaluation oubliée ?">✗</span>'
         : '<span class="ct-vide">·</span>'}</td>
       <td>${score}</td>
-      <td title="${c._note ? 'Note interne' : ''}">${c._note ? '📝' : ''}</td>
+      <td class="col-messenger"><input type="checkbox" class="case-messenger" ${c.ajouteMessenger ? 'checked' : ''} aria-label="${esc(`${c.prenom || ''} ${c.nom || ''}`.trim())} ajouté au groupe Messenger" title="Ajouté au groupe Messenger"></td>
+      <td class="col-note" title="${c._note ? 'Note interne' : ''}">${c._note ? icone('note') : ''}</td>
+      <td class="col-lien">${c.resultToken ? `<a class="ct-lien" href="/candidat.html?token=${esc(c.resultToken)}" target="_blank" rel="noopener" title="Page de suivi vue par le cooptant" aria-label="Page de suivi vue par le cooptant"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg></a>` : ''}</td>
     </tr>`;
   }).join('');
 
   corps.querySelectorAll('tr').forEach(tr => {
-    tr.addEventListener('click', () => ficheDe(tr.dataset.id));
-    tr.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ficheDe(tr.dataset.id); } });
+    tr.addEventListener('click', e => { if (e.target.closest('a, input, button')) return; ficheDe(tr.dataset.id); });
+    tr.addEventListener('keydown', e => { if (e.target !== tr) return; if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ficheDe(tr.dataset.id); } });
+    // Ajout au groupe Messenger : enregistré tout de suite, pour tout le bureau.
+    const caseM = tr.querySelector('.case-messenger');
+    caseM?.addEventListener('change', async () => {
+      const c = allCandidates.find(x => x.id === tr.dataset.id);
+      const oui = caseM.checked;
+      caseM.disabled = true;
+      try {
+        await updateDoc(doc(db, 'candidates', c.id), { ajouteMessenger: oui });
+        c.ajouteMessenger = oui;
+        majCompteMessenger();
+      } catch (err) {
+        caseM.checked = !oui;
+        showToast('Non enregistré : ' + err.message, 'error');
+      } finally { caseM.disabled = false; }
+    });
   });
   // Noms des jurés, mémorisés par la fiche : une lecture par personne, pas par ligne.
   cands.forEach(c => {
@@ -673,7 +1002,7 @@ function renderTable(cands) {
     if (!ids.length) return;
     nomsJures(ids).then(noms => {
       const td = corps.querySelector(`td[data-jury="${CSS.escape(c.id)}"]`);
-      if (td) { td.textContent = noms.map(n => (n || 'Membre du jury').split(' ')[0]).join(', '); td.title = noms.filter(Boolean).join(', '); }
+      if (td) { td.textContent = noms.map(n => (n || 'Staffeur').split(' ')[0]).join(', '); td.title = noms.filter(Boolean).join(', '); }
     });
   });
 }
@@ -694,7 +1023,8 @@ function getSortedCandidates() {
   } else {
     // Auto: sort by effective score desc, unevaluated at end
     // _score (criteria %) takes priority; fallback to noteGlobale/20*100 when no numeric criteria
-    const eff = c => c._score ?? (c._noteGlobaleAvg !== null ? Math.round(c._noteGlobaleAvg * 5) : null);
+    // Ajustements de délibération compris (scoreRetenu).
+    const eff = scoreRetenu;
     sorted = [...allCandidates].sort((a, b) => {
       const sa = eff(a), sb = eff(b);
       if (sa === null && sb === null) return 0;
@@ -708,6 +1038,28 @@ function getSortedCandidates() {
 
 let rangSelection = null;   // cooptant sélectionné au clavier (↑ ↓ pour le déplacer)
 
+// Enregistrement des ajustements : une demi-seconde après le dernier clic,
+// puis le classement se recalcule (s'il suit les notes).
+const minuteursAjust = new Map();
+let conseilOrdreManuel = false;
+function planifierAjustement(c) {
+  clearTimeout(minuteursAjust.get(c.id));
+  minuteursAjust.set(c.id, setTimeout(async () => {
+    minuteursAjust.delete(c.id);
+    try {
+      await enregistrerAjustement(db, notesMap, {
+        organizationId: currentCampaign.organizationId, campaignId: currentCampaign.id, candidateId: c.id,
+      }, c._ajustement || 0);
+    } catch (err) { showToast('Ajustement non enregistré : ' + err.message, 'error'); return; }
+    if (minuteursAjust.size) return;   // d'autres clics en cours : on attend le dernier
+    if (!rankOrderLocal.length) renderRanking();
+    else if (!conseilOrdreManuel) {
+      conseilOrdreManuel = true;
+      showToast('Ordre manuel en cours : « Reclasser selon les notes » pour tenir compte des ajustements.', 'info');
+    }
+  }, 600));
+}
+
 function renderRanking() {
   const container = document.getElementById('ranking-list');
   container.innerHTML = '';
@@ -720,9 +1072,29 @@ function renderRanking() {
   const sorted = getSortedCandidates();
   const nbPlaces = parseInt(document.getElementById('nb-places-input').value) || 0;
   const criteresChiffres = (criteriaConfig || []).filter(cr => ['echelle', 'note'].includes(cr.type) && cr.max > 0);
+  const zg = zoneActuelle(sorted.length);
+  majAidesDelib(zg);
+  // « Ne montrer que la zone grise » : retenus d'office et derniers repliés.
+  const replie = zoneSeule && zg;
+  const ligneRepliee = (n, texte) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'zg-replie';
+    b.innerHTML = `<b>${n}</b> ${texte} <span>Tout afficher</span>`;
+    b.addEventListener('click', () => basculerZoneSeule(false));
+    container.appendChild(b);
+  };
+  if (replie && zg.debut > 0) ligneRepliee(zg.debut, `retenu${zg.debut > 1 ? 's' : ''} d'office, au-dessus de la zone grise`);
 
   sorted.forEach((c, idx) => {
     const rank = idx + 1;
+    if (replie && (idx < zg.debut || idx > zg.fin)) return;
+    if (zg && idx === zg.debut) {
+      const div = document.createElement('div');
+      div.className = 'zg-divider';
+      div.textContent = `Zone grise : rangs ${zg.debut + 1} à ${zg.fin + 1}, à discuter`;
+      container.appendChild(div);
+    }
     if (nbPlaces > 0 && rank === nbPlaces + 1) {
       const div = document.createElement('div');
       div.className = 'cutoff-divider';
@@ -732,7 +1104,8 @@ function renderRanking() {
 
     const nom = `${c.prenom || ''} ${c.nom || ''}`.trim() || c.email || 'Cooptant';
     const row = document.createElement('div');
-    row.className = `rank-row${nbPlaces > 0 ? (rank <= nbPlaces ? ' above-cut' : ' below-cut') : ''}${c.id === rangSelection ? ' selection' : ''}`;
+    const dansZone = zg && idx >= zg.debut && idx <= zg.fin;
+    row.className = `rank-row${nbPlaces > 0 ? (rank <= nbPlaces ? ' above-cut' : ' below-cut') : ''}${dansZone ? ' zone-grise' : ''}${c.id === rangSelection ? ' selection' : ''}`;
     row.dataset.candId = c.id;
     row.tabIndex = 0;
     row.setAttribute('aria-label', `${rank}. ${nom}`);
@@ -763,9 +1136,37 @@ function renderRanking() {
     const nomEl = document.createElement('button');
     nomEl.type = 'button';
     nomEl.className = 'rank-nom';
-    nomEl.innerHTML = esc(nom) + (c.langue === 'en' ? ' <span title="Entretien en anglais">🇬🇧</span>' : '');
+    nomEl.innerHTML = esc(nom) + (c.langue === 'en' ? ' <span title="Entretien en anglais">🇬🇧</span>' : '') + marqueAbsences(c);
     nomEl.title = 'Voir la fiche';
     nomEl.addEventListener('click', e => { e.stopPropagation(); ficheDe(c.id); });
+
+    // Une ligne d'infos pour classer : parcours, et où en est l'entretien.
+    const ident = document.createElement('div');
+    ident.className = 'rank-ident';
+    const infos = [];
+    const parcours = parcoursCooptant(c);
+    if (parcours) infos.push(`<span title="Parcours"><i style="background:${couleurParcours(parcours)}"></i>${esc(parcours)}</span>`);
+    const rdv = entretienParCooptant[c.id];
+    const court = d => `${d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })} ${d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+    if (!rdv) infos.push('<span>Sans entretien</span>');
+    else if (statutAffiche(c) === 'absent') infos.push('<span class="ri-absent">Absent·e à l\'entretien</span>');
+    else if (rdv.getTime() > Date.now()) infos.push(`<span title="Entretien à venir">Entretien ${esc(court(rdv))}</span>`);
+    else if (!c._nbEvals) infos.push('<span class="ri-alerte" title="L\'entretien est passé, aucune évaluation">Pas encore évalué</span>');
+    else infos.push(`<span>Évalué${c._nbEvals > 1 ? ` par ${c._nbEvals} staffeurs` : ''}</span>`);
+    if (resultatsVote) {
+      const coeurs = resultatsVote.coeurs.get(c.id) || 0;
+      const abst = resultatsVote.abstentions?.get(c.id) || 0;
+      const sur = votantsPour(c.id, resultatsVote);
+      const detail = `${coeurs} coup${coeurs > 1 ? 's' : ''} de cœur sur ${sur} votant${sur > 1 ? 's' : ''}`
+        + (abst ? ` (${abst} abstention${abst > 1 ? 's' : ''} : ami, coloc…)` : '');
+      if (plebiscite(c.id, resultatsVote)) infos.push(`<span class="ri-plebiscite" title="Au moins deux tiers des votants le veulent : ${esc(detail)}">${icone('coche')}Plébiscité</span>`);
+      if (coeurs) infos.push(`<span class="ri-coeurs" title="${esc(detail)}">${icone('coeur')}${coeurs}</span>`);
+      if (abst) infos.push(`<span class="ri-abst" title="${esc(detail)}">${abst} abstention${abst > 1 ? 's' : ''}</span>`);
+    }
+    const infosEl = document.createElement('div');
+    infosEl.className = 'rank-infos';
+    infosEl.innerHTML = infos.join('');
+    ident.append(nomEl, infosEl);
 
     // Mini-barres : un critère chacune, dans l'ordre de la grille.
     const barres = document.createElement('div');
@@ -779,10 +1180,35 @@ function renderRanking() {
 
     const score = document.createElement('div');
     score.className = 'rank-score';
-    if (c._score != null) { score.textContent = `${c._score} %`; score.style.color = scoreColor(c._score); }
-    else if (c._partiel) score.innerHTML = `<span class="badge badge-orange" title="Le score apparaît quand la grille est remplie en entier">${c._nbCriteresNotes}/${c._nbCriteresTotal}</span>`;
-    else if (c._noteGlobaleAvg != null) score.textContent = `${c._noteGlobaleAvg}/20`;
-    else { score.textContent = '·'; score.style.color = 'var(--text-light)'; }
+    const majScore = () => {
+      if (c._score != null) { score.textContent = texteScore(c); score.style.color = scoreColor(c._score + correctionPct(c)); }
+      else if (c._partiel) score.innerHTML = `<span class="badge badge-orange" title="Le score apparaît quand la grille est remplie en entier">${c._nbCriteresNotes}/${c._nbCriteresTotal}</span>`;
+      else if (c._noteGlobaleAvg != null) score.textContent = texteScore(c);
+      else { score.textContent = '·'; score.style.color = 'var(--text-light)'; }
+      score.title = detailScore(c);
+      score.classList.toggle('ajuste', !!score.title);
+    };
+    majScore();
+
+    // Ajuster la note sur le moment (− / +), gardé dans le dossier.
+    const ajust = document.createElement('div');
+    ajust.className = `rank-ajust${c._ajustement ? ' actif' : ''}`;
+    if (scoreEffectif(c) != null) {
+      const pas = String(pasAjustement(c)).replace('.', ',');
+      const unite = enPourcent(c) ? ' point de %' : ' point';
+      ajust.innerHTML = `<button type="button" data-aj="-1" title="Baisser de ${pas}${unite}" aria-label="Baisser la note de ${esc(nom)}">−</button>`
+        + `<span title="Ajustement de délibération">${signe(c._ajustement || 0)}</span>`
+        + `<button type="button" data-aj="1" title="Monter de ${pas}${unite}" aria-label="Monter la note de ${esc(nom)}">+</button>`;
+      ajust.querySelectorAll('[data-aj]').forEach(b => b.addEventListener('click', e => {
+        e.stopPropagation();
+        const valeur = Math.round(((c._ajustement || 0) + Number(b.dataset.aj) * pasAjustement(c)) * 100) / 100;
+        c._ajustement = valeur;
+        ajust.querySelector('span').textContent = signe(valeur);
+        ajust.classList.toggle('actif', !!valeur);
+        majScore();
+        planifierAjustement(c);
+      }));
+    }
 
     const evals = document.createElement('div');
     evals.className = 'rank-evals';
@@ -796,10 +1222,128 @@ function renderRanking() {
       selectionnerRang(c.id);
     });
 
-    row.append(grip, num, nomEl, barres, score, evals);
+    row.append(grip, num, ident, barres, score, ajust, evals);
     container.appendChild(row);
+    if (zg && idx === zg.fin && !replie && idx < sorted.length - 1) {
+      const fin = document.createElement('div');
+      fin.className = 'zg-divider zg-fin';
+      fin.textContent = 'Fin de la zone grise';
+      container.appendChild(fin);
+    }
   });
+  if (replie && zg.fin < sorted.length - 1) {
+    const n = sorted.length - zg.fin - 1;
+    ligneRepliee(n, `en dessous de la zone grise`);
+  }
   if (rangSelection) container.querySelector(`.rank-row[data-cand-id="${CSS.escape(rangSelection)}"]`)?.focus({ preventScroll: true });
+  majProfilClassement(sorted, nbPlaces);
+}
+
+// ── Aides à la délibération : zone grise, sévérité des staffeurs ───
+const nbPlacesActuel = () => parseInt(document.getElementById('nb-places-input').value) || 0;
+/** Largeur de la zone grise : celle choisie par le bureau, sinon un cinquième des places. */
+const largeurZone = () => currentCampaign?.zoneGrise ?? largeurZoneConseillee(nbPlacesActuel());
+const zoneActuelle = total => zoneGrise(total, nbPlacesActuel(), largeurZone());
+
+/** État des réglages d'aide au-dessus du classement. */
+function majAidesDelib(zg) {
+  const avecPlaces = nbPlacesActuel() > 0;
+  document.getElementById('zg-champ').hidden = !avecPlaces;
+  const champ = document.getElementById('zone-grise-input');
+  if (document.activeElement !== champ) champ.value = largeurZone();
+  const bouton = document.getElementById('btn-zone-seule');
+  bouton.hidden = !zg;
+  bouton.setAttribute('aria-pressed', String(!!(zoneSeule && zg)));
+  document.getElementById('corriger-severite').checked = severiteActive();
+  const etat = document.getElementById('sev-etat');
+  if (!severite?.suffisant) etat.textContent = 'pas encore assez d\'évaluations';
+  else if (severiteActive()) {
+    const corr = [...severite.corrections.values()].filter(Boolean);
+    const max = Math.max(0, ...corr.map(Math.abs));
+    etat.textContent = corr.length ? `${corr.length} note${corr.length > 1 ? 's' : ''} corrigée${corr.length > 1 ? 's' : ''}, de ${String(max).replace('.', ',')} point${max > 1 ? 's' : ''} au plus` : 'aucune note à corriger';
+  } else etat.textContent = '';
+}
+
+function basculerZoneSeule(oui) {
+  zoneSeule = oui;
+  renderRanking();
+}
+
+/** Enregistre un réglage du classement sur le recrutement (partagé par tout le bureau). */
+async function enregistrerClassement(champs, annuler) {
+  try {
+    await updateDoc(doc(db, 'campaigns', currentCampaign.id), champs);
+  } catch (err) {
+    annuler();
+    showToast('Non enregistré : ' + err.message, 'error');
+  }
+}
+
+/** Fenêtre « Sévérité des staffeurs » : l'écart de chacun, et comment il est calculé. */
+async function ouvrirDetailSeverite() {
+  const effets = [...(severite?.effets || new Map())].sort((a, b) => b[1].effet - a[1].effet);
+  const noms = await nomsJures(effets.map(([id]) => id));
+  // Unité du score affiché : points de % avec une grille chiffrée, sinon points sur 20.
+  const enPct = allCandidates.some(enPourcent);
+  const points = v => {
+    const n = enPct ? v : Math.round(v / 5 * 10) / 10;
+    return `${signe(n)} point${Math.abs(n) > 1 ? 's' : ''}${enPct ? '' : ' sur 20'}`;
+  };
+  // Verdict à partir de 5 points de % (1 point sur 20) : en dessous, l'écart ne change presque rien.
+  const verdict = e => e >= 5 ? '<span class="sev-genereux">plus généreux</span>'
+    : e <= -5 ? '<span class="sev-severe">plus sévère</span>' : '<span class="text-muted">dans la moyenne</span>';
+  const fond = document.createElement('div');
+  fond.className = 'fiche-overlay open';
+  fond.innerHTML = `<div class="fiche vote-dialogue" role="dialog" aria-modal="true" aria-labelledby="sev-titre">
+    <div class="fiche-tete"><div style="flex:1;"><div class="fiche-k">Délibération</div><h3 id="sev-titre">Sévérité des staffeurs</h3></div>
+      <button type="button" class="fiche-btn-icone" data-fermer aria-label="Fermer">✕</button></div>
+    <div class="fiche-corps">
+      <p class="vote-carte-texte">Chaque cooptant n'est noté que par les staffeurs de son entretien. Quand les cooptants d'un staffeur ont, en moyenne, de meilleures notes que les autres, il est compté comme plus généreux, et cet écart est retiré à ses cooptants. C'est l'inverse pour un staffeur plus sévère.</p>
+      <p class="vote-carte-texte">Un staffeur qui a fait peu d'entretiens n'est corrigé qu'en partie : deux ou trois bons cooptants ne suffisent pas à le dire généreux. Le calcul suppose que les cooptants sont répartis au hasard : un staffeur qui n'a fait que les entretiens d'un jour ou d'un groupe particulier peut sembler généreux à cause de ses cooptants.</p>
+      ${severite?.suffisant ? `<div class="sev-table-wrap"><table class="sev-table">
+        <thead><tr><th scope="col">Staffeur</th><th scope="col">Entretiens notés</th><th scope="col">Écart</th><th scope="col"></th></tr></thead>
+        <tbody>${effets.map(([id, e], i) => `<tr><td>${esc(noms[i] || 'Staffeur inconnu')}</td><td class="sev-n">${e.n}</td><td class="sev-n">${points(e.effet)}</td><td>${verdict(e.effet)}</td></tr>`).join('')}</tbody>
+      </table></div>
+      <p class="text-sm text-muted" style="margin:0;">Écart comparé à l'entretien moyen. Une note corrigée retire la moyenne des écarts des staffeurs de son entretien, ${enPct ? '15 points' : '3 points sur 20'} au plus. La moyenne de toutes les notes ne change pas : seul l'ordre bouge.</p>`
+      : '<p class="vote-garde-fou">Pas encore assez d\'évaluations : il faut au moins 8 cooptants notés et 2 staffeurs avec 2 entretiens chacun.</p>'}
+    </div>
+    <div class="fiche-pied"><button type="button" class="btn btn-secondary btn-sm" data-fermer style="margin-left:auto;">Fermer</button></div>
+  </div>`;
+  document.body.appendChild(fond);
+  const fermer = () => { fond.remove(); document.removeEventListener('keydown', echap); };
+  const echap = e => { if (e.key === 'Escape') fermer(); };
+  document.addEventListener('keydown', echap);
+  fond.addEventListener('click', e => { if (e.target === fond || e.target.closest('[data-fermer]')) fermer(); });
+  fond.querySelector('[data-fermer]').focus();
+}
+
+/**
+ * Au-dessus du classement (onglet Classement et délibération) : où en sont
+ * les entretiens, et la répartition par parcours des retenus (au-dessus de
+ * la ligne) et de tous. Recalculé à chaque déplacement.
+ */
+function majProfilClassement(classes, nbPlaces) {
+  const profil = document.getElementById('delib-profil');
+  if (!classes.length) { profil.innerHTML = ''; return; }
+  const maintenant = Date.now();
+  const avecRdv = classes.filter(c => entretienParCooptant[c.id]);
+  const absents = classes.filter(c => statutAffiche(c) === 'absent').length;
+  const passes = avecRdv.filter(c => entretienParCooptant[c.id].getTime() <= maintenant && statutAffiche(c) !== 'absent');
+  const evalues = classes.filter(c => c._nbEvals > 0).length;
+  const chiffre = (n, lbl) => `<span><b>${n}</b> ${lbl}</span>`;
+  profil.innerHTML = `<div class="dp-chiffres">
+      ${chiffre(`${evalues}/${classes.length}`, 'évalués')}
+      ${chiffre(passes.length, `entretien${passes.length > 1 ? 's' : ''} passé${passes.length > 1 ? 's' : ''}`)}
+      ${chiffre(avecRdv.length - passes.length - absents, 'à venir')}
+      ${absents ? chiffre(absents, `absent${absents > 1 ? 's' : ''}`) : ''}
+      ${classes.length - avecRdv.length ? chiffre(classes.length - avecRdv.length, 'sans entretien') : ''}
+    </div>`
+    + (classes.some(parcoursCooptant)
+      ? htmlRepartitionParcours([
+          ...(nbPlaces > 0 ? [{ titre: 'Retenus', cooptants: classes.slice(0, nbPlaces) }] : []),
+          { titre: 'Tous les cooptants', cooptants: classes },
+        ])
+      : '');
 }
 
 function selectionnerRang(id) {
@@ -843,8 +1387,12 @@ function updateDelibCounts() {
 
   const cell = (val, lbl) =>
     `<div><div class="delib-count-val">${val}</div><div class="delib-count-lbl">${lbl}</div></div>`;
+  const zg = zoneActuelle(total);
   document.getElementById('delib-counts').innerHTML =
-    cell(retenus, 'retenus') + cell(total, 'cooptants') + cell(`${evalues}/${total}`, 'évalués');
+    cell(retenus, 'retenus') + (zg ? cell(zg.fin - zg.debut + 1, 'à discuter') : '')
+    + cell(total, 'cooptants') + cell(`${evalues}/${total}`, 'évalués');
+  document.getElementById('btn-delib-reclasser').style.display = rankOrderLocal.length ? '' : 'none';
+
 
   document.getElementById('delib-sub').textContent = nbPlaces > 0
     ? `${nbPlaces} place${nbPlaces > 1 ? 's' : ''}, glisse les lignes pour réordonner`
@@ -1027,8 +1575,11 @@ function passeFiltres(c, actifs) {
   const statuts = actifs.filter(f => f in STATUT_RANG);
   if (statuts.length && !statuts.includes(statutAffiche(c))) return false;
   if (actifs.includes('sans-entretien') && entretienParCooptant[c.id]) return false;
-  if (actifs.includes('non-evalue') && c._nbEvals) return false;
+  if (actifs.includes('non-evalue') && (c._nbEvals || c._absentMaintenant)) return false;
+  if (actifs.includes('messenger-non') && c.ajouteMessenger) return false;
   if (actifs.includes('en') && c.langue !== 'en') return false;
+  const parcours = document.getElementById('filtre-parcours').value;
+  if (parcours && (parcoursCooptant(c) || 'aucun') !== parcours) return false;
   return true;
 }
 
@@ -1037,9 +1588,16 @@ function applyFilters() {
   // Sans accents : « celeste » trouve « Céleste ».
   const s = pourRecherche(document.getElementById('search').value);
   const actifs = [...document.querySelectorAll('#filtres .filtre[aria-pressed="true"]')].map(b => b.dataset.f);
-  renderTable(trierTableau(allCandidates.filter(c =>
-    (!s || pourRecherche(`${c.prenom} ${c.nom} ${c.email}`).includes(s)) && passeFiltres(c, actifs)
-  )));
+  const affiches = allCandidates.filter(c =>
+    (!s || pourRecherche(`${c.prenom} ${c.nom} ${c.email}`).includes(s)) && passeFiltres(c, actifs));
+  renderTable(trierTableau(affiches));
+  // Répartition par parcours : la liste affichée si elle est filtrée, et tous.
+  document.getElementById('liste-profil').innerHTML = allCandidates.some(parcoursCooptant)
+    ? htmlRepartitionParcours([
+        ...(affiches.length !== allCandidates.length ? [{ titre: 'Affichés', cooptants: affiches }] : []),
+        { titre: 'Tous les cooptants', cooptants: allCandidates },
+      ])
+    : '';
 }
 
 // ─── Réponses au formulaire ───────────────────────────────────────
@@ -1074,7 +1632,8 @@ function exportCSV() {
     const t = telephoneCooptant(c, customQuestions);
     return customQuestions.findIndex((q, qi) => t && texteReponse(reponseA(c, q, qi)).trim() === t);
   }).filter(i => i >= 0));
-  const questions = customQuestions.map((q, qi) => ({ q, qi })).filter(({ qi }) => !questionsTel.has(qi));
+  // L'ancienne question « Parcours » de l'asso : déjà dans la colonne Parcours.
+  const questions = customQuestions.map((q, qi) => ({ q, qi })).filter(({ q, qi }) => !questionsTel.has(qi) && !estQuestionParcours(q));
 
   const colonnes = [];
   if (classe) colonnes.push(['Rang', (c, i) => i + 1]);
@@ -1082,8 +1641,11 @@ function exportCSV() {
     ['Prénom', c => c.prenom],
     ['Nom', c => c.nom],
     ['Email', c => c.email],
+    ['Parcours', c => parcoursCooptant(c) || ''],
     ['Téléphone', c => telephoneCooptant(c, customQuestions)],
     ['Statut', c => BADGES[c.statut]?.[1] || c.statut || ''],
+    ['Messenger', c => c.ajouteMessenger ? 'oui' : 'non'],
+    ['Absences', c => c._absences || ''],
     ['Entretien', c => {
       const d = entretienParCooptant[c.id];
       return d ? `${d.toLocaleDateString('fr-FR')} ${hm(d)}` : '';
@@ -1094,10 +1656,13 @@ function exportCSV() {
     colonnes.push(
       ['Score %', c => nombre(c._score)],
       ['Critères notés', c => c._nbCriteresTotal && c._nbEvals ? `${c._nbCriteresNotes}/${c._nbCriteresTotal}` : ''],
-      ['Nb jurys', c => c._nbEvals || ''],
+      ['Nb évaluations', c => c._nbEvals || ''],
       ['Note globale /20', c => nombre(c._noteGlobaleAvg, 1)],
+      ...(severiteActive() ? [['Correction staffeurs (points de %)', c => c._correction ? nombre(c._correction, 1) : '']] : []),
+      ['Ajustement délibération', c => c._ajustement ? nombre(c._ajustement, 1) : ''],
+      ['Note retenue', c => texteScore(c) || ''],
     );
-    criteriaConfig.forEach(cr => colonnes.push([`Jury : ${cr.label}`, c => {
+    criteriaConfig.forEach(cr => colonnes.push([`Critère : ${cr.label}`, c => {
       // Chaque type a sa propre lecture : la moyenne n'a de sens que pour les
       // critères chiffrés, les autres exportent leur réponse agrégée.
       const avg = c._criteriaAvgs?.[cr.id];
@@ -1110,8 +1675,19 @@ function exportCSV() {
       if (txt) return txt.values.join(' | ');
       return '';
     }]));
-    colonnes.push(['Commentaires jury', c => (c._comments || []).map(cm => cm.text).join(' | ')]);
+    colonnes.push(['Commentaires des staffeurs', c => (c._comments || []).map(cm => cm.text).join(' | ')]);
   }
+  // Vote des membres, une fois clos (avant, les bulletins sont illisibles).
+  if (resultatsVote) {
+    colonnes.push(
+      ['Coups de cœur', c => resultatsVote.coeurs.get(c.id) || 0],
+      ['Votants (hors abstentions)', c => votantsPour(c.id, resultatsVote)],
+      ['Abstentions au vote', c => resultatsVote.abstentions?.get(c.id) || ''],
+      ['Plébiscité', c => plebiscite(c.id, resultatsVote) ? 'oui' : ''],
+    );
+  }
+  const zgExport = zoneActuelle(sorted.length);
+  if (zgExport) colonnes.push(['Zone grise', (c, i) => i >= zgExport.debut && i <= zgExport.fin ? 'oui' : '']);
   colonnes.push(
     ['Notes internes', c => c._note || ''],
     ['Candidature reçue le', c => c.createdAt ? formatDatetime(c.createdAt) : ''],
@@ -1137,39 +1713,11 @@ function localDateISO() {
 
 init();
 
-// ── Eval side panel ───────────────────────────────────────────
-function openEvalPanel(candidateId) {
-  const url = `/secge/evaluer.html?candidateId=${candidateId}&campaignId=${currentCampaign?.id}&panel=1`;
-  document.getElementById('eval-panel-iframe').src = url;
-  document.getElementById('eval-panel-overlay').classList.add('open');
-  document.getElementById('eval-panel').classList.add('open');
-}
-
-async function closeEvalPanel() {
-  document.getElementById('eval-panel-overlay').classList.remove('open');
-  document.getElementById('eval-panel').classList.remove('open');
-  document.getElementById('eval-panel-iframe').src = '';
-  if (currentCampaign) await loadCampaign(currentCampaign);
-  // Ouverte depuis la fiche : on y revient, sur ses évaluations à jour.
-  if (ficheApresEval) { const id = ficheApresEval; ficheApresEval = null; ficheDe(id, 'evals'); }
-}
-
-window.closeEvalPanel = closeEvalPanel;
-
+// Évaluation enregistrée depuis une fiche : les scores et le classement changent.
 window.addEventListener('message', e => {
-  if (e.data === 'eval-saved') closeEvalPanel();
+  if (e.origin === location.origin && e.data === 'eval-saved' && currentCampaign) loadCampaign(currentCampaign);
 });
-
-document.getElementById('eval-panel-overlay').addEventListener('click', closeEvalPanel);
 </script>
 
-<div id="eval-panel-overlay" onclick="closeEvalPanel()"></div>
-<div id="eval-panel" onclick="event.stopPropagation()">
-  <div id="eval-panel-header">
-    <span style="font-weight:700;font-size:15px;">🎙 Fiche d'entretien</span>
-    <button onclick="closeEvalPanel()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text-muted);line-height:1;padding:0 4px;">×</button>
-  </div>
-  <iframe id="eval-panel-iframe" src="" title="Évaluation"></iframe>
-</div>
 </body>
 </html>

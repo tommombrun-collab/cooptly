@@ -68,7 +68,7 @@ export async function runPlacementAlgorithm(campaignId, onProgress = () => {}) {
   //    Un créneau hors période (ou déjà passé) ne doit jamais être proposé.
   const allowedDays = new Set(getCampaignDays(campaign).map(localDateStr));
   if (!allowedDays.size) {
-    onProgress('⚠️ La période d\'entretiens est terminée ou mal configurée.');
+    onProgress('La période d\'entretiens est terminée ou mal configurée.');
     return { placed: 0, failed: pending.length };
   }
 
@@ -85,7 +85,7 @@ export async function runPlacementAlgorithm(campaignId, onProgress = () => {}) {
     const jures = await juresDeLOrg(orgId);
     nbJuresPotentiels = jures.length;
     capacityMap = capaciteToutLeMonde(jures, allowedDays, dureeMinutes, cfg.heureFin);
-    onProgress(`Staff réputé disponible sur toute la période : ${jures.length} juré(s) mobilisable(s).`);
+    onProgress(`Staff réputé disponible sur toute la période : ${jures.length} staffeur(s) mobilisable(s).`);
   } else {
     capacityMap = buildCapacityMap(staffDispos, nbJurys, allowedDays, dureeMinutes);
   }
@@ -94,14 +94,14 @@ export async function runPlacementAlgorithm(campaignId, onProgress = () => {}) {
 
   if (!slotCount) {
     onProgress(cfg.staffToujoursDispo
-      ? '⚠️ Aucun juré : ajoute des membres, ou des noms dans la liste du staff.'
-      : '⚠️ Aucune disponibilité staff exploitable : vérifie les dispos du bureau et la période.');
+      ? 'Aucun staffeur : ajoute des membres, ou des noms dans la liste du staff.'
+      : 'Aucune disponibilité staff exploitable : vérifie les dispos du bureau et la période.');
     return { placed: 0, failed: pending.length };
   }
 
   onProgress(
     `${nbJuresPotentiels} membre(s) staff · ${pending.length} cooptant(s) à placer · ` +
-    `${slotCount} créneaux ouverts · ${nbJurys} juré(s) · ${dureeMinutes} min.`
+    `${slotCount} créneaux ouverts · ${nbJurys} staffeur(s) par entretien · ${dureeMinutes} min.`
   );
 
   // ── 7. Tri : candidats les plus contraints en premier ────────────
@@ -254,7 +254,7 @@ export async function runPlacementAlgorithm(campaignId, onProgress = () => {}) {
       e.pose.jury1Id = jury[0] || null; e.pose.jury2Id = jury[1] || null; e.pose.jury3Id = jury[2] || null;
       ajoutes += jury.length - deja.length;
     }
-    if (ajoutes) onProgress(`${ajoutes} juré(s) en plus placé(s) là où quelqu'un était libre.`);
+    if (ajoutes) onProgress(`${ajoutes} staffeur(s) en plus placé(s) là où quelqu'un était libre.`);
   }
 
   for (const { candidate, slotDate, endDate, pose, room } of aCreer) {
@@ -280,7 +280,7 @@ export async function runPlacementAlgorithm(campaignId, onProgress = () => {}) {
   }
 
   await flushBatch();
-  onProgress(`✅ Planning enregistré : ${assignments.length} entretien(s) créé(s).`);
+  onProgress(`Planning enregistré : ${assignments.length} entretien(s) créé(s).`);
   return { placed: assignments.length, failed };
 }
 

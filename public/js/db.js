@@ -1,4 +1,4 @@
-import { getFirestore, collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
+import { getFirestore, collection, doc, getDoc, getDocs, getDocsFromServer, addDoc, updateDoc, deleteDoc,
   query, where, orderBy, serverTimestamp, Timestamp }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { app } from './auth.js';
@@ -47,6 +47,17 @@ export async function createCampaign(data) {
 export async function getOrCreateOrgCampaign(orgId) {
   const existing = await getCampaignsByOrg(orgId);
   if (existing.length) return existing[0];
+  // ⚠️ Avant de créer, le SERVEUR doit confirmer qu'il n'y a rien. Une lecture
+  // servie par le cache (connexion coupée, quota dépassé) renvoie une liste
+  // vide : le 6 octobre 2026, une page a ainsi créé un 2e recrutement vide à
+  // une asso, que toutes les pages ont pris (le plus récent gagne). Si le serveur
+  // ne répond pas, getDocsFromServer échoue : la page affiche une erreur au
+  // lieu de créer quoi que ce soit.
+  const verif = await getDocsFromServer(query(collection(db, 'campaigns'), where('organizationId', '==', orgId)));
+  if (!verif.empty) {
+    return verif.docs.map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))[0];
+  }
   const ref = await addDoc(collection(db, 'campaigns'), {
     organizationId: orgId,
     name: 'Recrutement',

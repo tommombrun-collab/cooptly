@@ -39,6 +39,12 @@ Interactive, no sign-up: one click on **“Enter as the board”**, or try the p
 - Private internal notes on candidates and interviews, readable by the board only.
 - Settings: interview period and days (weekends or specific dates removed), slot length and step, break between interviews, minimum booking notice, panel size (with an optional extra interviewer), maximum parallel interviews, group interviews, English form translations, invite codes, staff list.
 - Recycle bin: every deletion can be undone for 30 days.
+- **No-shows**: a missed interview is recorded (by the board or from the panel's evaluation link), stays visible in the ranking after the candidate rebooks, and the candidate can pick a new slot themselves from their personal link.
+- **Consistency alerts**: settings that contradict each other (interviews longer than the gap between slots, applications open after the last bookable day…) and schedule risks (interviews without enough staff, someone booked twice at once, English interviews without an English-speaking interviewer, uneven workload measured by standard deviation), each with a link to fix it.
+- **Optimise**: redistributes interviewers on upcoming interviews (never the times) to avoid making someone come in for a single interview.
+- **Members' vote**: one link for the association's members, no account. Each picks their name and ticks their favourites, or abstains on a friend. Ballots stay secret until the vote is closed, even for the board; voting again replaces the previous ballot, and the dashboard shows who hasn't voted yet.
+- **Deliberation aids**: a grey zone around the cut-off line (the candidates worth discussing, with a view that shows only them), an optional correction for strict or lenient interviewers, and the background mix of selected candidates.
+- **End of recruitment**: closing the campaign erases all candidate data after 30 days (people selected included), keeps the settings for next year, and hands the board over to its successors.
 
 **Multi-association**: one account can belong to several boards, and each association's data is strictly isolated.
 
@@ -75,6 +81,7 @@ Not Scrum by the book (a solo project, no team and no ceremonies), but the same 
 | **Early September** | Hardening before the campaign | First 36 security-rule tests, an audit (12 bugs fixed), cascading deletions, an algorithm audit (5 bugs fixed), interviewer continuity. |
 | **Campaign week** (21–27 Sept.) | A daily feedback loop | **37 releases in 7 days**, each one triggered by feedback from the board during the live campaign (examples below). |
 | **Late September – October** | Other associations on board | English form for international students, stand mode for in-person sign-ups, last-resort availability and recommended slots (both suggested by a board member), private notes, calendar export, interview days, availability edited by the board. |
+| **Early October** | Deliberations and reliability | No-show tracking, consistency alerts, interviewer optimisation, a members' vote by link (secret until closed, abstentions), a grey zone and a correction for strict or lenient interviewers, end-of-recruitment erasure, and fewer database reads per page to stay within the free quota. |
 
 ### Feedback handled during the campaign
 | What the board reported | Root cause | Fix |
@@ -87,7 +94,7 @@ Not Scrum by the book (a solo project, no team and no ceremonies), but the same 
 | “Two interviews overlap on the schedule” | Each card took the full height of its cell. | Simultaneous interviews side by side, with a wider column for that day. |
 
 ### Continuous quality
-- **213 automated tests** in the production version (200 in this showcase), run on every push by continuous integration: security rules on the Firestore emulator, plus pure logic (interviewer assignment, slot capacity, scoring, form questions).
+- **284 automated tests** in the production version (271 in this showcase), run on every push by continuous integration: security rules on the Firestore emulator, plus pure logic (interviewer assignment, slot capacity, scoring, form questions).
 - **Every campaign bug becomes a test**: the real case is replayed so it can't come back.
 - **Safety nets in production**: a 30-day recycle bin on every deletion, and deletion protection on the database.
 
@@ -106,6 +113,8 @@ Backlog prioritised after the campaign:
 - **Interviewer assignment** (`public/js/jury.js`): excludes interviewers already booked on an overlapping slot (breaks included), favours continuity (those who just finished an interview), balances the workload, and forces a hand-over after a set number of back-to-back interviews.
 - **Slot capacity** (`public/js/capacite.js`): an interviewer only counts as free if they are free for the whole interview; a slot is only “full” once the people actually busy are removed, not a flat amount per interview.
 - **Automatic placement** (`public/js/algo.js`): chronological greedy first-fit, idempotent, and aware of interviews that already took place.
+- **Secret ballot enforced by the rules**: while a vote is open, nobody can read the ballots, the board included; the voting page never reads them back, so picking a name always starts from a blank ballot.
+- **Correction for strict or lenient interviewers** (`public/js/delib.js`): each interviewer's effect is estimated jointly (ridge least squares by coordinate descent), so someone often paired with a lenient colleague doesn't inherit their leniency; recentred so the average score doesn't move, only the order.
 - **Atomic operations**: moving to the recycle bin and deleting happen in a single Firestore batch (all or nothing); restoring is limited to the expected collections.
 - **Performance**: independent reads run in parallel, the SDK is preloaded, and the navigation bar is rendered before any network call.
 - **Accessibility**: keyboard navigation, `aria-*` attributes, WCAG AA contrast, light and dark themes.
@@ -132,9 +141,9 @@ node scripts/build-demo.mjs /cooptly    # output in _site/
 
 ## Tests
 
-200 tests using `node:test`, run on every push by continuous integration:
-- **Security rules** on the Firestore emulator (`@firebase/rules-unit-testing`): isolation between associations, account-free public flows, cascading deletions, recycle bin.
-- **Pure logic**: interviewer assignment, slot capacity, scoring and ranking, question order, URL parameters.
+271 tests using `node:test`, run on every push by continuous integration:
+- **Security rules** on the Firestore emulator (`@firebase/rules-unit-testing`): isolation between associations, account-free public flows, cascading deletions, recycle bin, no-shows, secret ballots and their limits, end-of-recruitment erasure.
+- **Pure logic**: interviewer assignment, slot capacity, scoring and ranking, question order, URL parameters, consistency alerts, optimisation, vote counting, correction for strict or lenient interviewers.
 
 ```bash
 cd tests
@@ -169,6 +178,7 @@ public/
   evaluer-publique.html   panel evaluation                      (public)
   planning-public.html    read-only schedule                    (public)
   candidat.html           application tracking                  (public)
+  voter.html              members' vote                         (public)
   planning.html           internal schedule for the board
   parametres.html         association settings
   secge/                  dashboard, candidates, evaluation form

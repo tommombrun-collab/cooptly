@@ -69,6 +69,23 @@ service cloud.firestore {
         && request.resource.data.uid == uid;
     }
 
+    // ── Envois ratés du formulaire (postuler.html) ───────────────
+    // Relevé ANONYME pour comprendre les « j'ai envoyé mais je n'apparais
+    // pas » : code d'erreur, étape, navigateur. Aucune donnée personnelle,
+    // champs et tailles bornés. Écrit sans compte, lu par l'admin seulement.
+    match /echecs_envoi/{id} {
+      allow read, delete: if isPlatformAdmin();
+      allow create: if request.resource.data.keys().hasOnly(
+          ['organizationId', 'campaignId', 'etape', 'code', 'message', 'enLigne', 'navigateur', 'createdAt'])
+        && request.resource.data.etape in ['verification', 'envoi']
+        && request.resource.data.code is string && request.resource.data.code.size() <= 60
+        && request.resource.data.message is string && request.resource.data.message.size() <= 300
+        && request.resource.data.navigateur is string && request.resource.data.navigateur.size() <= 200
+        && request.resource.data.enLigne is bool
+        && request.resource.data.createdAt == request.time;
+      allow update: if false;
+    }
+
     // ── Platform admins ──────────────────────────────────────────
     match /platform_admins/{userId} {
       allow read: if request.auth != null && (request.auth.uid == userId || isPlatformAdmin());
@@ -79,7 +96,16 @@ service cloud.firestore {
     // ── Organizations ────────────────────────────────────────────
     match /organizations/{orgId} {
       allow read: if true;  // public : nécessaire pour postuler.html (non authentifié)
-      allow write: if isPlatformAdmin();
+      allow create, delete: if isPlatformAdmin();
+      // Le bureau change lui-même le LOGO de son asso (Paramètres → Formulaire),
+      // rien d'autre : nom, adresse de lien et couleur restent à l'admin.
+      // Image bornée (le logo est relu par toutes les pages publiques).
+      allow update: if isPlatformAdmin() || (isSecge(orgId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['logoBase64'])
+        && (request.resource.data.get('logoBase64', '') == ''
+            || (request.resource.data.logoBase64 is string
+                && request.resource.data.logoBase64.size() < 300000
+                && request.resource.data.logoBase64.matches('data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+'))));
     }
 
     // ── Memberships ──────────────────────────────────────────────
@@ -330,6 +356,115 @@ service cloud.firestore {
       allow create: if ownsOrg(request.resource.data.organizationId);
       allow update: if ownsOrg(resource.data.organizationId)
         && request.resource.data.organizationId == resource.data.organizationId;
+    }
+
+    // ── Absences (js/absences.js) ─────────────────────────────────
+    // Un cooptant qui ne s'est pas présenté à son entretien. Une fiche par
+    // créneau manqué : elle reste après un nouveau créneau, pour le classement.
+    // Lecture réservée au bureau (c'est un jugement sur la personne). Les
+    // staffeurs la signalent SANS compte depuis le lien d'évaluation : la
+    // fiche doit alors désigner un vrai entretien de ce cooptant, déjà commencé,
+    // à son horaire actuel.
+    function absenceBienFormee(d) {
+      return d.keys().hasOnly(['organizationId', 'campaignId', 'candidateId', 'interviewId',
+                                'datetimeStart', 'par', 'source', 'createdAt'])
+        && d.keys().hasAll(['organizationId', 'campaignId', 'candidateId', 'interviewId', 'datetimeStart'])
+        && d.organizationId is string && d.candidateId is string && d.interviewId is string
+        && d.datetimeStart is timestamp
+        && (!('par' in d) || d.par == null || (d.par is string && d.par.size() <= 120));
+    }
+
+    function absenceDUnVraiEntretien(d) {
+      let iv = get(/databases/$(database)/documents/interviews/$(d.interviewId)).data;
+      return iv.candidateId == d.candidateId
+        && iv.organizationId == d.organizationId
+        && iv.campaignId == d.campaignId
+        && iv.datetimeStart == d.datetimeStart
+        && d.datetimeStart < request.time;
+    }
+
+    match /absences/{id} {
+      allow read, delete: if ownsOrg(resource.data.organizationId);
+      allow create: if absenceBienFormee(request.resource.data)
+        && (ownsOrg(request.resource.data.organizationId)
+            || absenceDUnVraiEntretien(request.resource.data));
+      // Deux staffeurs qui signalent la même absence : le second réécrit la
+      // fiche, sans pouvoir la déplacer vers un autre entretien ou une autre asso.
+      allow update: if absenceBienFormee(request.resource.data)
+        && keepsScope(['organizationId', 'campaignId', 'candidateId', 'interviewId', 'datetimeStart']);
+    }
+
+    // ── Votes de délibération (js/vote.js, voter.html) ───────────
+    // Un scrutin : un vote ouvert par le bureau depuis Classement. Son id est
+    // un jeton aléatoire porté par le lien de vote : lecture unitaire publique
+    // (le lien suffit), jamais de liste sauf pour le bureau de l'asso.
+    match /scrutins/{id} {
+      allow get: if true;
+      allow list: if ownsOrg(resource.data.organizationId);
+      allow create: if ownsOrg(request.resource.data.organizationId) && id.size() >= 20;
+      allow update: if ownsOrg(resource.data.organizationId)
+        && keepsScope(['organizationId', 'campaignId']);
+      allow delete: if ownsOrg(resource.data.organizationId);
+    }
+
+    function scrutinDe(sid) {
+      return get(/databases/$(database)/documents/scrutins/$(sid)).data;
+    }
+    // Un envoi sans compte : scrutin ouvert, votant de sa liste, rattaché au
+    // même recrutement.
+    function pourCeScrutin(d) {
+      let s = scrutinDe(d.scrutinId);
+      return s.ouvert == true
+        && d.organizationId == s.organizationId && d.campaignId == s.campaignId
+        && d.votantId in s.votantIds;
+    }
+
+    // Un bulletin par envoi (garde-fou : le bureau voit qu'un nom a voté deux
+    // fois) ; seul le dernier de chaque votant compte. Jamais modifié.
+    // ⚠️ SECRET tant que le vote est ouvert, même pour le bureau : sinon les
+    // derniers votants s'alignent sur les premiers.
+    // Abstentions (ami, coloc) : facultatives, 5 au plus (MAX_ABSTENTIONS de
+    // js/vote.js), des cooptants du scrutin, jamais en même temps qu'un cœur.
+    function abstentionsValides(d) {
+      return !('abstentions' in d) || (
+        d.abstentions is list
+        && d.abstentions.size() <= 5
+        && scrutinDe(d.scrutinId).cooptantIds.hasAll(d.abstentions)
+        && !d.coeurs.hasAny(d.abstentions));
+    }
+    match /bulletins/{id} {
+      allow create: if request.resource.data.keys().hasOnly(
+          ['scrutinId', 'organizationId', 'campaignId', 'votantId', 'coeurs', 'abstentions', 'envoyeLe'])
+        && request.resource.data.scrutinId is string
+        && pourCeScrutin(request.resource.data)
+        && request.resource.data.coeurs is list
+        && request.resource.data.coeurs.size() <= scrutinDe(request.resource.data.scrutinId).maxCoeurs
+        && scrutinDe(request.resource.data.scrutinId).cooptantIds.hasAll(request.resource.data.coeurs)
+        && abstentionsValides(request.resource.data)
+        && request.resource.data.envoyeLe == request.time;
+      allow read: if ownsOrg(resource.data.organizationId)
+        && (!exists(/databases/$(database)/documents/scrutins/$(resource.data.scrutinId))
+            || scrutinDe(resource.data.scrutinId).ouvert != true);
+      allow delete: if ownsOrg(resource.data.organizationId);
+      allow update: if false;
+    }
+
+    // Qui a voté, et combien de fois, SANS le contenu : suivi du bureau, et
+    // « tu as déjà voté » sur la page de vote. id = <scrutin>_<votant>.
+    function participationValide(id) {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['scrutinId', 'organizationId', 'campaignId', 'votantId', 'envois', 'dernierEnvoi'])
+        && d.scrutinId is string && d.votantId is string
+        && id == d.scrutinId + '_' + d.votantId
+        && pourCeScrutin(d)
+        && d.dernierEnvoi == request.time;
+    }
+    match /participations/{id} {
+      allow get: if true;
+      allow list: if ownsOrg(resource.data.organizationId);
+      allow create: if participationValide(id) && request.resource.data.envois == 1;
+      allow update: if participationValide(id) && request.resource.data.envois == resource.data.envois + 1;
+      allow delete: if ownsOrg(resource.data.organizationId);
     }
 
     // ── Corbeille ─────────────────────────────────────────────────

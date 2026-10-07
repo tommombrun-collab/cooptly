@@ -151,6 +151,8 @@ export const CAMPAIGN_CONFIG_DEFAULTS = {
                               // tout le monde est réputé libre sur la période
   jurysAnglaisRequis:  false, // entretien en anglais : seulement des staffeurs qui ont coché
                               // l'anglais sur la page des dispos (capacite.js, staffPourEntretien)
+  remplirConseillesDabord: false, // formulaire : ne proposer que les créneaux conseillés (⭐,
+                              // collés aux entretiens existants) tant qu'il en reste. Pas au stand.
   fenetreEvaluation:   'deux-heures', // lien public d'évaluation : entretiens affichés autour
                               // de maintenant, 'deux-heures' (± 2 h) ou 'journee' (le jour même)
   standEmail:          true,  // mode stand (postuler.html?stand=1) : demander l'email emlyon
@@ -543,6 +545,8 @@ function _ensureConfirmDialog() {
     '<div class="confirm-dialog" role="dialog" aria-modal="true">' +
       '<p class="confirm-dialog-title" id="_cd-title"></p>' +
       '<p class="confirm-dialog-message" id="_cd-message"></p>' +
+      '<label class="confirm-dialog-taper" id="_cd-taper" hidden><span id="_cd-taper-l"></span>' +
+        '<input type="text" class="form-input" id="_cd-taper-in" autocomplete="off" spellcheck="false"></label>' +
       '<div class="confirm-dialog-actions">' +
         '<button class="btn btn-ghost btn-sm" id="_cd-cancel">Annuler</button>' +
         '<button class="btn btn-danger btn-sm" id="_cd-ok">Confirmer</button>' +
@@ -550,6 +554,7 @@ function _ensureConfirmDialog() {
     '</div>';
   document.body.appendChild(_cdOverlay);
   document.getElementById('_cd-ok').addEventListener('click', () => _cdSettle(true));
+  document.getElementById('_cd-taper-in').addEventListener('input', _cdMajTaper);
   document.getElementById('_cd-cancel').addEventListener('click', () => _cdSettle(false));
   _cdOverlay.addEventListener('click', e => { if (e.target === _cdOverlay) _cdSettle(false); });
   document.addEventListener('keydown', e => {
@@ -557,6 +562,13 @@ function _ensureConfirmDialog() {
       e.preventDefault(); _cdSettle(false);
     }
   });
+}
+
+// Confirmation renforcée : le bouton ne s'active qu'une fois le mot exact tapé.
+let _cdAttendu = null;
+function _cdMajTaper() {
+  if (_cdAttendu == null) return;
+  document.getElementById('_cd-ok').disabled = document.getElementById('_cd-taper-in').value.trim() !== _cdAttendu;
 }
 
 function _cdSettle(val) {
@@ -568,10 +580,11 @@ function _cdSettle(val) {
 /**
  * Boîte de confirmation légère (remplace window.confirm).
  * @param {string} message
- * @param {{ title?: string, confirmLabel?: string, danger?: boolean }} opts
+ * @param {{ title?: string, confirmLabel?: string, danger?: boolean, taper?: string }} opts
+ *   `taper` : texte à recopier pour activer le bouton (actions irréversibles).
  * @returns {Promise<boolean>}
  */
-export function confirmDialog(message, { title = '', confirmLabel = 'Confirmer', danger = true } = {}) {
+export function confirmDialog(message, { title = '', confirmLabel = 'Confirmer', danger = true, taper = null } = {}) {
   _ensureConfirmDialog();
   const titleEl = document.getElementById('_cd-title');
   titleEl.textContent = title;
@@ -580,8 +593,14 @@ export function confirmDialog(message, { title = '', confirmLabel = 'Confirmer',
   const okBtn = document.getElementById('_cd-ok');
   okBtn.textContent = confirmLabel;
   okBtn.className = `btn ${danger ? 'btn-danger' : 'btn-primary'} btn-sm`;
+  _cdAttendu = taper ? String(taper).trim() : null;
+  const zone = document.getElementById('_cd-taper'), champ = document.getElementById('_cd-taper-in');
+  zone.hidden = !_cdAttendu;
+  champ.value = '';
+  document.getElementById('_cd-taper-l').textContent = _cdAttendu ? `Pour confirmer, tapez « ${_cdAttendu} » :` : '';
+  okBtn.disabled = !!_cdAttendu;
   _cdOverlay.style.display = 'flex';
-  setTimeout(() => document.getElementById('_cd-cancel').focus(), 30);
+  setTimeout(() => (_cdAttendu ? champ : document.getElementById('_cd-cancel')).focus(), 30);
   return new Promise(resolve => { _cdResolve = resolve; });
 }
 
@@ -609,4 +628,156 @@ export function applyContentProtection() {
       e.preventDefault(); e.stopPropagation();
     }
   }, true);
+}
+
+// ── Parcours : question commune à toutes les assos ────────────────────
+// Posée par la plateforme elle-même (formulaire, version anglaise, stand),
+// rangée dans `candidates.parcours`, avec les mêmes réponses partout : c'est
+// ce qui permet les ratios (tableau de bord, délibération). Les anciennes
+// questions « Parcours » des assos sont reprises à la lecture
+// (`parcoursCooptant`), sans réécrire la base, et ne sont plus posées.
+export const PARCOURS = ['Prépa', 'AST', 'ASTi', 'MSc', 'MS', 'Autre'];
+/** Libellés anglais (la valeur enregistrée reste la française). */
+export const PARCOURS_EN = { 'Prépa': 'Prépa (preparatory classes)', Autre: 'Other' };
+
+/** Une question d'asso qui demande le parcours (remplacée par la question commune). */
+export function estQuestionParcours(q) {
+  // Seulement une liste de choix : une question libre « ton parcours associatif ? » reste posée.
+  return !!q && q.type === 'select' && /parcours|background|\bprogram(me)?\b/i.test(q.label || '');
+}
+
+/**
+ * Réponse libre ou ancienne option → valeur de PARCOURS, ou null si vide.
+ * « AST(I) » (AST et ASTi regroupés) compte comme AST.
+ */
+export function normaliserParcours(v) {
+  const brut = String(v ?? '').trim();
+  if (!brut) return null;
+  if (/ast\s*\(\s*i\s*\)/i.test(brut)) return 'AST';
+  const n = brut.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (n.startsWith('prepa') || n.includes('cpge')) return 'Prépa';
+  if (n === 'asti' || n === 'ast1' || n === 'astinternational') return 'ASTi';
+  if (n.startsWith('ast')) return 'AST';
+  if (n.startsWith('msc')) return 'MSc';
+  if (n === 'ms' || n.startsWith('mastere')) return 'MS';
+  return 'Autre';
+}
+
+/** Parcours d'un cooptant : le champ commun, sinon sa réponse à une ancienne question « Parcours ». */
+export function parcoursCooptant(c) {
+  if (PARCOURS.includes(c?.parcours)) return c.parcours;
+  for (const r of Object.values(c?.customAnswers || {})) {
+    if (r && typeof r === 'object' && /parcours|background|\bprogram(me)?\b/i.test(r.label || '')) {
+      const p = normaliserParcours(r.value);
+      if (p) return p;
+    }
+  }
+  return null;
+}
+
+/**
+ * Répartition par parcours : une ligne par parcours présent (ordre de
+ * PARCOURS), puis « Non renseigné » s'il y en a.
+ * @returns {{parcours: string, n: number, pct: number}[]}
+ */
+export function repartitionParcours(cooptants) {
+  const compte = new Map();
+  cooptants.forEach(c => { const p = parcoursCooptant(c) || 'Non renseigné'; compte.set(p, (compte.get(p) || 0) + 1); });
+  const total = cooptants.length || 1;
+  return [...PARCOURS, 'Non renseigné'].filter(p => compte.has(p))
+    .map(p => ({ parcours: p, n: compte.get(p), pct: Math.round(compte.get(p) * 100 / total) }));
+}
+
+/** Couleur d'un parcours (tokens --cat-* de main.css). */
+export const couleurParcours = p => {
+  const i = PARCOURS.indexOf(p);
+  return i >= 0 ? `var(--cat-${i + 1})` : 'var(--border-strong)';
+};
+
+/**
+ * Barres de répartition par parcours, une par population.
+ * @param {{titre: string, cooptants: object[]}[]} lignes
+ * @returns {string} HTML (classes .rp-* de main.css)
+ */
+export function htmlRepartitionParcours(lignes) {
+  return `<div class="rp">${lignes.map(({ titre, cooptants }) => {
+    const r = repartitionParcours(cooptants);
+    const info = x => `${x.parcours} : ${x.n} (${x.pct} %)`;
+    return `<div class="rp-ligne">
+      <span class="rp-titre">${esc(titre)}<b>${cooptants.length}</b></span>
+      <span class="rp-barre" role="img" aria-label="${esc(r.map(info).join(', '))}">${r.map(x =>
+        `<i style="flex:${x.n};background:${couleurParcours(x.parcours)}" title="${esc(info(x))}"></i>`).join('')}</span>
+      <span class="rp-leg">${r.map(x => `<span><i style="background:${couleurParcours(x.parcours)}"></i>${esc(x.parcours)} <b>${x.pct} %</b></span>`).join('')}</span>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+// ── Couleur de l'asso : contraste lisible ─────────────────────────────
+// La couleur choisie par chaque asso sert de fond (bandeau des pages
+// publiques) et d'accent (boutons, liens). Un jaune vif avec du texte blanc
+// était illisible : on calcule le contraste (formule WCAG) au lieu de
+// supposer un fond sombre.
+const TEXTE_SOMBRE = '#1a1d1b';
+
+/** #rgb ou #rrggbb → [r, g, b], ou null. */
+function rgbDe(hex) {
+  const m = String(hex || '').trim().match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+  if (!m) return null;
+  const h = m[1].length === 3 ? m[1].split('').map(c => c + c).join('') : m[1];
+  return [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16));
+}
+const hexDe = rgb => '#' + rgb.map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
+
+/** Luminance relative (WCAG 2), de 0 (noir) à 1 (blanc). */
+export function luminance(hex) {
+  const rgb = rgbDe(hex);
+  if (!rgb) return null;
+  const [r, g, b] = rgb.map(v => { const c = v / 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/** Rapport de contraste entre deux couleurs (1 à 21). */
+export function contraste(a, b) {
+  const la = luminance(a), lb = luminance(b);
+  if (la == null || lb == null) return null;
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}
+
+/** Assombrit une couleur (part de 0 à 1). */
+export function assombrir(hex, part) {
+  const rgb = rgbDe(hex);
+  return rgb ? hexDe(rgb.map(v => v * (1 - part))) : hex;
+}
+
+/**
+ * Texte lisible sur ce(s) fond(s) : blanc ou presque noir, celui qui garde
+ * le meilleur contraste sur le fond le moins favorable (un dégradé a deux bouts).
+ */
+export function texteSurFond(...fonds) {
+  const pire = couleur => Math.min(...fonds.map(f => contraste(couleur, f) ?? 21));
+  return pire('#ffffff') >= pire(TEXTE_SOMBRE) ? '#ffffff' : TEXTE_SOMBRE;
+}
+
+/**
+ * Couleur d'accent utilisable pour des boutons à texte blanc et des liens sur
+ * fond clair : assombrie pas à pas jusqu'à 4,5:1 contre le blanc (seuil AA).
+ */
+export function accentLisible(hex) {
+  if (!rgbDe(hex)) return hex;
+  let c = hex;
+  for (let i = 0; i < 20 && contraste(c, '#ffffff') < 4.5; i++) c = assombrir(c, 0.08);
+  return c;
+}
+
+/** Bandeau d'une page publique aux couleurs de l'asso, texte lisible quelle que soit la couleur. */
+export function colorerBandeau(hdr, couleur) {
+  if (!hdr || !rgbDe(couleur)) return;
+  const fin = assombrir(couleur, 0.2);
+  const texte = texteSurFond(couleur, fin);
+  hdr.style.background = `linear-gradient(135deg,${couleur} 0%,${fin} 100%)`;
+  hdr.style.color = texte;
+  const h1 = hdr.querySelector('h1');
+  if (h1) h1.style.color = texte;
+  const p = hdr.querySelector('p');
+  if (p) p.style.color = texte === '#ffffff' ? 'rgba(255,255,255,.82)' : 'rgba(26,29,27,.78)';
 }

@@ -17,10 +17,20 @@
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js" />
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js" />
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js" />
+  <!-- modules du site préchargés (scripts/precharger-modules.mjs) -->
+  <link rel="modulepreload" href="/js/auth.js" />
+  <link rel="modulepreload" href="/js/firebase-config.js" />
+  <link rel="modulepreload" href="/js/icones.js" />
+  <link rel="modulepreload" href="/js/nav.js" />
+  <link rel="modulepreload" href="/js/org-lookup.js" />
+  <link rel="modulepreload" href="/js/recherche.js" />
+  <link rel="modulepreload" href="/js/tuto.js" />
+  <link rel="modulepreload" href="/js/utils.js" />
+  <!-- /modules -->
   <!-- Polices en <link> et non plus en @import dans main.css : l'@import
        obligeait à télécharger la feuille de style avant même de découvrir
        les polices, trois allers-retours à la suite avant le texte. -->
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Antic&family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;600;700&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" />
   <link rel="stylesheet" href="/css/main.css" />
 </head>
 <body>
@@ -55,7 +65,7 @@
     <div class="stat-card"><div class="stat-value" id="stat-orgs">·</div><div class="stat-label">Associations</div></div>
     <div class="stat-card"><div class="stat-value" id="stat-campaigns">·</div><div class="stat-label">Recrutements ouverts</div></div>
     <div class="stat-card"><div class="stat-value" id="stat-candidates">·</div><div class="stat-label">Cooptations totales</div></div>
-    <div class="stat-card"><div class="stat-value" id="stat-users">·</div><div class="stat-label">Membres staff</div></div>
+    <div class="stat-card"><div class="stat-value" id="stat-users">·</div><div class="stat-label">Membres des bureaux</div></div>
   </div>
 
   <!-- Liste des organisations -->
@@ -73,6 +83,22 @@ import { app } from '/js/auth.js';
 import { getFirestore, collection, getDocs, query, where }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { initBurgerMenu } from '/js/nav.js';
+import { esc, regrouperMembres } from '/js/utils.js';
+import { icone } from '/js/icones.js';
+
+/**
+ * État du recrutement d'une asso, avec la même règle que le reste de la
+ * plateforme (badge du tableau de bord) : ouvert si `recrutementOuvert` n'est
+ * pas false et `statut` pas 'fermee' ; `etat` dit s'il est clôturé ou en préparation.
+ */
+function etatRecrutement(camp) {
+  if (!camp) return { cle: 'aucun', libelle: 'Pas encore de recrutement', badge: 'badge-gray' };
+  if (camp.etat === 'cloture') return { cle: 'cloture', libelle: 'Clôturé', badge: 'badge-gray' };
+  if (camp.etat === 'preparation') return { cle: 'preparation', libelle: 'En préparation', badge: 'badge-orange' };
+  return camp.recrutementOuvert !== false && camp.statut !== 'fermee'
+    ? { cle: 'ouvert', libelle: 'Recrutement ouvert', badge: 'badge-green' }
+    : { cle: 'ferme', libelle: 'Recrutement fermé', badge: 'badge-gray' };
+}
 
 const db = getFirestore(app);
 
@@ -93,48 +119,47 @@ async function init() {
 
   const orgs = orgsSnap.docs.map(d => ({id:d.id,...d.data()}));
   const campaigns = campaignsSnap.docs.map(d => ({id:d.id,...d.data()}));
-  const members = membersSnap.docs.map(d => ({id:d.id,...d.data()}));
-
+  const memberships = membersSnap.docs.map(d => ({id:d.id,...d.data()}));
+  // Une personne pré-ajoutée par email a deux fiches : on compte les personnes.
+  const parOrg = orgs.map(org => {
+    const camp = campaigns.find(c => c.organizationId === org.id);
+    const membres = regrouperMembres(memberships.filter(m => m.organizationId === org.id), org.id);
+    const cooptants = candidatesSnap.docs.filter(d => d.data().organizationId === org.id || (camp && d.data().campaignId === camp.id)).length;
+    return { org, camp, membres, cooptants, etat: etatRecrutement(camp) };
+  });
   document.getElementById('stat-orgs').textContent = orgs.length;
-  document.getElementById('stat-campaigns').textContent = campaigns.filter(c=>c.recrutementOuvert===true).length;
+  document.getElementById('stat-campaigns').textContent = parOrg.filter(x => x.etat.cle === 'ouvert').length;
   document.getElementById('stat-candidates').textContent = candidatesSnap.size;
-  document.getElementById('stat-users').textContent = members.length;
-
+  document.getElementById('stat-users').textContent = parOrg.reduce((n, x) => n + x.membres.length, 0);
   const list = document.getElementById('orgs-list');
   list.style.display = '';
   document.getElementById('orgs-loading').style.display = 'none';
-
   if (!orgs.length) {
-    list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🏢</div><p>Aucune organisation. <a href="/admin/organisations.html">Créez-en une.</a></p></div>';
+    list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">' + icone('personnes') + '</div><p>Aucune organisation. <a href="/admin/organisations.html">Créez-en une.</a></p></div>';
     return;
   }
-
-  orgs.forEach(org => {
-    const orgCampaigns = campaigns.filter(c => c.organizationId === org.id);
-    const orgMembers   = members.filter(m => m.organizationId === org.id);
-    const openC = orgCampaigns.filter(c => c.statut === 'ouverte').length;
-
+  parOrg.sort((a, b) => (a.org.name || '').localeCompare(b.org.name || '', 'fr')).forEach(({ org, membres, cooptants, etat }) => {
     const card = document.createElement('div');
     card.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:16px 0;border-bottom:1px solid var(--border);gap:12px;flex-wrap:wrap;';
+    const couleur = /^#[0-9a-f]{3,8}$/i.test(org.primaryColor || '') ? org.primaryColor : 'var(--indigo)';
     card.innerHTML = `
       <div style="display:flex;align-items:center;gap:14px;">
         ${org.logoBase64
-          ? `<img src="${org.logoBase64}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0;" />`
-          : `<div style="width:40px;height:40px;border-radius:50%;background:${org.primaryColor||'var(--indigo)'};display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:16px;flex-shrink:0;">${(org.name||'?')[0]}</div>`
+          ? `<img src="${esc(org.logoBase64)}" alt="" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0;" />`
+          : `<div style="width:40px;height:40px;border-radius:50%;background:${couleur};display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:16px;flex-shrink:0;">${esc((org.name || '?')[0])}</div>`
         }
         <div>
-          <div style="font-weight:700;font-size:15px;">${org.name}</div>
-          <div style="font-size:13px;color:var(--text-muted);">/${org.slug} · ${orgCampaigns.length} campagne(s) · ${orgMembers.length} membre(s)</div>
+          <div style="font-weight:700;font-size:15px;">${esc(org.name || 'Sans nom')}</div>
+          <div style="font-size:13px;color:var(--text-muted);">/${esc(org.slug || org.id)} · ${membres.length} membre${membres.length > 1 ? 's' : ''} du bureau · ${cooptants} cooptant${cooptants > 1 ? 's' : ''}</div>
         </div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        ${openC > 0 ? `<span class="badge badge-green">${openC} ouverte(s)</span>` : '<span class="badge badge-gray">Aucune campagne ouverte</span>'}
-        <a href="/secge/dashboard.html?org=${org.id}" class="btn btn-ghost btn-sm">Gérer →</a>
+        <span class="badge ${etat.badge}">${etat.libelle}</span>
+        <a href="/secge/dashboard.html?org=${encodeURIComponent(org.id)}" class="btn btn-ghost btn-sm">Gérer →</a>
       </div>`;
     list.appendChild(card);
   });
 }
-
 init();
 </script>
 </body>

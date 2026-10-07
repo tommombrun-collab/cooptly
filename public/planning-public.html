@@ -15,10 +15,17 @@
        découvre qu'en arrivant au script, tout en bas de la page. -->
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js" />
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js" />
+  <!-- modules du site préchargés (scripts/precharger-modules.mjs) -->
+  <link rel="modulepreload" href="/js/agenda.js" />
+  <link rel="modulepreload" href="/js/capacite.js" />
+  <link rel="modulepreload" href="/js/firebase-config.js" />
+  <link rel="modulepreload" href="/js/org-lookup.js" />
+  <link rel="modulepreload" href="/js/utils.js" />
+  <!-- /modules -->
   <!-- Polices en <link> et non plus en @import dans main.css : l'@import
        obligeait à télécharger la feuille de style avant même de découvrir
        les polices, trois allers-retours à la suite avant le texte. -->
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Antic&family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;600;700&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" />
   <link rel="stylesheet" href="/css/main.css" />
   <style>
     .pp-controls { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:18px; }
@@ -132,6 +139,7 @@
         <option value="">👤 Tout le monde</option>
       </select>
       <select class="form-select" id="campaign-filter" style="max-width:200px;font-size:13px;display:none;"></select>
+      <button class="btn btn-ghost btn-sm" id="btn-passes" style="display:none;" title="Les entretiens déjà passés ne sont chargés qu'à la demande">Voir les jours passés</button>
       <button class="btn btn-ghost btn-sm" id="btn-agenda-tout" style="margin-left:auto;" title="Tous les entretiens de la période (de la personne choisie, ou de tout le monde) dans un fichier pour votre agenda">📅 Toute la période (.ics)</button>
       <button class="btn btn-secondary btn-sm" id="btn-print">🖨 Imprimer / PDF</button>
     </div>
@@ -159,7 +167,7 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getFirestore, collection, query, where, getDocs, getDoc, doc }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { firebaseConfig } from '/js/firebase-config.js';
-import { getCampaignDays, getPlanningDays, getTimeSlots, esc, nomCourt, paramLien, prenomInitiale, showToast, campaignConfig } from '/js/utils.js';
+import { getCampaignDays, getPlanningDays, getTimeSlots, esc, nomCourt, paramLien, prenomInitiale, showToast, campaignConfig, colorerBandeau } from '/js/utils.js';
 import { heureFinValide, pasPlanning, ligneDuPlanning } from '/js/capacite.js';
 import { resolveOrg as resolveOrgShared } from '/js/org-lookup.js';
 import { fichierIcs, lienGoogleAgenda, entretiensParStaffeur } from '/js/agenda.js';
@@ -175,6 +183,12 @@ let PAS_LIGNES = 30;
 
 let org = null, campaigns = [], currentCampaign = null;
 let interviews = [], nameMap = {}, candMap = {}, roomMap = {};
+// Jours passés chargés à la demande (« Voir les jours passés ») : le staff
+// ouvre ce planning souvent, surtout pour la suite. Tout lire (entretiens ET
+// cooptants de la période) coûtait ~220 lectures à chaque ouverture, sur un
+// quota gratuit de 50 000 par jour pour tout le projet.
+let passesCharges = false;
+const debutAujourdhui = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; };
 let days = [], weeks = [];
 // « Tout » par défaut : la période entière d'un coup, qui défile.
 let viewMode = 'all', dayIdx = 0, weekIdx = 0, personId = '';
@@ -183,12 +197,6 @@ const $ = id => document.getElementById(id);
 function showError(msg) {
   $('loading-state').style.display = 'none'; $('content').style.display = 'none';
   $('error-state').style.display = ''; $('error-msg').textContent = msg;
-}
-function darken(hex, t) {
-  const h = (hex||'').replace('#',''); if (h.length !== 6) return hex;
-  const r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16);
-  const d=v=>Math.max(0,Math.round(v*(1-t)));
-  return `rgb(${d(r)},${d(g)},${d(b)})`;
 }
 const sameDay = (a, b) => a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();
 
@@ -203,15 +211,8 @@ async function init() {
     $('org-logo-wrap').innerHTML =
       `<img src="${org.logoBase64}" style="width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.6);box-shadow:0 2px 8px rgba(0,0,0,.12);" alt="${org.name}" />`;
   }
-  if (org.primaryColor) {
-    const hdr = $('page-header');
-    hdr.style.background = `linear-gradient(135deg,${org.primaryColor} 0%,${darken(org.primaryColor,.2)} 100%)`;
-    hdr.style.color = '#fff';
-    const h1 = hdr.querySelector('h1');
-    if (h1) h1.style.color = '#fff';
-    const p = hdr.querySelector('p');
-    if (p) p.style.color = 'rgba(255,255,255,.78)';
-  }
+  // Couleur de l'asso : texte blanc ou sombre selon le contraste (utils.js).
+  if (org.primaryColor) colorerBandeau($('page-header'), org.primaryColor);
 
   const campSnap = await getDocs(query(collection(db, 'campaigns'), where('organizationId', '==', org.id)));
   campaigns = campSnap.docs.map(d => ({ id: d.id, ...d.data() }))
@@ -240,6 +241,23 @@ async function init() {
   $('ag-overlay').addEventListener('click', ev => { if (ev.target === ev.currentTarget) fermerAgenda(); });
   document.addEventListener('keydown', ev => { if (ev.key === 'Escape') fermerAgenda(); });
   $('btn-print').onclick = () => window.print();
+  $('btn-passes').onclick = async () => {
+    const b = $('btn-passes');
+    b.disabled = true; b.textContent = 'Chargement…';
+    try {
+      const jourAffiche = days[dayIdx];
+      await chargerPasses();
+      preparerJours();
+      if (jourAffiche) dayIdx = Math.max(0, days.findIndex(d => sameDay(d, jourAffiche)));
+      weekIdx = Math.max(0, weeks.findIndex(w => w.days.some(d => sameDay(d, days[dayIdx]))));
+      delete $('view-week').dataset.mode;
+      resumePersonne();
+      render();
+    } catch (e) {
+      console.error(e); showToast('Jours passés non chargés : ' + e.message, 'error');
+      b.disabled = false; b.textContent = 'Voir les jours passés';
+    }
+  };
 
   await loadCampaign();
   $('loading-state').style.display = 'none';
@@ -256,35 +274,23 @@ async function loadCampaign() {
   SLOTS = getTimeSlots(8, heureFinValide(cfgPlage.heureFin), pasPlanning(cfgPlage.pasCreneauxMinutes));
   PAS_LIGNES = pasPlanning(cfgPlage.pasCreneauxMinutes);
 
-  // Données (tout public : interviews, candidates, rooms, staff_availabilities, roster_members)
-  const [ivSnap, candSnap, roomSnap, saSnap, rosterSnap] = await Promise.all([
-    getDocs(query(collection(db, 'interviews'), where('campaignId', '==', currentCampaign.id))),
-    getDocs(query(collection(db, 'candidates'), where('campaignId', '==', currentCampaign.id))),
+  // Entretiens à partir d'aujourd'hui, et seulement LEURS cooptants ; les
+  // jours passés viennent à la demande (bouton « Voir les jours passés »).
+  passesCharges = false; candMap = {};
+  const [ivSnap, roomSnap, saSnap, rosterSnap] = await Promise.all([
+    getDocs(query(collection(db, 'interviews'), where('campaignId', '==', currentCampaign.id),
+      where('datetimeStart', '>=', debutAujourdhui()))),
     getDocs(query(collection(db, 'rooms'), where('organizationId', '==', org.id))),
     getDocs(query(collection(db, 'staff_availabilities'), where('campaignId', '==', currentCampaign.id))),
     getDocs(query(collection(db, 'roster_members'), where('organizationId', '==', org.id))),
   ]);
 
-  interviews = ivSnap.docs.map(d => ({ id: d.id, ...d.data() }))
-    .filter(iv => iv.datetimeStart?.toDate)
-    .sort((a, b) => a.datetimeStart.toMillis() - b.datetimeStart.toMillis());
+  interviews = versEntretiens(ivSnap);
+  // Fin de période (plus rien à venir) : on montre ce qui a eu lieu.
+  if (!interviews.length) await chargerPasses();
+  await chargerCooptants(interviews);
+  preparerJours();
 
-  // Toute la période, jours passés compris : le planning ne perd plus la
-  // veille chaque matin (on revoit les entretiens déjà faits).
-  days = getPlanningDays(currentCampaign, interviews.map(iv => iv.datetimeStart.toDate()));
-  // Semaines (groupées par lundi)
-  weeks = [];
-  let cur = null;
-  days.forEach(d => {
-    const monday = new Date(d); const dow = (monday.getDay() + 6) % 7; monday.setDate(monday.getDate() - dow); monday.setHours(0,0,0,0);
-    const key = monday.toDateString();
-    if (!cur || cur.key !== key) { cur = { key, monday, days: [] }; weeks.push(cur); }
-    cur.days.push(d);
-  });
-
-
-
-  candMap = {}; candSnap.docs.forEach(d => { candMap[d.id] = d.data(); });
   roomMap = {}; roomSnap.docs.forEach(d => { roomMap[d.id] = d.data().code || d.data().nom || d.data().name; });
   nameMap = {};
   saSnap.docs.forEach(d => { const x = d.data(); if (x.userId && x.displayName) nameMap[x.userId] = x.displayName; });
@@ -310,13 +316,56 @@ async function loadCampaign() {
   render();
 }
 
+const versEntretiens = snap => snap.docs.map(d => ({ id: d.id, ...d.data() }))
+  .filter(iv => iv.datetimeStart?.toDate)
+  .sort((a, b) => a.datetimeStart.toMillis() - b.datetimeStart.toMillis());
+
+/** Les cooptants de ces entretiens qu'on n'a pas encore (un document chacun). */
+async function chargerCooptants(liste) {
+  const ids = [...new Set(liste.map(iv => iv.candidateId).filter(id => id && !(id in candMap)))];
+  const lus = await Promise.all(ids.map(id => getDoc(doc(db, 'candidates', id)).catch(() => null)));
+  lus.forEach((d, i) => { candMap[ids[i]] = d?.exists() ? d.data() : null; });
+}
+
+/** Entretiens d'avant aujourd'hui, et leurs cooptants. */
+async function chargerPasses() {
+  if (passesCharges) return;
+  const snap = await getDocs(query(collection(db, 'interviews'), where('campaignId', '==', currentCampaign.id),
+    where('datetimeStart', '<', debutAujourdhui())));
+  const passes = versEntretiens(snap);
+  await chargerCooptants(passes);
+  const vus = new Set(interviews.map(iv => iv.id));
+  interviews = [...passes.filter(iv => !vus.has(iv.id)), ...interviews]
+    .sort((a, b) => a.datetimeStart.toMillis() - b.datetimeStart.toMillis());
+  passesCharges = true;
+}
+
+/** Jours affichés : toute la période, sans les jours passés tant qu'ils ne sont pas chargés. */
+function preparerJours() {
+  // Toute la période, jours passés compris : le planning ne perd plus la
+  // veille chaque matin (on revoit les entretiens déjà faits).
+  days = getPlanningDays(currentCampaign, interviews.map(iv => iv.datetimeStart.toDate()));
+  if (!passesCharges) days = days.filter(d => d >= debutAujourdhui());
+  const b = $('btn-passes');
+  b.style.display = passesCharges ? 'none' : '';
+  b.disabled = false; b.textContent = 'Voir les jours passés';
+  weeks = [];
+  let cur = null;
+  days.forEach(d => {
+    const monday = new Date(d); const dow = (monday.getDay() + 6) % 7; monday.setDate(monday.getDate() - dow); monday.setHours(0,0,0,0);
+    const key = monday.toDateString();
+    if (!cur || cur.key !== key) { cur = { key, monday, days: [] }; weeks.push(cur); }
+    cur.days.push(d);
+  });
+}
+
 function ivData(iv) {
   const s = iv.datetimeStart.toDate();
   const e = iv.datetimeEnd?.toDate?.() || new Date(s.getTime() + 30*60000);
   const cand = candMap[iv.candidateId];
   const who = cand ? `${cand.prenom||''} ${cand.nom||''}`.trim() || cand.email : 'Cooptant';
   const room = iv.roomId ? roomMap[iv.roomId] : iv.salleNom;
-  const jurors = [iv.jury1Id, iv.jury2Id, iv.jury3Id].filter(Boolean).map(id => nameMap[id] || 'Juré');
+  const jurors = [iv.jury1Id, iv.jury2Id, iv.jury3Id].filter(Boolean).map(id => nameMap[id] || 'Staffeur');
   return { s, e, who, room, jurors, anglais: cand?.langue === 'en', juryIds: [iv.jury1Id, iv.jury2Id, iv.jury3Id].filter(Boolean) };
 }
 const involves = iv => !personId || [iv.jury1Id, iv.jury2Id, iv.jury3Id].includes(personId);
@@ -383,7 +432,7 @@ function renderDay() {
         <div style="font-weight:700;">${esc(d.who)}${d.anglais ? ' 🇬🇧 <span class="text-sm text-muted" style="font-weight:500;">en anglais</span>' : ''}</div>
         <div class="text-sm text-muted" style="margin-top:2px;">
           ${d.room ? `🏫 ${esc(d.room)}` : '🏫 salle à définir'} ·
-          ${d.jurors.length ? '🧑‍⚖️ ' + d.jurors.map(esc).join(', ') : 'jury à définir'}
+          ${d.jurors.length ? '🧑‍⚖️ ' + d.jurors.map(esc).join(', ') : 'staffeurs à définir'}
         </div>
       </div>
     </div>`;
@@ -460,7 +509,7 @@ function texteDuJour(day) {
   const lignes = duJour.map(iv => {
     const x = ivData(iv);
     // Juré sans nom connu : on le signale plutôt que de l'omettre.
-    const jury = x.juryIds.map(id => nameMap[id] ? prenomInitiale(nameMap[id]) : 'juré ?');
+    const jury = x.juryIds.map(id => nameMap[id] ? prenomInitiale(nameMap[id]) : 'staffeur ?');
     return [
       `• ${x.who}${x.anglais ? ' 🇬🇧 (en anglais)' : ''}`,
       `  ${hm(x.s)} - ${hm(x.e)}`,
@@ -492,8 +541,10 @@ function resumePersonne() {
   const c = entretiensParStaffeur(interviews.map(iv => ({ ...iv, debut: iv.datetimeStart.toDate(), fin: ivData(iv).e })))
     .get(personId) || { passes: 0, aVenir: 0, total: 0 };
   const nom = nameMap[personId] || 'Cette personne';
-  el.innerHTML = `<strong>${esc(nom)}</strong> : ${c.total} entretien${c.total > 1 ? 's' : ''}`
-    + (c.total ? `, dont ${c.passes} passé${c.passes > 1 ? 's' : ''} et ${c.aVenir} à venir.` : '.');
+  el.innerHTML = !passesCharges
+    ? `<strong>${esc(nom)}</strong> : ${c.aVenir} entretien${c.aVenir > 1 ? 's' : ''} à venir.`
+    : `<strong>${esc(nom)}</strong> : ${c.total} entretien${c.total > 1 ? 's' : ''}`
+      + (c.total ? `, dont ${c.passes} passé${c.passes > 1 ? 's' : ''} et ${c.aVenir} à venir.` : '.');
   el.style.display = '';
 }
 

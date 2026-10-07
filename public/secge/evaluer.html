@@ -17,14 +17,27 @@
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js" />
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js" />
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js" />
+  <!-- modules du site préchargés (scripts/precharger-modules.mjs) -->
+  <link rel="modulepreload" href="/js/absences.js" />
+  <link rel="modulepreload" href="/js/auth.js" />
+  <link rel="modulepreload" href="/js/firebase-config.js" />
+  <link rel="modulepreload" href="/js/icones.js" />
+  <link rel="modulepreload" href="/js/nav.js" />
+  <link rel="modulepreload" href="/js/org-lookup.js" />
+  <link rel="modulepreload" href="/js/recherche.js" />
+  <link rel="modulepreload" href="/js/tuto.js" />
+  <link rel="modulepreload" href="/js/utils.js" />
+  <!-- /modules -->
   <!-- Polices en <link> et non plus en @import dans main.css : l'@import
        obligeait à télécharger la feuille de style avant même de découvrir
        les polices, trois allers-retours à la suite avant le texte. -->
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Antic&family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;600;700&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" />
   <link rel="stylesheet" href="/css/main.css" />
   <style>
     body.panel-mode nav,
+    body.panel-mode .side-nav, body.panel-mode .tel-haut, body.panel-mode .tel-onglets,
     body.panel-mode .flex-between.mb-24 { display:none !important; }
+    body.panel-mode.avec-side { padding:0 !important; }
     body.panel-mode main.page { padding-top:16px; }
 
     .eval-criterion {
@@ -126,7 +139,7 @@
 <main class="page" style="max-width:720px;">
   <div class="flex-between mb-24">
     <div>
-      <h1>🎙 Fiche d'entretien</h1>
+      <h1>Fiche d'entretien</h1>
       <p>Évaluation confidentielle, visible uniquement par le bureau</p>
     </div>
     <a href="/secge/candidats.html" class="btn btn-ghost btn-sm">← Retour aux cooptants</a>
@@ -146,7 +159,7 @@
       <div class="skel skel-card" style="height:76px;opacity:.5;"></div>
     </div>
   </div>
-  <div id="error-state" class="empty-state" style="display:none;"><div class="empty-state-icon">⚠️</div><p id="error-msg">Erreur de chargement.</p></div>
+  <div id="error-state" class="empty-state" style="display:none;"><div class="empty-state-icon"><i data-icone="attention"></i></div><p id="error-msg">Erreur de chargement.</p></div>
 
   <div id="main-content" style="display:none;">
     <!-- En-tête candidat -->
@@ -165,32 +178,40 @@
       <span id="existing-eval-text">Tu as déjà rempli une fiche pour ce cooptant : les champs ci-dessous sont pré-remplis.</span>
     </div>
 
+    <!-- Absence : remplace la grille quand la personne n'est pas venue -->
+    <label class="absence-case" id="absence-case" hidden>
+      <input type="checkbox" id="absence-coche" />
+      <span><strong>Ne s'est pas présenté·e</strong> à l'entretien du <span id="absence-date"></span>
+        <span class="absence-aide">Rien à noter : l'absence est signalée au bureau et reste visible au classement.</span></span>
+    </label>
+    <div class="absence-deja" id="absence-deja" hidden></div>
+
     <!-- Consignes & guide de questions de l'asso (masqués si non renseignés) -->
     <div class="brief-block" id="brief-block" style="display:none;">
       <div class="brief-panel" id="brief-consignes" style="display:none;">
-        <div class="brief-title">📌 Consignes</div>
+        <div class="brief-title"><i data-icone="epingle"></i> Consignes</div>
         <div class="brief-text" id="brief-consignes-text"></div>
       </div>
       <details class="brief-details" id="brief-guide" style="display:none;">
-        <summary>💡 Guide de questions</summary>
+        <summary><i data-icone="ampoule"></i> Guide de questions</summary>
         <div class="brief-text" id="brief-guide-text"></div>
       </details>
     </div>
 
     <!-- Critères d'évaluation -->
-    <div class="card mb-24">
+    <div class="card mb-24" data-grille>
       <div class="flex-between mb-16">
         <h2>Critères d'évaluation</h2>
         <span id="criteria-count" class="text-sm text-muted"></span>
       </div>
       <div id="criteria-container"></div>
       <div id="no-criteria" style="display:none;" class="text-muted text-sm">
-        Aucun critère d'évaluation configuré. Configurez-les dans <a href="/parametres.html" style="color:var(--indigo);">Paramètres → Entretien</a>.
+        Aucun critère d'évaluation configuré. Configurez-les dans <a href="/parametres.html?onglet=evaluation" style="color:var(--indigo);">Paramètres → Évaluation</a>.
       </div>
     </div>
 
     <!-- Note globale + commentaire -->
-    <div class="card mb-24">
+    <div class="card mb-24" data-grille>
       <h2 class="mb-16">Bilan global</h2>
       <div class="form-row">
         <div class="form-group">
@@ -204,7 +225,7 @@
           <label class="form-label" for="decision">Remarque</label>
           <select class="form-select" id="decision">
             <option value="">·</option>
-            <option value="reserve">🔄 À revoir</option>
+            <option value="reserve">À revoir</option>
           </select>
         </div>
       </div>
@@ -216,7 +237,7 @@
 
     <!-- Boutons d'action -->
     <div class="flex-gap mb-24">
-      <button class="btn btn-primary" id="btn-save">💾 Enregistrer l'évaluation</button>
+      <button class="btn btn-primary" id="btn-save">Enregistrer l'évaluation</button>
       <button class="btn btn-ghost" id="btn-reset">Réinitialiser</button>
       <div id="last-saved" class="text-sm text-muted" style="margin-left:auto;align-self:center;"></div>
     </div>
@@ -229,8 +250,10 @@ import { requireSecge, logout, app } from '/js/auth.js';
 import { getFirestore, collection, query, where, getDocs, getDoc, addDoc, updateDoc, orderBy,
   doc, serverTimestamp }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-import { showToast, confirmDialog, paramLien } from '/js/utils.js';
+import { showToast, confirmDialog, paramLien, esc } from '/js/utils.js';
 import { initBurgerMenu } from '/js/nav.js';
+import { icone } from '/js/icones.js';
+import { signalerAbsence, absencesDuCooptant, absentAuCreneau } from '/js/absences.js';
 
 const db = getFirestore(app);
 const params = new URLSearchParams(location.search);
@@ -239,6 +262,7 @@ const campaignId  = paramLien('campaignId');
 if (params.get('panel') === '1') document.body.classList.add('panel-mode');
 
 let user, candidate, campaign, criteria = [], currentEvalId = null;
+let entretienPasse = null;   // entretien commencé, que l'on peut marquer « absent »
 
 async function init() {
   user = await requireSecge();
@@ -273,7 +297,7 @@ async function init() {
   buildCriteriaForm();
 
   // Load existing evaluation
-  await loadExistingEval();
+  await Promise.all([loadExistingEval(), preparerAbsence()]);
 
 
   document.getElementById('loading-state').style.display = 'none';
@@ -289,6 +313,63 @@ async function init() {
     document.getElementById('commentaire').value  = '';
     document.getElementById('decision').value     = '';
   });
+}
+
+/**
+ * Case « Ne s'est pas présenté·e » : proposée dès que l'entretien a commencé.
+ * Cochée, elle masque la grille et l'enregistrement signale l'absence
+ * (js/absences.js) au lieu d'une évaluation.
+ */
+async function preparerAbsence() {
+  const orgId = campaign.organizationId;
+  const [ivSnap, absences] = await Promise.all([
+    getDocs(query(collection(db, 'interviews'), where('candidateId', '==', candidateId))).catch(() => ({ docs: [] })),
+    absencesDuCooptant(db, orgId, candidateId),
+  ]);
+  const ivs = ivSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+    .filter(iv => iv.datetimeStart?.toMillis && iv.datetimeStart.toMillis() <= Date.now())
+    .sort((a, b) => b.datetimeStart.toMillis() - a.datetimeStart.toMillis());
+  const iv = ivs[0];
+  if (!iv) return;
+  const quand = iv.datetimeStart.toDate().toLocaleString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+  if (absentAuCreneau(absences, iv)) {
+    const deja = document.getElementById('absence-deja');
+    deja.textContent = `Marqué·e absent·e à l'entretien du ${quand}.`;
+    deja.hidden = false;
+    return;
+  }
+  entretienPasse = { ...iv, organizationId: iv.organizationId || orgId };
+  document.getElementById('absence-date').textContent = quand;
+  document.getElementById('absence-case').hidden = false;
+  document.getElementById('absence-coche').addEventListener('change', e => {
+    const absent = e.target.checked;
+    document.querySelectorAll('[data-grille]').forEach(el => { el.hidden = absent; });
+    document.getElementById('btn-reset').style.display = absent ? 'none' : '';
+    document.getElementById('btn-save').textContent = absent ? "Signaler l'absence" : "Enregistrer l'évaluation";
+  });
+}
+
+async function signalerLAbsence() {
+  const btn = document.getElementById('btn-save');
+  btn.disabled = true;
+  try {
+    const nom = [user.displayName, user.email].find(Boolean) || null;
+    await signalerAbsence(db, entretienPasse, { par: nom, source: 'evaluation' });
+    showToast('Absence signalée.', 'success');
+    document.getElementById('absence-case').hidden = true;
+    document.querySelectorAll('[data-grille]').forEach(el => { el.hidden = false; });
+    document.getElementById('btn-reset').style.display = '';
+    const deja = document.getElementById('absence-deja');
+    deja.textContent = `Marqué·e absent·e à l'entretien du ${document.getElementById('absence-date').textContent}.`;
+    deja.hidden = false;
+    entretienPasse = null;
+    if (window.parent !== window) window.parent.postMessage('eval-saved', '*');
+  } catch (err) {
+    showToast('Erreur : ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = 'Enregistrer l\'évaluation';
+  }
 }
 
 function showError(msg) {
@@ -317,7 +398,7 @@ function buildCriteriaForm() {
 
     const labelDiv = document.createElement('div');
     labelDiv.className = 'eval-criterion-label';
-    labelDiv.innerHTML = `${CRIT_ICON[cr.type] || '⭐'} ${cr.label} ${cr.required ? '<span class="required-dot" title="Obligatoire"></span>' : ''}`;
+    labelDiv.innerHTML = `${icone(CRIT_ICON[cr.type] || 'etoile')} ${esc(cr.label)} ${cr.required ? '<span class="required-dot" title="Obligatoire"></span>' : ''}`;
     block.appendChild(labelDiv);
 
     if (cr.type === 'echelle') {
@@ -345,7 +426,7 @@ function buildCriteriaForm() {
     } else if (cr.type === 'yesno') {
       const wrap = document.createElement('div');
       wrap.className = 'scale-wrap';
-      [{ label: '✅ Oui', value: 'oui' }, { label: '❌ Non', value: 'non' }].forEach(opt => {
+      [{ label: 'Oui', value: 'oui' }, { label: 'Non', value: 'non' }].forEach(opt => {
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'scale-btn';
@@ -453,7 +534,7 @@ function renderBrief(campaign) {
 }
 
 // Icône par type de critère : partagée par le rendu et l'affichage.
-const CRIT_ICON = { echelle: '⭐', note: '🔢', yesno: '✅', select: '📋', multi: '☑️', check: '✔️', texte: '💬' };
+const CRIT_ICON = { echelle: 'etoile', note: 'diese', yesno: 'oui_non', select: 'liste', multi: 'cases', check: 'coche', texte: 'bulle' };
 
 function getFormValues() {
   const values = {};
@@ -555,6 +636,7 @@ async function loadExistingEval() {
 }
 
 async function saveEval() {
+  if (entretienPasse && document.getElementById('absence-coche').checked) return signalerLAbsence();
   const values = getFormValues();
 
   // Vérifier critères obligatoires
@@ -598,13 +680,13 @@ async function saveEval() {
     }
 
     showToast('Évaluation enregistrée.', 'success');
-    document.getElementById('last-saved').textContent = `Sauvegardé à ${new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}`;
+    document.getElementById('last-saved').textContent = `Enregistré à ${new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}`;
     if (window.parent !== window) window.parent.postMessage('eval-saved', '*');
   } catch (err) {
     showToast('Erreur : ' + err.message, 'error');
   } finally {
     btn.disabled = false;
-    btn.innerHTML = '💾 Enregistrer l\'évaluation';
+    btn.innerHTML = 'Enregistrer l\'évaluation';
   }
 }
 

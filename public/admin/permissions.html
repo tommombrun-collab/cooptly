@@ -17,10 +17,20 @@
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js" />
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js" />
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js" />
+  <!-- modules du site préchargés (scripts/precharger-modules.mjs) -->
+  <link rel="modulepreload" href="/js/auth.js" />
+  <link rel="modulepreload" href="/js/firebase-config.js" />
+  <link rel="modulepreload" href="/js/icones.js" />
+  <link rel="modulepreload" href="/js/nav.js" />
+  <link rel="modulepreload" href="/js/org-lookup.js" />
+  <link rel="modulepreload" href="/js/recherche.js" />
+  <link rel="modulepreload" href="/js/tuto.js" />
+  <link rel="modulepreload" href="/js/utils.js" />
+  <!-- /modules -->
   <!-- Polices en <link> et non plus en @import dans main.css : l'@import
        obligeait à télécharger la feuille de style avant même de découvrir
        les polices, trois allers-retours à la suite avant le texte. -->
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Antic&family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;600;700&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" />
   <link rel="stylesheet" href="/css/main.css" />
 </head>
 <body>
@@ -91,7 +101,7 @@
         <thead><tr><th>Nom</th><th>Email</th><th>Organisation</th><th>Rôle</th><th>Actions</th></tr></thead>
         <tbody id="users-tbody"></tbody>
       </table>
-      <p class="text-sm text-muted" style="margin-top:8px;">💡 Le bouton "Réinit. MDP" ouvre Firebase Console pour réinitialiser le mot de passe directement (les emails Firebase sont bloqués par emlyon).</p>
+      <p class="text-sm text-muted" style="margin-top:8px;">Le bouton « Réinit. MDP » ouvre Firebase Console pour réinitialiser le mot de passe directement (les emails Firebase sont bloqués par emlyon).</p>
     </div>
   </div>
 
@@ -132,6 +142,7 @@ import { app } from '/js/auth.js';
 import { getFirestore, collection, getDocs, addDoc, setDoc, deleteDoc, updateDoc, doc, query, where, serverTimestamp }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { showToast, confirmDialog, regrouperMembres } from '/js/utils.js';
+import { icone } from '/js/icones.js';
 import { initBurgerMenu } from '/js/nav.js';
 import { firebaseConfig } from '/js/firebase-config.js';
 
@@ -202,8 +213,8 @@ function renderTable(members) {
       <td>${org?.name||m.organizationId||'·'}</td>
       <td><span class="badge ${roleBadge}">${roleLabel}</span></td>
       <td style="display:flex;gap:6px;flex-wrap:wrap;">
-        <button class="btn btn-ghost btn-sm btn-edit-name">✏️ Nom</button>
-        <button class="btn btn-ghost btn-sm btn-reset-pwd">🔑 MDP</button>
+        <button class="btn btn-ghost btn-sm btn-edit-name">${icone('crayon')}Nom</button>
+        <button class="btn btn-ghost btn-sm btn-reset-pwd">${icone('cle')}MDP</button>
         <button class="btn btn-danger btn-sm btn-remove">Retirer</button>
       </td>`;
     tr.querySelector('.btn-edit-name').addEventListener('click', ()=> openEditName(m));
@@ -389,7 +400,7 @@ init();
 <!-- Modal édition nom -->
 <div id="edit-name-overlay" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:9990;align-items:center;justify-content:center;backdrop-filter:blur(3px);">
   <div style="background:#fff;border-radius:16px;padding:28px 24px;width:100%;max-width:380px;box-shadow:0 24px 64px rgba(0,0,0,.18);border:1px solid var(--border);">
-    <h3 style="margin:0 0 20px;font-size:16px;font-weight:700;">✏️ Modifier le nom</h3>
+    <h3 style="margin:0 0 20px;font-size:16px;font-weight:700;">Modifier le nom</h3>
     <input type="hidden" id="edit-member-id" />
     <div class="stack">
       <div class="form-group">

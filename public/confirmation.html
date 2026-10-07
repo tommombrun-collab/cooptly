@@ -16,10 +16,15 @@
        découvre qu'en arrivant au script, tout en bas de la page. -->
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js" />
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js" />
+  <!-- modules du site préchargés (scripts/precharger-modules.mjs) -->
+  <link rel="modulepreload" href="/js/firebase-config.js" />
+  <link rel="modulepreload" href="/js/langue.js" />
+  <link rel="modulepreload" href="/js/utils.js" />
+  <!-- /modules -->
   <!-- Polices en <link> et non plus en @import dans main.css : l'@import
        obligeait à télécharger la feuille de style avant même de découvrir
        les polices, trois allers-retours à la suite avant le texte. -->
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Antic&family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;600;700&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" />
   <link rel="stylesheet" href="/css/main.css" />
   <style>
     .conf-wrap { max-width: 560px; margin: 0 auto; padding: 32px 20px 64px; }
@@ -172,7 +177,7 @@
     getFirestore, collection, query, where, getDocs, doc, getDoc
   } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
   import { firebaseConfig } from '/js/firebase-config.js';
-  import { campaignConfig, paramLien } from '/js/utils.js';
+  import { campaignConfig, paramLien, accentLisible } from '/js/utils.js';
   import { EN, LOCALE, tr, traduirePage, selecteurLangue } from '/js/langue.js';
 
   traduirePage();
@@ -193,8 +198,11 @@
     if (msg) document.getElementById('error-msg').textContent = msg;
   }
 
-  function applyOrgTheme(hex) {
-    if (!hex || !/^#[0-9A-Fa-f]{6}$/.test(hex)) return;
+  function applyOrgTheme(couleur) {
+    if (!couleur || !/^#[0-9A-Fa-f]{6}$/.test(couleur)) return;
+    // Boutons à texte blanc et liens : la couleur de l'asso, assombrie si
+    // elle est trop claire (un jaune donnait du blanc sur jaune).
+    const hex = accentLisible(couleur);
     const h = hex.replace('#','');
     const r = parseInt(h.slice(0,2),16), g = parseInt(h.slice(2,4),16), b = parseInt(h.slice(4,6),16);
     const D = (v,t) => Math.max(0, Math.round(v*(1-t)));

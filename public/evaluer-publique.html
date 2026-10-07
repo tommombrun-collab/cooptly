@@ -15,10 +15,17 @@
        découvre qu'en arrivant au script, tout en bas de la page. -->
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js" />
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js" />
+  <!-- modules du site préchargés (scripts/precharger-modules.mjs) -->
+  <link rel="modulepreload" href="/js/absences.js" />
+  <link rel="modulepreload" href="/js/firebase-config.js" />
+  <link rel="modulepreload" href="/js/icones.js" />
+  <link rel="modulepreload" href="/js/org-lookup.js" />
+  <link rel="modulepreload" href="/js/utils.js" />
+  <!-- /modules -->
   <!-- Polices en <link> et non plus en @import dans main.css : l'@import
        obligeait à télécharger la feuille de style avant même de découvrir
        les polices, trois allers-retours à la suite avant le texte. -->
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Antic&family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;600;700&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" />
   <link rel="stylesheet" href="/css/main.css" />
   <style>
     .eval-criterion { padding:14px 0; border-bottom:1px solid var(--border); }
@@ -40,7 +47,7 @@
 <header class="postuler-header" id="page-header">
   <div id="org-logo-wrap" style="margin-bottom:12px;"></div>
   <div style="font-size:13px;font-weight:600;opacity:.85;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px;" id="org-name">Chargement…</div>
-  <h1>🎙 Évaluer un cooptant</h1>
+  <h1>Évaluer un cooptant</h1>
   <p>Donne ton avis sur un cooptant après son entretien.</p>
 </header>
 
@@ -49,7 +56,7 @@
     <div class="spinner" style="margin:0 auto 16px;"></div><p>Chargement…</p>
   </div>
   <div id="error-state" class="card" style="display:none;text-align:center;padding:48px;color:var(--red);">
-    <div style="font-size:40px;margin-bottom:12px;">⚠️</div><p id="error-msg"></p>
+    <div style="margin-bottom:12px;color:var(--orange);"><i data-icone="attention" class="ico ico-grand"></i></div><p id="error-msg"></p>
   </div>
 
   <div id="content" style="display:none;">
@@ -58,11 +65,11 @@
          à lire avant de commencer. -->
     <div class="brief-block" id="brief-block" style="display:none;">
       <div class="brief-panel" id="brief-consignes" style="display:none;">
-        <div class="brief-title">📌 Consignes</div>
+        <div class="brief-title"><i data-icone="epingle"></i> Consignes</div>
         <div class="brief-text" id="brief-consignes-text"></div>
       </div>
       <details class="brief-details" id="brief-guide" style="display:none;">
-        <summary>💡 Guide de questions</summary>
+        <summary><i data-icone="ampoule"></i> Guide de questions</summary>
         <div class="brief-text" id="brief-guide-text"></div>
       </details>
     </div>
@@ -83,7 +90,14 @@
         <h2 class="mb-16">Ses réponses au formulaire</h2>
         <div id="reponses-liste" class="stack"></div>
       </div>
-      <div class="card mb-16">
+      <!-- Absence : remplace la grille quand la personne n'est pas venue -->
+      <label class="absence-case" id="absence-case" hidden>
+        <input type="checkbox" id="absence-coche" />
+        <span><strong>Ne s'est pas présenté·e</strong> à l'entretien de <span id="absence-date"></span>
+          <span class="absence-aide">Rien à noter : le bureau est prévenu.</span></span>
+      </label>
+
+      <div class="card mb-16" data-grille>
         <div class="flex-between mb-16">
           <h2 style="margin:0;">Critères d'évaluation</h2>
           <span id="criteria-count" class="text-sm text-muted"></span>
@@ -92,7 +106,7 @@
         <div id="no-criteria" style="display:none;" class="text-muted text-sm">Aucun critère configuré par l'association , utilise le bilan global ci-dessous.</div>
       </div>
 
-      <div class="card mb-16">
+      <div class="card mb-16" data-grille>
         <h2 class="mb-16">Bilan global</h2>
         <div class="form-row">
           <div class="form-group">
@@ -103,9 +117,9 @@
             <label class="form-label" for="decision">Ton avis</label>
             <select class="form-select" id="decision">
               <option value="">À décider</option>
-              <option value="accepte">✅ Favorable</option>
-              <option value="refuse">❌ Défavorable</option>
-              <option value="reserve">🔄 Mitigé</option>
+              <option value="accepte">Favorable</option>
+              <option value="refuse">Défavorable</option>
+              <option value="reserve">Mitigé</option>
             </select>
           </div>
         </div>
@@ -116,7 +130,7 @@
       </div>
 
       <div class="flex-gap mb-24">
-        <button class="btn btn-primary btn-lg" id="btn-save">✅ Envoyer l'évaluation</button>
+        <button class="btn btn-primary btn-lg" id="btn-save">Envoyer l'évaluation</button>
         <span id="saved-info" class="text-sm text-muted" style="align-self:center;"></span>
       </div>
     </div>
@@ -127,11 +141,14 @@
 
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getFirestore, collection, query, where, getDocs, getDoc, doc, setDoc, updateDoc, serverTimestamp }
+import { getFirestore, collection, query, where, orderBy, limit, getDocs, getDoc, doc, setDoc, updateDoc, serverTimestamp }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { firebaseConfig } from '/js/firebase-config.js';
-import { showToast, paramLien, esc, reponsesOrdonnees, campaignConfig } from '/js/utils.js';
+import { showToast, paramLien, esc, reponsesOrdonnees, campaignConfig, colorerBandeau } from '/js/utils.js';
 import { resolveOrg as resolveOrgShared } from '/js/org-lookup.js';
+import { signalerAbsence } from '/js/absences.js';
+import { icone, installerIcones } from '/js/icones.js';
+installerIcones();
 
 const app = initializeApp(firebaseConfig);
 const db  = getFirestore(app);
@@ -139,7 +156,7 @@ const params = new URLSearchParams(location.search);
 const orgParam = paramLien('org');
 
 let org = null, campaign = null, criteria = [], candidates = [];
-let tousLesCooptants = [], entretiens = [];
+let tousLesCooptants = [], entretiens = [], prochainEntretien = null, dernierChargement = 0;
 
 /** L'entretien est-il dans la fenêtre du lien (± 2 h autour de maintenant, ou aujourd'hui) ? */
 function dansLaFenetre(iv, maintenant = new Date()) {
@@ -174,7 +191,7 @@ function remplirListe() {
   const aide = $('fenetre-aide');
   const journee = campaignConfig(campaign).fenetreEvaluation === 'journee';
   if (!lignes.length) {
-    const prochain = entretiens.filter(iv => iv.debut > maintenant).sort((a, b) => a.debut - b.debut)[0];
+    const prochain = entretiens.filter(iv => iv.debut > maintenant).sort((a, b) => a.debut - b.debut)[0] || prochainEntretien;
     aide.textContent = (journee ? 'Aucun entretien aujourd\'hui.' : 'Aucun entretien en ce moment.')
       + (prochain ? ` Prochain : ${prochain.debut.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })} à ${heure(prochain.debut)}.` : '');
   } else {
@@ -190,10 +207,38 @@ function remplirListe() {
 
 const $ = id => document.getElementById(id);
 function showError(m){ $('loading-state').style.display='none'; $('content').style.display='none'; $('error-state').style.display=''; $('error-msg').textContent=m; }
-function darken(hex,t){ const h=(hex||'').replace('#',''); if(h.length!==6)return hex; const r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16); const d=v=>Math.max(0,Math.round(v*(1-t))); return `rgb(${d(r)},${d(g)},${d(b)})`; }
 
 // Résolution partagée : ID, slug courant, ou ancien slug après renommage.
 const resolveOrg = param => resolveOrgShared(db, param);
+
+/** Entretiens d'aujourd'hui (jusqu'à 2 h du matin), leurs cooptants, et le prochain entretien. */
+async function chargerEntretiensDuJour() {
+  const debutJour = new Date(); debutJour.setHours(0, 0, 0, 0);
+  const finJour = new Date(debutJour.getTime() + 26 * 3600 * 1000);
+  const [ivSnap, suivant] = await Promise.all([
+    getDocs(query(collection(db,'interviews'), where('campaignId','==',campaign.id),
+      where('datetimeStart','>=',debutJour), where('datetimeStart','<',finJour))),
+    getDocs(query(collection(db,'interviews'), where('campaignId','==',campaign.id),
+      where('datetimeStart','>=',finJour), orderBy('datetimeStart'), limit(1))),
+  ]);
+  const versEntretien = iv => ({
+    id: iv.id,
+    organizationId: iv.organizationId || org.id,
+    campaignId: iv.campaignId,
+    datetimeStart: iv.datetimeStart,
+    candidateId: iv.candidateId,
+    debut: iv.datetimeStart?.toDate ? iv.datetimeStart.toDate() : new Date(iv.datetimeStart),
+    fin:   iv.datetimeEnd?.toDate   ? iv.datetimeEnd.toDate()   : null,
+  });
+  entretiens = ivSnap.docs.map(d=>versEntretien({ id: d.id, ...d.data() })).filter(iv => iv.candidateId && !isNaN(iv.debut));
+  prochainEntretien = suivant.docs.map(d=>versEntretien({ id: d.id, ...d.data() }))[0] || null;
+  // Cooptants pas encore lus seulement.
+  const connus = new Set(tousLesCooptants.map(c => c.id));
+  const aLire = [...new Set(entretiens.map(iv => iv.candidateId))].filter(id => !connus.has(id));
+  const lus = await Promise.all(aLire.map(id => getDoc(doc(db,'candidates',id))));
+  tousLesCooptants.push(...lus.filter(d => d.exists()).map(d => ({ id: d.id, ...d.data() })));
+  dernierChargement = Date.now();
+}
 
 async function init(){
   org = await resolveOrg(orgParam);
@@ -201,17 +246,9 @@ async function init(){
   $('org-name').textContent = org.name || "Cooptly";
   if (org.logoBase64) {
     $('org-logo-wrap').innerHTML =
-      `<img src="${org.logoBase64}" style="width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.6);box-shadow:0 2px 8px rgba(0,0,0,.12);" alt="${org.name}" />`;
+      `<img src="${org.logoBase64}" style="width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.6);box-shadow:0 2px 8px rgba(0,0,0,.12);" alt="${esc(org.name)}" />`;
   }
-  if (org.primaryColor) {
-    const hdr = $('page-header');
-    hdr.style.background = `linear-gradient(135deg,${org.primaryColor} 0%,${darken(org.primaryColor,.2)} 100%)`;
-    hdr.style.color = '#fff';
-    const h1 = hdr.querySelector('h1');
-    if (h1) h1.style.color = '#fff';
-    const p = hdr.querySelector('p');
-    if (p) p.style.color = 'rgba(255,255,255,.78)';
-  }
+  if (org.primaryColor) colorerBandeau($('page-header'), org.primaryColor);
 
   // Espace de recrutement (campagne unique)
   const cSnap = await getDocs(query(collection(db,'campaigns'), where('organizationId','==',org.id)));
@@ -225,24 +262,25 @@ async function init(){
   // (± 2 h, ou le jour même selon Paramètres). Le lien circule dans tout le
   // staff : il ne doit pas donner la liste de tous les cooptants et de leurs
   // réponses, seulement ce qu'il faut pour noter les entretiens du moment.
-  const [candSnap, ivSnap] = await Promise.all([
-    getDocs(query(collection(db,'candidates'), where('campaignId','==',campaign.id))),
-    getDocs(query(collection(db,'interviews'), where('campaignId','==',campaign.id))),
-  ]);
-  tousLesCooptants = candSnap.docs.map(d=>({id:d.id,...d.data()}));
-  entretiens = ivSnap.docs.map(d=>d.data()).map(iv=>({
-    candidateId: iv.candidateId,
-    debut: iv.datetimeStart?.toDate ? iv.datetimeStart.toDate() : new Date(iv.datetimeStart),
-    fin:   iv.datetimeEnd?.toDate   ? iv.datetimeEnd.toDate()   : null,
-  })).filter(iv => iv.candidateId && !isNaN(iv.debut));
+  // On ne lit donc que les entretiens du jour et leurs cooptants (quelques
+  // lectures au lieu de toute l'asso : le quota gratuit est de 50 000 par jour).
+  await chargerEntretiensDuJour();
   remplirListe();
-  // La page reste souvent ouverte toute une après-midi : la liste suit l'heure.
-  setInterval(remplirListe, 5 * 60 * 1000);
+  // La page reste souvent ouverte toute une après-midi : la liste suit l'heure,
+  // et les entretiens sont relus au plus tous les quarts d'heure (page visible).
+  setInterval(async () => {
+    if (!document.hidden && Date.now() - dernierChargement > 15 * 60 * 1000) {
+      try { await chargerEntretiensDuJour(); } catch (e) { console.warn(e); }
+    }
+    remplirListe();
+  }, 5 * 60 * 1000);
   const candSel = $('candidate-select');
   candSel.addEventListener('change', ()=>{
     $('eval-section').style.display = candSel.value ? '' : 'none';
     afficherReponses(candidates.find(c => c.id === candSel.value));
+    preparerAbsence(candSel.value);
   });
+  $('absence-coche').addEventListener('change', e => montrerGrille(!e.target.checked));
 
   buildCriteriaForm();
   $('btn-save').onclick = save;
@@ -260,7 +298,7 @@ function buildCriteriaForm(){
   criteria.forEach(cr=>{
     const block=document.createElement('div'); block.className='eval-criterion'; block.dataset.criterionId=cr.id;
     const lab=document.createElement('div'); lab.className='eval-criterion-label';
-    lab.innerHTML = `${CRIT_ICON[cr.type]||'⭐'} ${cr.label} ${cr.required?'<span class="required-dot" title="Obligatoire"></span>':''}`;
+    lab.innerHTML = `${icone(CRIT_ICON[cr.type]||'etoile')} ${esc(cr.label)} ${cr.required?'<span class="required-dot" title="Obligatoire"></span>':''}`;
     block.appendChild(lab);
     if(cr.type==='echelle'){
       const wrap=document.createElement('div'); wrap.className='scale-wrap';
@@ -273,7 +311,7 @@ function buildCriteriaForm(){
       const hint=document.createElement('div'); hint.className='text-sm text-muted'; hint.style.marginTop='6px'; hint.textContent=`1 = Faible · ${cr.max||5} = Excellent`; block.appendChild(hint);
     } else if(cr.type==='yesno'){
       const wrap=document.createElement('div'); wrap.className='scale-wrap';
-      [{label:'✅ Oui',value:'oui'},{label:'❌ Non',value:'non'}].forEach(opt=>{
+      [{label:'Oui',value:'oui'},{label:'Non',value:'non'}].forEach(opt=>{
         const b=document.createElement('button'); b.type='button'; b.className='scale-btn';
         b.style.width='auto'; b.style.padding='0 16px'; b.textContent=opt.label; b.dataset.value=opt.value;
         b.addEventListener('click',()=>{ wrap.querySelectorAll('.scale-btn').forEach(x=>x.classList.remove('selected')); b.classList.add('selected'); });
@@ -359,7 +397,7 @@ function renderBrief(campaign){
   if(consignes||guide) $('brief-block').style.display='';
 }
 
-const CRIT_ICON={echelle:'⭐',note:'🔢',yesno:'✅',select:'📋',multi:'☑️',check:'✔️',texte:'💬'};
+const CRIT_ICON={echelle:'etoile',note:'diese',yesno:'oui_non',select:'liste',multi:'cases',check:'coche',texte:'bulle'};
 
 function getFormValues(){
   const values={};
@@ -376,10 +414,45 @@ function getFormValues(){
   return values;
 }
 
+/**
+ * « Ne s'est pas présenté·e » : proposé dès que l'entretien a commencé. Coché,
+ * l'envoi signale l'absence au bureau (js/absences.js) au lieu d'évaluer.
+ */
+let entretienAbsence = null;
+function preparerAbsence(candidateId) {
+  const maintenant = Date.now();
+  entretienAbsence = entretiens
+    .filter(iv => iv.candidateId === candidateId && iv.debut.getTime() <= maintenant && iv.id)
+    .sort((a, b) => b.debut - a.debut)[0] || null;
+  $('absence-coche').checked = false;
+  montrerGrille(true);
+  $('absence-case').hidden = !entretienAbsence;
+  if (entretienAbsence) {
+    $('absence-date').textContent = entretienAbsence.debut.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  }
+}
+function montrerGrille(oui) {
+  document.querySelectorAll('[data-grille]').forEach(el => { el.hidden = !oui; });
+  $('btn-save').textContent = oui ? "Envoyer l'évaluation" : "Signaler l'absence";
+}
+
+async function signalerLAbsence(btn) {
+  btn.disabled = true;
+  try {
+    await signalerAbsence(db, entretienAbsence, { source: 'lien' });
+    showToast('Absence signalée au bureau.', 'success');
+    $('saved-info').textContent = 'Absence signalée ✓';
+    $('candidate-select').value = ''; $('eval-section').style.display = 'none';
+    preparerAbsence(null);
+  } catch (err) { showToast('Erreur : ' + err.message, 'error'); }
+  finally { btn.disabled = false; }
+}
+
 async function save(){
   const btn=$('btn-save');
   const candidateId=$('candidate-select').value;
   if(!candidateId) return showToast('Sélectionne un cooptant.','error');
+  if (entretienAbsence && $('absence-coche').checked) return signalerLAbsence(btn);
 
   const values=getFormValues();
   const missing=criteria.filter(cr=>cr.required && (values[cr.id]===null||values[cr.id]===undefined||values[cr.id]===''));
@@ -424,12 +497,12 @@ async function save(){
     }
 
     $('saved-info').textContent='Évaluation envoyée ✓';
-    showToast('Évaluation enregistrée. 🎉','success');
+    showToast('Évaluation enregistrée.','success');
     $('candidate-select').value=''; $('eval-section').style.display='none';
     $('note-globale').value=''; $('decision').value=''; $('commentaire').value='';
     buildCriteriaForm();
   }catch(err){ showToast('Erreur : '+err.message,'error'); }
-  finally{ btn.disabled=false; btn.textContent="✅ Envoyer l'évaluation"; }
+  finally{ btn.disabled=false; btn.textContent="Envoyer l'évaluation"; }
 }
 
 init().catch(e=>showError('Erreur de chargement : '+e.message));

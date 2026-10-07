@@ -15,10 +15,16 @@
        découvre qu'en arrivant au script, tout en bas de la page. -->
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js" />
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js" />
+  <!-- modules du site préchargés (scripts/precharger-modules.mjs) -->
+  <link rel="modulepreload" href="/js/capacite.js" />
+  <link rel="modulepreload" href="/js/firebase-config.js" />
+  <link rel="modulepreload" href="/js/org-lookup.js" />
+  <link rel="modulepreload" href="/js/utils.js" />
+  <!-- /modules -->
   <!-- Polices en <link> et non plus en @import dans main.css : l'@import
        obligeait à télécharger la feuille de style avant même de découvrir
        les polices, trois allers-retours à la suite avant le texte. -->
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Antic&family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;600;700&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" />
   <link rel="stylesheet" href="/css/main.css" />
   <style>
     /* ── Grille heure par heure ───────────────────────────────────
@@ -160,7 +166,7 @@ import { getFirestore, collection, query, where, getDocs, getDoc, doc,
          addDoc, updateDoc, serverTimestamp }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { firebaseConfig } from '/js/firebase-config.js';
-import { showToast, getCampaignDays, localDateStr, confirmDialog, paramLien, campaignConfig } from '/js/utils.js';
+import { showToast, getCampaignDays, localDateStr, confirmDialog, paramLien, campaignConfig, colorerBandeau } from '/js/utils.js';
 import { heuresGrille } from '/js/capacite.js';
 import { resolveOrg as resolveOrgShared } from '/js/org-lookup.js';
 
@@ -186,12 +192,6 @@ function showError(msg) {
   $('error-state').style.display = '';
   $('error-msg').textContent = msg;
 }
-function darken(hex, t) {
-  const h = hex.replace('#',''); if (h.length !== 6) return hex;
-  const r = parseInt(h.slice(0,2),16), g = parseInt(h.slice(2,4),16), b = parseInt(h.slice(4,6),16);
-  const d = v => Math.max(0, Math.round(v*(1-t)));
-  return `rgb(${d(r)},${d(g)},${d(b)})`;
-}
 
 // Résolution partagée : ID, slug courant, ou ancien slug après renommage.
 const resolveOrg = param => resolveOrgShared(db, param);
@@ -206,15 +206,8 @@ async function init() {
     $('org-logo-wrap').innerHTML =
       `<img src="${org.logoBase64}" style="width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.6);box-shadow:0 2px 8px rgba(0,0,0,.12);" alt="${org.name}" />`;
   }
-  if (org.primaryColor) {
-    const hdr = $('page-header');
-    hdr.style.background = `linear-gradient(135deg,${org.primaryColor} 0%,${darken(org.primaryColor,.2)} 100%)`;
-    hdr.style.color = '#fff';
-    const h1 = hdr.querySelector('h1');
-    if (h1) h1.style.color = '#fff';
-    const p = hdr.querySelector('p');
-    if (p) p.style.color = 'rgba(255,255,255,.78)';
-  }
+  // Couleur de l'asso : texte blanc ou sombre selon le contraste (utils.js).
+  if (org.primaryColor) colorerBandeau($('page-header'), org.primaryColor);
 
   // Espace de recrutement de l'asso (unique)
   const campSnap = await getDocs(query(collection(db, 'campaigns'), where('organizationId', '==', org.id)));
@@ -326,7 +319,7 @@ function markInterviews(days, interviews, myId) {
       if (!t) continue;
       t.classList.add('reserved', 'locked');
       t.dataset.reserved = '1'; t.dataset.locked = '1';
-      t.title = 'Tu es juré sur un entretien à ce créneau';
+      t.title = 'Tu fais passer un entretien à ce créneau';
     }
   });
 }
@@ -338,11 +331,11 @@ function markInterviews(days, interviews, myId) {
  * d'une dispo sur laquelle un entretien est déjà posé.
  */
 async function guardToggle(t) {
-  if (t.dataset.locked) { showToast('Tu es juré sur un entretien ici, préviens le sec-gé.', 'error'); return false; }
+  if (t.dataset.locked) { showToast('Tu fais passer un entretien ici : préviens le sec-gé.', 'error'); return false; }
   const turningOff = t.classList.contains('selected');
   if (turningOff && t.dataset.reserved) {
     return confirmDialog(
-      'Un entretien est déjà réservé sur ce créneau. Le retirer peut laisser cet entretien sans juré.',
+      'Un entretien est déjà réservé sur ce créneau. Le retirer peut laisser cet entretien sans staffeur.',
       { title: 'Retirer cette disponibilité ?', confirmLabel: 'Retirer quand même', danger: true });
   }
   return true;
@@ -505,7 +498,16 @@ async function save() {
       where('campaignId', '==', currentCampaign.id)
     ));
     if (!existing.empty) {
-      await updateDoc(existing.docs[0].ref, { creneaux, secours, langues, displayName, updatedAt: serverTimestamp() });
+      // La grille ne montre que les jours à venir : les jours qu'elle n'affiche
+      // pas (déjà passés, ou retirés de la période) sont GARDÉS tels quels.
+      // Avant, chaque envoi les effaçait : l'historique des dispos du staff
+      // disparaissait (heures dispo, fiche du staffeur).
+      const affiches = new Set([...document.querySelectorAll('.hg-toggle')].map(t => t.dataset.day));
+      const avant = existing.docs[0].data();
+      const garder = liste => (liste || []).filter(j => j?.jour && !affiches.has(j.jour));
+      const creneauxGardes = [...garder(avant.creneaux), ...creneaux].sort((a, b) => a.jour.localeCompare(b.jour));
+      const secoursGardes = [...garder(avant.secours), ...secours].sort((a, b) => a.jour.localeCompare(b.jour));
+      await updateDoc(existing.docs[0].ref, { creneaux: creneauxGardes, secours: secoursGardes, langues, displayName, updatedAt: serverTimestamp() });
     } else {
       await addDoc(collection(db, 'staff_availabilities'), {
         userId: memberId, displayName, campaignId: currentCampaign.id,

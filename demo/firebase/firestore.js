@@ -49,6 +49,8 @@ function resoudre(avant, v) {
 // ─── Références ───────────────────────────────────────────────────
 const db = { type: 'firestore' };
 export const getFirestore = () => db;
+// Lecture « confirmée par le serveur » (création du recrutement) : ici tout est local.
+export const getDocsFromServer = q => getDocs(q);
 
 const nouvelId = () => Array.from(crypto.getRandomValues(new Uint8Array(15)),
   b => 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'[b % 62]).join('').slice(0, 20);

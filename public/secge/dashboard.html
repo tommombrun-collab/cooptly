@@ -16,12 +16,125 @@
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js" />
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js" />
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js" />
+  <!-- modules du site préchargés (scripts/precharger-modules.mjs) -->
+  <link rel="modulepreload" href="/js/absences.js" />
+  <link rel="modulepreload" href="/js/algo.js" />
+  <link rel="modulepreload" href="/js/assistant.js" />
+  <link rel="modulepreload" href="/js/auth.js" />
+  <link rel="modulepreload" href="/js/capacite.js" />
+  <link rel="modulepreload" href="/js/cloture.js" />
+  <link rel="modulepreload" href="/js/coherence.js" />
+  <link rel="modulepreload" href="/js/corbeille.js" />
+  <link rel="modulepreload" href="/js/db.js" />
+  <link rel="modulepreload" href="/js/deplacer.js" />
+  <link rel="modulepreload" href="/js/fiche-cooptant.js" />
+  <link rel="modulepreload" href="/js/firebase-config.js" />
+  <link rel="modulepreload" href="/js/icones.js" />
+  <link rel="modulepreload" href="/js/jury.js" />
+  <link rel="modulepreload" href="/js/nav.js" />
+  <link rel="modulepreload" href="/js/notes.js" />
+  <link rel="modulepreload" href="/js/org-lookup.js" />
+  <link rel="modulepreload" href="/js/recherche.js" />
+  <link rel="modulepreload" href="/js/score.js" />
+  <link rel="modulepreload" href="/js/tuto.js" />
+  <link rel="modulepreload" href="/js/utils.js" />
+  <!-- /modules -->
   <!-- Polices en <link> et non plus en @import dans main.css : l'@import
        obligeait à télécharger la feuille de style avant même de découvrir
        les polices, trois allers-retours à la suite avant le texte. -->
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Antic&family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;600;700&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" />
   <link rel="stylesheet" href="/css/main.css" />
   <style>
+    /* ── Tableau de bord (refonte) ─────────────────────────────── */
+    .tdb-i { width:16px; height:16px; flex-shrink:0; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+    .tdb-entete { display:flex; justify-content:space-between; align-items:flex-end; gap:12px 20px; flex-wrap:wrap; margin-bottom:22px; }
+    .tdb-entete h1 { margin:0; }
+    .tdb-sous { display:flex; flex-wrap:wrap; gap:4px 12px; align-items:center; margin-top:4px; color:var(--text-muted); font-size:14px; }
+    .tdb-bande { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); margin-bottom:26px; }
+    .tdb-stat { display:flex; flex-direction:column; gap:2px; padding:14px 18px; border-left:1px solid var(--border); min-width:0; }
+    .tdb-stat:first-child { border-left:none; }
+    .tdb-stat > span { color:var(--text-muted); font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .tdb-stat b { font-family:var(--font-display); font-size:30px; font-weight:600; line-height:1.15; }
+    .tdb-stat small { color:var(--text-light); font-size:12.5px; min-height:1.2em; }
+    .tdb-stat i { display:block; height:3px; background:var(--bg); border-radius:2px; overflow:hidden; margin-top:8px; }
+    .tdb-stat i u { display:block; height:100%; width:0; background:var(--indigo); transition:width .4s ease; }
+    .tdb-rouge { color:var(--red) !important; } .tdb-ambre { color:var(--orange) !important; } .tdb-accent { color:var(--indigo-dark); } .tdb-muet { color:var(--text-light); }
+    .tdb-colonnes { display:grid; grid-template-columns:minmax(0,1fr) 300px; gap:28px; align-items:start; margin-bottom:28px; }
+    .tdb-colonnes[hidden], .tdb-bloc[hidden] { display:none; }
+    .tdb-col, .tdb-droite { display:flex; flex-direction:column; gap:26px; min-width:0; }
+    .tdb-bloc { margin-bottom:0; }
+    #tdb-miseenroute { margin-bottom:28px; }
+    .tdb-lien-assistant { border:none; background:none; padding:0; font:inherit; font-size:12px; letter-spacing:0; text-transform:none; color:var(--indigo-dark); text-decoration:underline; text-underline-offset:3px; cursor:pointer; margin-left:8px; }
+    .tdb-etat-recrutement { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; background:var(--orange-light); border:1px solid var(--orange-mid); border-radius:8px; padding:12px 16px; margin-bottom:18px; font-size:14px; }
+    .tdb-etat-recrutement[hidden] { display:none; }
+    .tdb-h2 { font-family:var(--font-body); font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--text-light); font-weight:600; margin:0 0 10px;
+      display:flex; justify-content:space-between; align-items:baseline; gap:10px; }
+    .tdb-h2 a { text-transform:none; letter-spacing:0; font-size:13px; color:var(--indigo-dark); text-decoration:none; font-weight:600; }
+    .tdb-liste, .tdb-etapes { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); list-style:none; margin:0; padding:0; }
+    .tdb-ligne { display:grid; align-items:center; gap:4px 14px; padding:11px 14px; border-top:1px solid var(--border); }
+    .tdb-ligne:first-child { border-top:none; }
+    .tdb-ligne small { display:block; color:var(--text-muted); font-size:12.5px; margin-top:1px; }
+    .tdb-rien { color:var(--text-muted); display:block; }
+    .tdb-afaire { grid-template-columns:40px minmax(0,1fr) auto 28px; }
+    .tdb-masquer { width:28px; height:28px; border:none; background:none; border-radius:6px; color:var(--text-light); cursor:pointer; font-size:13px; }
+    .tdb-masquer:hover { background:var(--teal-soft-alt); color:var(--text); }
+    .tdb-masquer:focus-visible { outline:2px solid var(--indigo); outline-offset:1px; }
+    .tdb-masquees { display:block; font-size:12.5px; color:var(--text-light); padding:8px 14px; }
+    .tdb-masquees button { border:none; background:none; padding:0; font:inherit; color:var(--indigo-dark); text-decoration:underline; text-underline-offset:3px; cursor:pointer; }
+    .tdb-compte { font-family:var(--font-display); font-size:21px; font-weight:600; text-align:right; }
+    .tdb-afaire.rouge .tdb-compte { color:var(--red); } .tdb-afaire.ambre .tdb-compte { color:var(--orange); }
+    .tdb-aller { display:inline-flex; align-items:center; gap:4px; color:var(--indigo-dark); font-weight:600; font-size:13.5px; text-decoration:none;
+      background:none; border:none; cursor:pointer; padding:6px 4px; font-family:inherit; white-space:nowrap; }
+    .tdb-aller:hover { text-decoration:underline; }
+    .tdb-rdv { grid-template-columns:52px minmax(0,1.3fr) minmax(0,1fr) 72px 140px; cursor:pointer; }
+    .tdb-rdv:hover { background:var(--teal-soft-alt); }
+    .tdb-rdv:focus-visible { outline:2px solid var(--indigo); outline-offset:-2px; }
+    .tdb-rdv.passee { background:var(--teal-soft-alt); } .tdb-rdv.passee .tdb-qui b { font-weight:500; color:var(--text-muted); }
+    .tdb-rdv.encours { box-shadow:inset 3px 0 0 var(--indigo); }
+    .tdb-h { font-weight:600; color:var(--text-muted); }
+    .tdb-qui { min-width:0; } .tdb-qui b { font-weight:600; }
+    .tdb-avec { color:var(--text-muted); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .tdb-salle { color:var(--text-muted); font-size:13.5px; }
+    .tdb-etat { justify-self:end; font-size:13px; white-space:nowrap; }
+    .tdb-maintenant { height:0; position:relative; border-top:2px solid var(--indigo); }
+    .tdb-maintenant span { position:absolute; left:10px; top:-10px; background:var(--indigo); color:#fff; font-size:11px; font-weight:600; padding:1px 6px; border-radius:3px; }
+    :root[data-theme="dark"] .tdb-maintenant span { color:#121614; }
+    .tdb-carte { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px; }
+    .tdb-gros { font-family:var(--font-display); font-size:30px; font-weight:600; line-height:1.1; }
+    .tdb-note { color:var(--text-muted); font-size:13px; margin:4px 0 0; }
+    .tdb-semaine { display:flex; gap:6px; align-items:flex-end; height:46px; margin-top:12px; }
+    .tdb-semaine i { flex:1; background:var(--indigo); opacity:.8; border-radius:2px 2px 0 0; height:calc(var(--n) * 100%); min-height:3px; }
+    .tdb-semaine i { cursor:default; transition:opacity .12s; }
+    .tdb-semaine i:hover, .tdb-semaine i:focus-visible { opacity:1; outline:none; box-shadow:0 0 0 2px var(--indigo-mid); }
+    .tdb-semaine-l { display:flex; gap:6px; font-size:11px; color:var(--text-light); margin-top:4px; } .tdb-semaine-l span { flex:1; text-align:center; }
+    .tdb-progres { display:inline-flex; align-items:center; gap:10px; text-transform:none; letter-spacing:0; font-size:13px; color:var(--text-muted); }
+    .tdb-progres i { width:120px; height:4px; background:var(--border); border-radius:2px; overflow:hidden; display:block; }
+    .tdb-progres i b { display:block; height:100%; width:0; background:var(--indigo); }
+    .tdb-etapes li { display:grid; grid-template-columns:30px minmax(0,1fr) auto; gap:4px 14px; align-items:center; padding:13px 14px; border-top:1px solid var(--border); }
+    .tdb-etapes li:first-child { border-top:none; }
+    .tdb-etapes small { display:block; color:var(--text-muted); font-size:12.5px; }
+    .tdb-num { width:26px; height:26px; border-radius:50%; border:1.5px solid var(--border-strong); display:grid; place-items:center; font-size:12px; font-weight:600; color:var(--text-light); }
+    .tdb-etapes .fait .tdb-num { background:var(--indigo); border-color:var(--indigo); color:#fff; font-size:0; }
+    .tdb-etapes .fait .tdb-num::after { content:'✓'; font-size:13px; }
+    .tdb-etapes .fait b { color:var(--text-light); font-weight:500; }
+    .tdb-etapes .encours { background:var(--indigo-light); } .tdb-etapes .encours .tdb-num { border-color:var(--indigo); color:var(--indigo-dark); }
+    @media (max-width: 1100px) {
+      .tdb-colonnes { grid-template-columns:1fr; }
+      .tdb-droite { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+    }
+    @media (max-width: 860px) {
+      .tdb-rdv { grid-template-columns:48px minmax(0,1fr) auto; }
+      .tdb-rdv .tdb-avec { grid-column:2; grid-row:2; font-size:12.5px; } .tdb-rdv .tdb-salle { display:none; }
+      .tdb-rdv .tdb-etat { grid-column:3; grid-row:1 / 3; }
+    }
+    @media (max-width: 640px) {
+      .tdb-entete .flex-gap { width:100%; } .tdb-entete .btn-secondary span { display:none; } .tdb-entete .btn-primary { flex:1; justify-content:center; }
+      .tdb-bande { grid-template-columns:1fr 1fr; } .tdb-stat { padding:11px 12px; } .tdb-stat:nth-child(3) { border-left:none; }
+      .tdb-stat:nth-child(n+3) { border-top:1px solid var(--border); } .tdb-stat b { font-size:24px; }
+      .tdb-afaire { grid-template-columns:34px minmax(0,1fr) 24px 28px; } .tdb-aller span { display:none; }
+      .tdb-etapes li { grid-template-columns:28px minmax(0,1fr); } .tdb-etapes li .btn { grid-column:2; justify-self:start; margin-top:6px; }
+      .tdb-droite { grid-template-columns:1fr 1fr; gap:12px; } .tdb-gros { font-size:24px; }
+    }
     .th-mini { display:block; margin-top:2px; border:0; background:none; padding:0; font:inherit; font-size:10.5px;
       font-weight:600; text-transform:none; letter-spacing:0; color:var(--indigo-dark); cursor:pointer; }
     .th-mini:hover { text-decoration:underline; }
@@ -75,35 +188,66 @@
 </nav>
 
 <main class="page">
-  <div class="flex-between mb-24">
-    <div style="display:flex;align-items:center;gap:16px;">
-      <div id="org-logo-wrap" style="flex-shrink:0;"></div>
-      <div>
-        <h1 style="margin:0;">Tableau de bord</h1>
-        <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
-          <p id="org-info" style="margin:0;">Chargement…</p>
-          <span id="campaign-status-badge" class="badge" style="display:none;"></span>
-        </div>
-      </div>
+  <div class="tdb-entete">
+    <div>
+      <h1 id="tdb-titre">Tableau de bord</h1>
+      <div class="tdb-sous"><span id="campaign-status-badge" class="badge" style="display:none;"></span><span id="tdb-periode">Chargement…</span></div>
     </div>
     <div class="flex-gap">
-      <button class="btn btn-ghost btn-sm" id="btn-stand" title="Ouvre le formulaire court pour inscrire quelqu'un sur place, sur un stand">📍 Mode stand</button>
-      <button class="btn btn-ghost btn-sm" id="btn-partager" aria-haspopup="dialog" title="Tous les liens : formulaire (français, anglais, QR code) et liens du staff (dispos, évaluation, planning, stand)">🔗 Partager</button>
-      <button class="btn btn-primary" id="btn-copy-link" title="Copie le lien du formulaire de cooptation, à diffuser aux cooptants">Copier le lien du formulaire</button>
+      <button class="btn btn-secondary btn-sm" id="btn-stand" title="Ouvre le formulaire court pour inscrire quelqu'un sur place, sur un stand"><svg class="tdb-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></svg><span>Mode stand</span></button>
+      <button class="btn btn-secondary btn-sm" id="btn-partager" aria-haspopup="dialog" title="Tous les liens : formulaire (français, anglais, QR code) et liens du staff (dispos, évaluation, planning, stand)"><svg class="tdb-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3A4 4 0 0 0 11 18.7l1-1"/></svg><span>Partager</span></button>
+      <button class="btn btn-primary btn-sm" id="btn-copy-link" title="Copie le lien du formulaire de cooptation, à diffuser aux cooptants"><svg class="tdb-i" viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></svg>Copier le lien du formulaire</button>
     </div>
   </div>
 
   <!-- Sélecteur campagne masqué (conservé pour la logique JS) -->
   <select id="campaign-select" style="display:none;"></select>
 
-  <div class="stats-grid mb-16">
-    <div class="stat-card"><div class="stat-value" id="stat-total">·</div><div class="stat-label">Cooptants reçus</div><div class="stat-label" id="stat-stand" style="display:none;margin-top:2px;"></div></div>
-    <div class="stat-card"><div class="stat-value" id="stat-places" style="color:var(--green);">·</div><div class="stat-label">Placés</div></div>
-    <div class="stat-card"><div class="stat-value" id="stat-attente" style="color:var(--orange);">·</div><div class="stat-label">En attente</div></div>
-    <div class="stat-card"><div class="stat-value" id="stat-faits" style="color:var(--indigo);">·</div><div class="stat-label">Entretiens faits</div></div>
-  </div>
+  <!-- Où en est la campagne -->
+  <section class="tdb-bande" aria-label="Où en est la campagne">
+    <div class="tdb-stat" data-info="Toutes les candidatures reçues, stand compris"><span>Candidatures</span><b id="stat-total">·</b><small id="stat-total-sous"></small><i><u id="barre-total"></u></i></div>
+    <div class="tdb-stat" data-info="Cooptants qui ont un entretien, passé ou à venir"><span>Entretien réservé</span><b id="stat-reserves">·</b><small id="stat-reserves-sous"></small><i><u id="barre-reserves"></u></i></div>
+    <div class="tdb-stat" data-info="Entretiens dont l'heure est passée, sans les absents"><span>Entretien passé</span><b id="stat-passes">·</b><small id="stat-passes-sous"></small><i><u id="barre-passes"></u></i></div>
+    <div class="tdb-stat" data-info="Cooptants qui ont au moins une évaluation"><span>Évalués</span><b id="stat-evalues">·</b><small id="stat-evalues-sous"></small><i><u id="barre-evalues"></u></i></div>
+  </section>
 
-  <div style="margin-bottom:24px;"></div>
+  <!-- Recrutement clôturé ou en préparation (js/cloture.js) -->
+  <div class="tdb-etat-recrutement" id="tdb-etat-recrutement" hidden></div>
+
+  <!-- Avant le premier entretien : la mise en route -->
+  <section class="tdb-bloc" id="tdb-miseenroute" hidden>
+    <h2 class="tdb-h2">Mise en route <button type="button" class="tdb-lien-assistant" data-action="assistant">Assistant de démarrage</button> <span class="tdb-progres"><i><b id="tdb-progres-barre"></b></i><span id="tdb-progres-txt"></span></span></h2>
+    <ol class="tdb-etapes" id="tdb-etapes"></ol>
+    <div class="tdb-liste" id="tdb-verifier" style="margin-top:14px;"></div>
+  </section>
+
+  <!-- Pendant la campagne -->
+  <div class="tdb-colonnes" id="tdb-colonnes" hidden>
+    <div class="tdb-col">
+      <section class="tdb-bloc">
+        <h2 class="tdb-h2">À faire</h2>
+        <div class="tdb-liste" id="tdb-afaire"></div>
+      </section>
+      <section class="tdb-bloc">
+        <h2 class="tdb-h2"><span id="tdb-ajd-titre">Aujourd'hui</span><a id="tdb-semaine" href="/planning.html">Tout le planning</a></h2>
+        <div class="tdb-liste" id="tdb-jour"></div>
+      </section>
+    </div>
+    <aside class="tdb-droite">
+      <section class="tdb-bloc">
+        <h2 class="tdb-h2">Demain</h2>
+        <div class="tdb-carte" id="tdb-demain"></div>
+      </section>
+      <section class="tdb-bloc">
+        <h2 class="tdb-h2">Les prochains jours</h2>
+        <div class="tdb-carte" id="tdb-prochains"></div>
+      </section>
+      <section class="tdb-bloc" id="tdb-parcours-bloc" hidden>
+        <h2 class="tdb-h2">Parcours</h2>
+        <div class="tdb-carte" id="tdb-parcours"></div>
+      </section>
+    </aside>
+  </div>
 
   <!-- Panneau « Partager » : tous les liens, chacun avec une phrase qui dit à quoi il sert. -->
   <div id="partage-overlay" class="partage-overlay" role="dialog" aria-modal="true" aria-labelledby="partage-titre">
@@ -127,8 +271,8 @@
       </div>
       <p id="qr-url" style="font-size:11px;color:var(--text-light);margin:14px 0 20px;word-break:break-all;line-height:1.5;padding:0 4px;"></p>
       <div style="display:flex;gap:10px;justify-content:center;">
-        <button class="btn btn-primary" id="qr-download">⬇️ Télécharger</button>
-        <button class="btn btn-ghost" id="qr-copy">🔗 Copier le lien</button>
+        <button class="btn btn-primary" id="qr-download"><i data-icone="telecharger"></i>Télécharger</button>
+        <button class="btn btn-ghost" id="qr-copy"><i data-icone="lien"></i>Copier le lien</button>
       </div>
     </div>
   </div>
@@ -137,12 +281,12 @@
        ses disponibilités, le bureau place). Masqué en mode « créneaux ». -->
   <div class="card mb-24" id="placement-card" style="display:none;">
     <div class="settings-head mb-16">
-      <div class="settings-head-icon teal">🗓</div>
+      <div class="settings-head-icon teal"><i data-icone="calendrier"></i></div>
       <div>
         <h2>Générer le planning</h2>
         <p class="text-sm text-muted mt-4">
           Croise les disponibilités des cooptants et celles du staff, puis place
-          automatiquement chaque entretien en équilibrant la charge des jurés.
+          automatiquement chaque entretien en équilibrant la charge des staffeurs.
         </p>
       </div>
     </div>
@@ -212,9 +356,15 @@ import { initBurgerMenu } from '/js/nav.js';
 import { getFirestore, collection, query, where, getDocs, getDoc, doc, updateDoc, writeBatch }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { getOrCreateOrgCampaign } from '/js/db.js';
-import { showToast, formatDatetime, esc, campaignConfig, confirmDialog, telephoneCooptant, reponsesOrdonnees, pourRecherche } from '/js/utils.js';
+import { showToast, formatDatetime, esc, campaignConfig, confirmDialog, telephoneCooptant, reponsesOrdonnees, pourRecherche, parseLocalDate, getPlanningDays,
+  htmlRepartitionParcours, parcoursCooptant, getCampaignDays, premierJourReservable } from '/js/utils.js';
+import { alertesReglages, alertesPlanning } from '/js/coherence.js';
 import { runPlacementAlgorithm } from '/js/algo.js';
-import { ouvrirFiche } from '/js/fiche-cooptant.js';
+import { ouvrirFiche, nomsJures } from '/js/fiche-cooptant.js';
+import { chargerAbsences, absentAuCreneau } from '/js/absences.js';
+import { effacementDu, effacerDonnees } from '/js/cloture.js';
+import { ouvrirAssistant, assistantAttendu } from '/js/assistant.js';
+import { icone } from '/js/icones.js';
 
 const db = getFirestore(app);
 let user, currentOrg, currentCampaignId, currentCampaign=null, allCandidates=[];
@@ -245,18 +395,23 @@ async function init() {
   ]);
 
   currentOrg={id:orgId,...(oDoc.exists()?oDoc.data():{})};
-  document.getElementById('org-info').textContent=currentOrg.name||orgId;
-
-  // Logo de l'asso
-  const wrap = document.getElementById('org-logo-wrap');
-  const color = currentOrg.primaryColor || 'var(--indigo)';
-  const initial = (currentOrg.name||'?')[0].toUpperCase();
-  wrap.innerHTML = currentOrg.logoBase64
-    ? `<img src="${currentOrg.logoBase64}" style="width:56px;height:56px;border-radius:50%;object-fit:cover;" />`
-    : `<div style="width:56px;height:56px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:22px;">${initial}</div>`;
+  // Titre : la date du jour (le nom de l'asso est dans le menu latéral).
+  const ajd = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+  document.getElementById('tdb-titre').textContent = ajd[0].toUpperCase() + ajd.slice(1);
+  document.getElementById('tdb-semaine').href = `/planning.html?org=${encodeURIComponent(orgId)}`;
   // Espace de recrutement unique : plus de sélecteur de campagne
   const sel=document.getElementById('campaign-select'); if(sel) sel.style.display='none';
   if(standing){
+    // Clôturé depuis plus de 30 jours : les données des cooptants s'effacent
+    // à la première ouverture (pas de serveur pour le faire à l'heure dite).
+    if (effacementDu(standing)) {
+      try {
+        await effacerDonnees(db, orgId, standing);
+        standing.donneesEffaceesLe = { toMillis: () => Date.now() };
+        showToast('Les données des cooptants du dernier recrutement ont été effacées, comme prévu à la clôture.', 'info');
+      } catch (e) { console.warn('Effacement prévu impossible :', e); }
+    }
+    afficherEtatRecrutement(standing, orgId);
     currentCampaignId=standing.id;
     currentCampaign=standing;
     const ouvert = standing.recrutementOuvert !== false && standing.statut !== 'fermee';
@@ -274,6 +429,10 @@ async function init() {
     }
 
     await loadCandidates(currentCampaignId);
+    // Assistant de démarrage : recrutement en préparation, asso toute neuve, ou demandé.
+    if (new URLSearchParams(location.search).get('assistant') === '1' || assistantAttendu(currentCampaign, allCandidates.length)) {
+      lancerAssistant();
+    }
   } else { showNoCandidates(); }
 
   document.getElementById('btn-copy-link').addEventListener('click',()=>copyLink());
@@ -330,10 +489,11 @@ async function runPlacement(){
 
   try{
     const res = await runPlacementAlgorithm(currentCampaignId, onProgress);
+    chargerActivite(currentCampaignId).catch(e => console.warn('Tableau de bord incomplet :', e));
     bar.style.width = '100%';
     const done = document.createElement('div');
     done.style.cssText = 'color:var(--green);font-weight:600;margin-top:4px;';
-    done.textContent = `✅ Terminé : ${res.placed} placé(s), ${res.failed} sans créneau.`;
+    done.textContent = `Terminé : ${res.placed} placé(s), ${res.failed} sans créneau.`;
     logEl.appendChild(done);
     showToast(`Planning généré : ${res.placed} entretien(s).`,'success');
     await loadCandidates(currentCampaignId);
@@ -341,7 +501,7 @@ async function runPlacement(){
     console.error(err);
     const fail = document.createElement('div');
     fail.style.cssText = 'color:var(--red);font-weight:600;margin-top:4px;';
-    fail.textContent = `❌ ${err.message}`;
+    fail.textContent = `Erreur : ${err.message}`;
     logEl.appendChild(fail);
     showToast('Erreur lors de la génération.','error');
   }finally{
@@ -369,23 +529,503 @@ async function loadCandidates(cid) {
   document.getElementById('cands-wrap').style.display='none';
   document.getElementById('cands-empty').style.display='none';
   try {
-    const snap=await getDocs(query(collection(db,'candidates'),where('campaignId','==',cid)));
-    allCandidates=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.createdAt?.toMillis?.()??0)-(b.createdAt?.toMillis?.()??0));
-    document.getElementById('stat-total').textContent=allCandidates.length;
-    const nbStand=allCandidates.filter(c=>c.source==='stand').length;
-    const statStand=document.getElementById('stat-stand');
-    statStand.textContent=`dont 📍 ${nbStand} sur place`;
-    statStand.style.display=nbStand?'':'none';
-    document.getElementById('stat-places').textContent=allCandidates.filter(c=>['place','entretien_fait'].includes(c.statut)).length;
-    document.getElementById('stat-attente').textContent=allCandidates.filter(c=>c.statut==='recu').length;
-    document.getElementById('stat-faits').textContent=allCandidates.filter(c=>['entretien_fait','accepte'].includes(c.statut)).length;
-    applyFilters();   // applique le tri (plus récents en haut) et les filtres
+    // Chiffres, à faire, journée : leurs lectures partent EN MÊME TEMPS que
+    // celle des cooptants (avant, elles attendaient qu'elle soit finie).
+    const candidatsPrets = getDocs(query(collection(db,'candidates'),where('campaignId','==',cid))).then(snap => {
+      allCandidates=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.createdAt?.toMillis?.()??0)-(b.createdAt?.toMillis?.()??0));
+      applyFilters();   // applique le tri (plus récents en haut) et les filtres
+    });
+    chargerActivite(cid, candidatsPrets).catch(e => console.warn('Tableau de bord incomplet :', e));
+    await candidatsPrets;
   } catch(err) {
     showNoCandidates();
   } finally {
     document.getElementById('cands-loading').style.display='none';
   }
 }
+
+// ─── Activité : chiffres, mise en route, à faire, journée ─────────
+// Entretiens, évaluations, staff, dispos et salles lus ensemble. Toutes ces
+// collections sont lisibles par le bureau ; les évaluations exigent le filtre
+// par asso (les règles ne sont pas des filtres).
+const vide = { docs: [] };
+let activite = null;
+
+const jourCle = d => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+const hm = d => d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+const prenom = n => String(n || '').trim().split(/\s+/)[0] || 'Membre';
+const nomCoopt = c => `${c?.prenom || ''} ${c?.nom || ''}`.trim() || c?.email || 'Cooptant';
+const lienPage = (page, extra = '') => `${page}?org=${encodeURIComponent(currentOrg?.id || '')}${extra}`;
+
+function lancerAssistant() {
+  if (!currentCampaign) return;
+  ouvrirAssistant({ db, campaign: currentCampaign, onFini: () => {
+    const url = new URL(location.href); url.searchParams.delete('assistant'); location.replace(url);
+  } });
+}
+
+/** Bandeau : recrutement clôturé (date d'effacement) ou en préparation. */
+function afficherEtatRecrutement(c, orgId) {
+  const el = document.getElementById('tdb-etat-recrutement');
+  const lien = `/parametres.html?org=${encodeURIComponent(orgId)}&onglet=quand`;
+  const date = t => (t?.toDate ? t.toDate() : new Date(t?.toMillis?.() ?? t)).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
+  if (c.etat === 'cloture') {
+    el.innerHTML = c.donneesEffaceesLe
+      ? `<div><b>Recrutement clôturé.</b> Les données des cooptants ont été effacées.</div><a class="btn btn-secondary btn-sm" href="${lien}">Préparer le prochain recrutement</a>`
+      : `<div><b>Recrutement clôturé.</b> Les données des cooptants seront effacées le ${esc(date(c.effacementPrevuLe))}. Téléchargez le classement d'ici là.</div><a class="btn btn-secondary btn-sm" href="${lien}">Voir</a>`;
+    el.hidden = false;
+  } else if (c.etat === 'preparation') {
+    el.innerHTML = `<div><b>Nouveau recrutement en préparation.</b> Les réglages de l'an dernier sont gardés : il reste les dates et l'ouverture.</div><button type="button" class="btn btn-primary btn-sm" data-action="assistant">Lancer l'assistant</button>`;
+    el.hidden = false;
+  } else {
+    el.hidden = true;
+  }
+}
+const lienDispos = () => `${location.origin}/dispos-publique.html?org=${encodeURIComponent(currentOrg?.slug || currentOrg?.id || '')}`;
+const copier = (texte, ok) => navigator.clipboard.writeText(texte)
+  .then(() => showToast(ok, 'success')).catch(() => showToast('Impossible de copier.', 'error'));
+
+/**
+ * @param {Promise} [candidatsPrets] la liste des cooptants arrive en même
+ *   temps : les lectures partent tout de suite, le calcul l'attend.
+ */
+async function chargerActivite(cid, candidatsPrets = Promise.resolve()) {
+  const orgId = currentOrg.id;
+  const [ivSnap, evSnap, rosSnap, dispSnap, salleSnap, absences, vote] = await Promise.all([
+    getDocs(query(collection(db, 'interviews'), where('campaignId', '==', cid))),
+    getDocs(query(collection(db, 'interview_evaluations'), where('organizationId', '==', orgId), where('campaignId', '==', cid))).catch(() => vide),
+    getDocs(query(collection(db, 'roster_members'), where('organizationId', '==', orgId))).catch(() => vide),
+    getDocs(query(collection(db, 'staff_availabilities'), where('campaignId', '==', cid))).catch(() => vide),
+    getDocs(query(collection(db, 'rooms'), where('organizationId', '==', orgId))).catch(() => vide),
+    chargerAbsences(db, orgId, cid),
+    chargerVote(orgId, cid).catch(e => { console.warn('Vote des membres illisible :', e); return null; }),
+  ]);
+  await candidatsPrets;
+  const cfg = campaignConfig(currentCampaign);
+  const duree = (cfg.dureeMinutes || 30) * 60000;
+  const salles = new Map(salleSnap.docs.map(d => [d.id, d.data().code || d.data().nom || d.data().name || '']));
+  const ivs = ivSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(iv => iv.datetimeStart?.toDate).map(iv => {
+    const debut = iv.datetimeStart.toDate();
+    return { ...iv, debut, fin: iv.datetimeEnd?.toDate?.() || new Date(debut.getTime() + duree),
+      salle: (iv.roomId && salles.get(iv.roomId)) || iv.salleNom || '',
+      // Créneau marqué manqué (js/absences.js) : ni « passé », ni « à évaluer ».
+      absent: absentAuCreneau(absences, iv) };
+  });
+  activite = {
+    cfg, ivs,
+    evalues: new Set(evSnap.docs.map(d => d.data().candidateId)),
+    roster: rosSnap.docs.map(d => ({ id: d.id, ...d.data() })),
+    dispos: dispSnap.docs.map(d => d.data()),
+    vote,
+  };
+  dessinerActivite();
+}
+
+/**
+ * Vote des membres encore ouvert (js/vote-bureau.js) : qui a voté, sans le
+ * contenu, pour « À faire ». Rien à lire de plus quand il n'y a pas de vote ouvert.
+ */
+async function chargerVote(orgId, cid) {
+  const s = await getDocs(query(collection(db, 'scrutins'), where('organizationId', '==', orgId), where('campaignId', '==', cid)));
+  const scrutin = s.docs.map(d => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (b.creeLe?.toMillis?.() ?? 0) - (a.creeLe?.toMillis?.() ?? 0))[0];
+  if (scrutin?.ouvert !== true) return null;
+  const p = await getDocs(query(collection(db, 'participations'), where('organizationId', '==', orgId), where('scrutinId', '==', scrutin.id)));
+  return { scrutin, ont: new Set(p.docs.map(d => d.data().votantId)) };
+}
+
+/** Premier entretien de chaque cooptant. */
+function entretiensParCooptant() {
+  const m = new Map();
+  activite.ivs.forEach(iv => { const d = m.get(iv.candidateId); if (!d || iv.debut < d.debut) m.set(iv.candidateId, iv); });
+  return m;
+}
+
+/** Entretiens d'un jour, un par groupe (entretien à plusieurs), triés. */
+function entretiensDuJour(jour) {
+  const vus = new Map();
+  activite.ivs.filter(iv => jourCle(iv.debut) === jourCle(jour)).sort((a, b) => a.debut - b.debut).forEach(iv => {
+    const cle = iv.groupId || iv.id;
+    const g = vus.get(cle);
+    if (g) g.cands.push(iv.candidateId); else vus.set(cle, { ...iv, cands: [iv.candidateId] });
+  });
+  return [...vus.values()];
+}
+
+function dessinerActivite() {
+  if (!activite) return;
+  const { cfg, ivs, evalues } = activite;
+  const maintenant = Date.now();
+  const parCoopt = entretiensParCooptant();
+  const total = allCandidates.length;
+  const reserves = allCandidates.filter(c => parCoopt.has(c.id));
+  // Évalué malgré une absence signalée : l'évaluation l'emporte.
+  const absent = c => parCoopt.get(c.id).absent && !evalues.has(c.id);
+  const absents = reserves.filter(absent);
+  const passes = reserves.filter(c => !absent(c) && parCoopt.get(c.id).fin.getTime() <= maintenant);
+  const nbEvalues = allCandidates.filter(c => evalues.has(c.id)).length;
+  // Parcours (question commune) : toutes les candidatures, et celles déjà évaluées.
+  const avecParcours = allCandidates.some(parcoursCooptant);
+  document.getElementById('tdb-parcours-bloc').hidden = !avecParcours;
+  if (avecParcours) {
+    document.getElementById('tdb-parcours').innerHTML = htmlRepartitionParcours([
+      { titre: 'Candidatures', cooptants: allCandidates },
+      ...(nbEvalues ? [{ titre: 'Évalués', cooptants: allCandidates.filter(c => evalues.has(c.id)) }] : []),
+    ]);
+  }
+  const sansEval = passes.filter(c => !evalues.has(c.id));
+  const recents = allCandidates.filter(c => (c.createdAt?.toMillis?.() ?? 0) > maintenant - 86400000).length;
+  const nbStand = allCandidates.filter(c => c.source === 'stand').length;
+
+  // ── Bande de chiffres ──
+  const pose = (id, n, sous, pct, rouge) => {
+    document.getElementById(`stat-${id}`).textContent = n;
+    const el = document.getElementById(`stat-${id}-sous`);
+    el.textContent = sous; el.classList.toggle('tdb-rouge', !!rouge);
+    document.getElementById(`barre-${id}`).style.width = `${total ? Math.round(pct * 100) : 0}%`;
+  };
+  pose('total', total, recents ? `+${recents} depuis hier` : nbStand ? `dont ${nbStand} sur un stand` : '', 1);
+  pose('reserves', reserves.length, total - reserves.length ? `${total - reserves.length} sans entretien` : 'tout le monde', total ? reserves.length / total : 0);
+  const aVenir = reserves.length - passes.length - absents.length;
+  pose('passes', passes.length, [aVenir ? `${aVenir} à venir` : '', absents.length ? `${absents.length} absent${absents.length > 1 ? 's' : ''}` : ''].filter(Boolean).join(', '),
+    total ? passes.length / total : 0);
+  pose('evalues', nbEvalues, sansEval.length ? `${sansEval.length} sans évaluation` : '', total ? nbEvalues / total : 0, sansEval.length);
+
+  // ── Période ──
+  const per = document.getElementById('tdb-periode');
+  const deb = parseLocalDate(cfg.dateDebut), fin = parseLocalDate(cfg.dateFin);
+  const court = d => d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+  if (!cfg.avecEntretien) per.textContent = 'Recrutement sur dossier, sans entretien';
+  else if (deb && fin) {
+    const jours = getPlanningDays(currentCampaign);
+    const ajd = new Date(); ajd.setHours(0, 0, 0, 0);
+    const idx = jours.findIndex(j => j.getTime() === ajd.getTime());
+    per.textContent = `Entretiens du ${court(deb)} au ${court(fin)}`
+      + (idx >= 0 ? ` · jour ${idx + 1} sur ${jours.length}` : ajd < deb ? ' · pas encore commencés' : ajd > fin ? ' · terminés' : '');
+  } else per.textContent = 'Entretiens sur les 4 prochaines semaines';
+
+  // Avant le premier entretien : la mise en route. Ensuite : à faire et journée.
+  const avant = cfg.avecEntretien && !ivs.length;
+  document.getElementById('tdb-miseenroute').hidden = !avant;
+  document.getElementById('tdb-colonnes').hidden = avant || !cfg.avecEntretien;
+  if (avant) dessinerMiseEnRoute(); else if (cfg.avecEntretien) { dessinerAFaire(sansEval, parCoopt, passes.length); dessinerJour(); dessinerDemain(); dessinerProchains(); }
+}
+
+// ── Alertes masquées ───────────────────────────────────────────────
+// « Masquer » une alerte d'À faire range ses éléments (staffeur, cooptant,
+// entretien) dans `campaign.alertesIgnorees`, pour tout le bureau. Un nouvel
+// élément du même genre refait apparaître l'alerte, pour lui seul.
+const alertesIgnorees = () => new Set(currentCampaign?.alertesIgnorees || []);
+const pasIgnore = (genre, id) => !alertesIgnorees().has(`${genre}:${id}`);
+
+/** Staff de la liste qui compte (sans ceux qu'on a masqués : absents du campus…). */
+function staffActif() {
+  return activite.roster.filter(r => pasIgnore('dispos', r.id));
+}
+
+function staffSansDispos() {
+  if (activite.cfg.staffToujoursDispo) return [];
+  const ont = new Set(activite.dispos.map(d => d.userId));
+  return staffActif().filter(r => !ont.has(r.id));
+}
+
+async function masquerAlerte(cles) {
+  const avant = currentCampaign.alertesIgnorees || [];
+  const apres = [...new Set([...avant, ...cles])];
+  try {
+    await updateDoc(doc(db, 'campaigns', currentCampaign.id), { alertesIgnorees: apres });
+    currentCampaign.alertesIgnorees = apres;
+    dessinerActivite();
+    showToast('Alerte masquée pour tout le bureau.', 'success');
+  } catch (err) { showToast('Erreur : ' + err.message, 'error'); }
+}
+
+async function reafficherAlertes() {
+  try {
+    await updateDoc(doc(db, 'campaigns', currentCampaign.id), { alertesIgnorees: [] });
+    currentCampaign.alertesIgnorees = [];
+    dessinerActivite();
+  } catch (err) { showToast('Erreur : ' + err.message, 'error'); }
+}
+
+function dessinerMiseEnRoute() {
+  const { cfg } = activite;
+  const roster = staffActif();
+  const qs = currentCampaign?.formConfig?.customQuestions || [];
+  const traduites = qs.filter(q => q.labelEn).length;
+  const manquent = staffSansDispos();
+  const deb = parseLocalDate(cfg.dateDebut), fin = parseLocalDate(cfg.dateFin);
+  const court = d => d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+  const etapes = [
+    { fait: !!(deb && fin), titre: 'Régler la période et les créneaux',
+      detail: deb && fin ? `Du ${court(deb)} au ${court(fin)}, entretiens de ${cfg.dureeMinutes} min, ${cfg.nbJurys} staffeur${cfg.nbJurys > 1 ? 's' : ''}` : 'Pas de dates : les 4 prochaines semaines sont proposées',
+      bouton: ['Régler', lienPage('/parametres.html')] },
+    { fait: roster.length > 0, titre: 'Ajouter le staff',
+      detail: roster.length ? `${roster.length} staffeur${roster.length > 1 ? 's' : ''} dans la liste` : 'Personne pour l\'instant',
+      bouton: ['Voir', lienPage('/parametres.html')] },
+    { fait: cfg.staffToujoursDispo || (roster.length > 0 && !manquent.length), titre: 'Récolter les dispos du staff',
+      detail: cfg.staffToujoursDispo ? 'Le staff est réputé toujours disponible'
+        : `${roster.length - manquent.length} sur ${roster.length} ont répondu${manquent.length ? `. Manquent : ${manquent.slice(0, 4).map(r => r.displayName || '?').join(', ')}${manquent.length > 4 ? '…' : ''}` : ''}`,
+      bouton: ['Copier le lien des dispos', 'copier-dispos'] },
+    { fait: true, titre: 'Préparer le formulaire',
+      detail: qs.length ? `${qs.length} question${qs.length > 1 ? 's' : ''}${traduites ? `, dont ${traduites} traduite${traduites > 1 ? 's' : ''} en anglais` : ''}` : 'Seuls le nom, le prénom et l\'email sont demandés',
+      bouton: ['Modifier', lienPage('/parametres.html')] },
+    { fait: allCandidates.length > 0, titre: 'Partager le formulaire aux cooptants',
+      detail: allCandidates.length ? `${allCandidates.length} candidature${allCandidates.length > 1 ? 's' : ''} reçue${allCandidates.length > 1 ? 's' : ''}` : 'Lien, version anglaise, QR code pour les stands',
+      bouton: ['Partager', 'partager'] },
+    { fait: false, titre: 'Premier entretien réservé', detail: cfg.modeRdv === 'dispos' ? 'Se coche quand vous générez le planning' : 'Se coche quand un cooptant réserve son créneau' },
+  ];
+  const enCours = etapes.findIndex(e => !e.fait);
+  const nbFaites = etapes.filter(e => e.fait).length;
+  document.getElementById('tdb-progres-barre').style.width = `${Math.round(nbFaites / etapes.length * 100)}%`;
+  document.getElementById('tdb-progres-txt').textContent = `${nbFaites} sur ${etapes.length}`;
+  // Réglages illogiques, avant même le premier entretien (js/coherence.js).
+  const aVerifier = alertesCoherence(0);
+  afficherLignes(document.getElementById('tdb-verifier'), aVerifier, '');
+  document.getElementById('tdb-etapes').innerHTML = etapes.map((e, i) => {
+    const [lib, cible] = e.bouton || [];
+    const btn = !lib ? '' : cible.startsWith('/') ? `<a class="btn btn-sm ${i === enCours ? 'btn-primary' : 'btn-secondary'}" href="${cible}">${lib}</a>`
+      : `<button type="button" class="btn btn-sm ${i === enCours ? 'btn-primary' : 'btn-secondary'}" data-action="${cible}">${lib}</button>`;
+    return `<li class="${e.fait ? 'fait' : i === enCours ? 'encours' : ''}"><span class="tdb-num">${i + 1}</span><div><b>${e.titre}</b><small>${esc(e.detail)}</small></div>${btn}</li>`;
+  }).join('');
+}
+
+/**
+ * Alertes de cohérence (js/coherence.js) mises au format d'« À faire » :
+ * réglages illogiques et planning à risque. Masquées comme les autres.
+ */
+function alertesCoherence(nbPasses) {
+  const { cfg, ivs, roster, dispos } = activite;
+  const noms = new Map();
+  dispos.forEach(sa => { if (sa.userId && sa.displayName) noms.set(sa.userId, sa.displayName); });
+  roster.forEach(r => noms.set(r.id, r.displayName || noms.get(r.id) || '?'));
+  // Un entretien par groupe (entretien à plusieurs), avec tous ses cooptants.
+  const parGroupe = new Map();
+  ivs.forEach(iv => {
+    const cle = iv.groupId || iv.id;
+    const g = parGroupe.get(cle);
+    if (g) g.candidateIds.push(iv.candidateId);
+    else parGroupe.set(cle, { id: iv.id, debut: iv.debut, fin: iv.fin, groupId: iv.groupId,
+      jures: [iv.jury1Id, iv.jury2Id, iv.jury3Id].filter(Boolean), candidateIds: [iv.candidateId] });
+  });
+  const premier = premierJourReservable(cfg.delaiReservationJours);
+  const jourStr = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const joursReservables = getCampaignDays(currentCampaign).filter(d => d >= premier).map(jourStr);
+  const liens = {
+    planning: ['Planning', lienPage('/planning.html')],
+    dispos: ['Copier le lien des dispos', 'copier-dispos'],
+    cooptants: ['Voir', lienPage('/secge/candidats.html')],
+  };
+  return [
+    ...alertesPlanning({ cfg, campaign: currentCampaign, entretiens: [...parGroupe.values()], dispos, noms, cooptants: allCandidates, joursReservables }),
+    ...alertesReglages({ cfg, campaign: currentCampaign, nbEntretiensPasses: nbPasses }),
+  ]
+    // Longues séries sans pause : un choix de l'asso, pas une erreur. Conseil
+    // affiché dans Paramètres seulement, pas une tâche du tableau de bord.
+    .filter(a => a.code !== 'pause')
+    .filter(a => a.cles.some(c => !alertesIgnorees().has(c)))
+   .map(a => ({
+     code: a.code,
+     n: a.onglet ? '!' : (a.cles.length > 1 ? a.cles.length : '!'),
+     ton: a.ton, titre: esc(a.titre), detail: esc(a.detail), cles: a.cles,
+     action: a.onglet ? ['Régler', lienPage('/parametres.html', `&onglet=${a.onglet}`)] : (liens[a.lien] || liens.planning),
+   }));
+}
+
+function dessinerAFaire(sansEvalTous, parCoopt, nbPasses = 0) {
+  const maintenant = Date.now();
+  const lignes = [];
+  const noms = l => esc(l.slice(0, 3).join(', ') + (l.length > 3 ? '…' : ''));
+  const coherence = alertesCoherence(nbPasses);
+  // D'abord ce qui casse un entretien à venir, puis le reste après les alertes habituelles.
+  const urgentes = coherence.filter(a => ['staff', 'conflit', 'anglais', 'creneaux'].includes(a.code));
+  const autres = coherence.filter(a => !urgentes.includes(a));
+  const sansEval = sansEvalTous.filter(c => pasIgnore('eval', c.id));
+  if (sansEval.length) lignes.push({ n: sansEval.length, ton: 'rouge', titre: `Entretien${sansEval.length > 1 ? 's' : ''} passé${sansEval.length > 1 ? 's' : ''} sans évaluation`,
+    detail: noms(sansEval.map(nomCoopt)) + ' : absent·e ou évaluation oubliée ?', action: ['Voir', lienPage('/secge/candidats.html', '&filtre=passe-sans-eval')],
+    cles: sansEval.map(c => `eval:${c.id}`) });
+  lignes.push(...urgentes);
+  const demain = new Date(); demain.setDate(demain.getDate() + 1);
+  const sansSalle = entretiensDuJour(demain).filter(iv => !iv.salle && pasIgnore('salle', iv.id));
+  if (sansSalle.length) lignes.push({ n: sansSalle.length, ton: 'ambre', titre: `Entretien${sansSalle.length > 1 ? 's' : ''} de demain sans salle`,
+    detail: esc(sansSalle.map(iv => hm(iv.debut)).join(', ')), action: ['Planning', lienPage('/planning.html')],
+    cles: sansSalle.map(iv => `salle:${iv.id}`) });
+  const manquent = staffSansDispos();
+  if (manquent.length) lignes.push({ n: manquent.length, ton: 'ambre', titre: `Staffeur${manquent.length > 1 ? 's' : ''} sans dispos`,
+    detail: noms(manquent.map(r => r.displayName || '?')), action: ['Copier le lien', 'copier-dispos'],
+    cles: manquent.map(r => `dispos:${r.id}`) });
+  const sansRdv = allCandidates.filter(c => !parCoopt.has(c.id) && (c.createdAt?.toMillis?.() ?? maintenant) < maintenant - 2 * 86400000 && pasIgnore('rdv', c.id));
+  if (sansRdv.length) lignes.push({ n: sansRdv.length, ton: '', titre: 'Sans entretien depuis plus de 2 jours',
+    detail: noms(sansRdv.map(nomCoopt)), action: ['Voir', lienPage('/secge/candidats.html', '&filtre=sans-entretien')],
+    cles: sansRdv.map(c => `rdv:${c.id}`) });
+  const horsMessenger = allCandidates.filter(c => parCoopt.has(c.id) && !c.ajouteMessenger && (c.createdAt?.toMillis?.() ?? maintenant) < maintenant - 86400000 && pasIgnore('messenger', c.id));
+  if (horsMessenger.length) lignes.push({ n: horsMessenger.length, ton: '', titre: 'Pas encore dans le groupe Messenger',
+    detail: 'Avec un entretien, inscrits depuis plus d\'un jour', action: ['Voir', 'messenger'],
+    cles: horsMessenger.map(c => `messenger:${c.id}`) });
+  // Vote des membres ouvert : relancer ceux qui n'ont pas voté, puis le clore.
+  if (activite.vote) {
+    const { scrutin, ont } = activite.vote;
+    const votants = scrutin.votants || [];
+    const pasEncore = votants.filter(v => !ont.has(v.id));
+    const classement = lienPage('/secge/candidats.html', '&vue=classement');
+    const cles = pasEncore.map(v => `vote:${scrutin.id}_${v.id}`);
+    if (pasEncore.length && cles.some(c => !alertesIgnorees().has(c))) {
+      lignes.push({ n: pasEncore.length, ton: '', titre: ont.size ? `Vote des membres : ${ont.size} sur ${votants.length} ${ont.size > 1 ? 'ont' : 'a'} voté` : 'Vote des membres : personne n\'a encore voté',
+        detail: `Pas encore : ${noms(pasEncore.map(v => v.nom))}`, action: ['Voir', classement], cles });
+    } else if (!pasEncore.length && votants.length && pasIgnore('vote', `${scrutin.id}-complet`)) {
+      lignes.push({ n: '✓', ton: '', titre: 'Vote des membres : tout le monde a voté',
+        detail: 'Clos le vote dans le classement pour voir les coups de cœur', action: ['Classement', classement],
+        cles: [`vote:${scrutin.id}-complet`] });
+    }
+  }
+  // Période finie et plus aucun entretien à venir : c'est le moment de clôturer.
+  const finPeriode = parseLocalDate(campaignConfig(currentCampaign).dateFin);
+  const aVenir = activite.ivs.some(iv => iv.fin.getTime() > maintenant);
+  if (!currentCampaign.etat && finPeriode && finPeriode.getTime() + 86400000 < maintenant && !aVenir && allCandidates.length && pasIgnore('periode', finPeriode.getTime())) {
+    lignes.push({ n: '✓', ton: '', titre: 'La période d\'entretiens est finie',
+      detail: 'Une fois le classement arrêté et téléchargé : clôturer le recrutement efface les données des cooptants', action: ['Clôturer', lienPage('/parametres.html', '&onglet=quand')],
+      cles: [`periode:${finPeriode.getTime()}`] });
+  }
+  lignes.push(...autres);
+
+  afficherLignes(document.getElementById('tdb-afaire'), lignes, 'Rien d\'urgent pour le moment.');
+}
+
+/** Lignes d'alerte (À faire, À vérifier) : action, croix « Masquer », éléments masqués. */
+function afficherLignes(el, lignes, vide) {
+  if (!lignes.length && !vide) { el.innerHTML = ''; return; }
+  const nbMasquees = (currentCampaign.alertesIgnorees || []).length;
+  el.innerHTML = (lignes.length ? lignes.map((l, i) => {
+    const [lib, cible] = l.action;
+    const fleche = '<svg class="tdb-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+    const act = cible.startsWith('/') ? `<a class="tdb-aller" href="${cible}"><span>${lib}</span>${fleche}</a>` : `<button type="button" class="tdb-aller" data-action="${cible}"><span>${lib}</span>${fleche}</button>`;
+    const quoi = l.cles.length > 1 ? 'cette alerte (pour ces ' + l.cles.length + ')' : 'cette alerte';
+    const masquer = `<button type="button" class="tdb-masquer" data-masquer="${i}" title="Masquer ${quoi} : ne plus la signaler" aria-label="Masquer ${esc(l.titre)}">✕</button>`;
+    return `<div class="tdb-ligne tdb-afaire ${l.ton}"><span class="tdb-compte">${l.n}</span><div><b>${l.titre}</b><small>${l.detail}</small></div>${act}${masquer}</div>`;
+  }).join('') : (vide ? `<div class="tdb-ligne tdb-rien">${vide}</div>` : ''))
+    + (nbMasquees ? `<div class="tdb-ligne tdb-masquees">${nbMasquees} élément${nbMasquees > 1 ? 's' : ''} masqué${nbMasquees > 1 ? 's' : ''} · <button type="button" data-reafficher>Tout réafficher</button></div>` : '');
+  el.querySelectorAll('[data-masquer]').forEach(b => b.addEventListener('click', () => masquerAlerte(lignes[Number(b.dataset.masquer)].cles)));
+  el.querySelector('[data-reafficher]')?.addEventListener('click', reafficherAlertes);
+}
+
+function etatEntretien(iv) {
+  const t = Date.now();
+  if (iv.absent && !iv.cands.some(id => activite.evalues.has(id))) return '<span class="tdb-etat tdb-rouge">Absent·e</span>';
+  if (iv.fin.getTime() <= t) return iv.cands.some(id => activite.evalues.has(id))
+    ? '<span class="tdb-etat badge-green badge">Évalué</span>' : '<span class="tdb-etat tdb-rouge"><b>Pas d\'évaluation</b></span>';
+  if (iv.debut.getTime() <= t) return '<span class="tdb-etat tdb-accent"><b>En cours</b></span>';
+  if (!iv.salle) return '<span class="tdb-etat tdb-ambre"><b>Salle à définir</b></span>';
+  const min = Math.round((iv.debut.getTime() - t) / 60000);
+  return `<span class="tdb-etat tdb-muet">${min < 120 ? `dans ${min} min` : ''}</span>`;
+}
+
+function ligneEntretien(iv) {
+  const cands = iv.cands.map(id => allCandidates.find(c => c.id === id)).filter(Boolean);
+  const en = cands.some(c => c.langue === 'en') ? ' <span title="Entretien en anglais">🇬🇧</span>' : '';
+  const t = Date.now();
+  const cls = iv.fin.getTime() <= t ? ' passee' : iv.debut.getTime() <= t ? ' encours' : '';
+  return `<div class="tdb-ligne tdb-rdv${cls}" tabindex="0" role="button" data-cand="${esc(cands[0]?.id || '')}">
+    <span class="tdb-h">${hm(iv.debut)}</span>
+    <span class="tdb-qui"><b>${esc(cands.map(nomCoopt).join(', ') || 'Cooptant supprimé')}</b>${en}</span>
+    <span class="tdb-avec" data-jures="${esc([iv.jury1Id, iv.jury2Id, iv.jury3Id].filter(Boolean).join(','))}">${[iv.jury1Id, iv.jury2Id, iv.jury3Id].some(Boolean) ? '…' : '<span class="tdb-rouge">Staffeurs à définir</span>'}</span>
+    <span class="tdb-salle${iv.salle ? '' : ' tdb-ambre'}">${esc(iv.salle || '?')}</span>
+    ${etatEntretien(iv)}
+  </div>`;
+}
+
+/** Remplace « … » par les prénoms des staffeurs (noms mis en cache par la fiche). */
+function remplirStaffeurs(zone) {
+  zone.querySelectorAll('[data-jures]').forEach(el => {
+    const ids = el.dataset.jures.split(',').filter(Boolean);
+    if (!ids.length) return;
+    nomsJures(ids).then(n => { el.textContent = n.map(prenom).join(', '); el.title = n.filter(Boolean).join(', '); });
+  });
+}
+
+function dessinerJour() {
+  const ajd = entretiensDuJour(new Date());
+  document.getElementById('tdb-ajd-titre').textContent = `Aujourd'hui · ${ajd.length} entretien${ajd.length > 1 ? 's' : ''}`;
+  const el = document.getElementById('tdb-jour');
+  if (!ajd.length) {
+    const prochain = activite.ivs.filter(iv => iv.debut.getTime() > Date.now()).sort((a, b) => a.debut - b.debut)[0];
+    el.innerHTML = `<div class="tdb-ligne tdb-rien">Pas d'entretien aujourd'hui.${prochain ? ` Prochain : ${esc(prochain.debut.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }))} à ${hm(prochain.debut)}.` : ''}</div>`;
+    return;
+  }
+  const t = Date.now();
+  let html = '', trait = false;
+  ajd.forEach(iv => {
+    if (!trait && iv.fin.getTime() > t && ajd.some(x => x.fin.getTime() <= t)) {
+      html += `<div class="tdb-maintenant"><span>${hm(new Date())}</span></div>`; trait = true;
+    }
+    html += ligneEntretien(iv);
+  });
+  el.innerHTML = html;
+  remplirStaffeurs(el);
+}
+
+function dessinerDemain() {
+  const demain = new Date(); demain.setDate(demain.getDate() + 1);
+  const liste = entretiensDuJour(demain);
+  const el = document.getElementById('tdb-demain');
+  if (!liste.length) { el.innerHTML = '<p class="tdb-note">Aucun entretien demain.</p>'; return; }
+  const staff = new Set(liste.flatMap(iv => [iv.jury1Id, iv.jury2Id, iv.jury3Id].filter(Boolean)));
+  el.innerHTML = `<div class="tdb-gros">${liste.length}</div>
+    <p class="tdb-note">entretien${liste.length > 1 ? 's' : ''}, de ${hm(liste[0].debut)} à ${hm(liste[liste.length - 1].fin)}${staff.size ? `, ${staff.size} staffeur${staff.size > 1 ? 's' : ''}` : ''}</p>
+    <button type="button" class="btn btn-secondary btn-sm" data-action="copier-demain" style="margin-top:10px;">Copier la liste pour le staff</button>`;
+}
+
+async function copierDemain() {
+  const demain = new Date(); demain.setDate(demain.getDate() + 1);
+  const liste = entretiensDuJour(demain);
+  const lignes = await Promise.all(liste.map(async iv => {
+    const noms = await nomsJures([iv.jury1Id, iv.jury2Id, iv.jury3Id].filter(Boolean));
+    const cands = iv.cands.map(id => allCandidates.find(c => c.id === id)).filter(Boolean);
+    return `${hm(iv.debut)} ${cands.map(nomCoopt).join(' + ')}${cands.some(c => c.langue === 'en') ? ' 🇬🇧' : ''} · Staffeurs : ${noms.filter(Boolean).map(prenom).join(', ') || 'à définir'} · ${iv.salle || 'salle à définir'}`;
+  }));
+  const titre = demain.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+  copier(`Entretiens du ${titre}\n\n${lignes.join('\n')}`, 'Liste de demain copiée.');
+}
+
+function dessinerProchains() {
+  const jours = [];
+  const d = new Date(); d.setHours(0, 0, 0, 0);
+  for (let i = 0; jours.length < 7 && i < 21; i++) {
+    const j = new Date(d); j.setDate(d.getDate() + i);
+    const n = entretiensDuJour(j).length;
+    if (n || jours.length) jours.push({ j, n });
+  }
+  const el = document.getElementById('tdb-prochains');
+  const max = Math.max(1, ...jours.map(x => x.n));
+  const aVenir = activite.ivs.filter(iv => iv.debut.getTime() > Date.now()).length;
+  el.innerHTML = `<div class="tdb-gros">${aVenir}</div><p class="tdb-note">entretien${aVenir > 1 ? 's' : ''} à venir</p>`
+    + (jours.length ? `<div class="tdb-semaine">${jours.map(x => `<i style="--n:${x.n / max}" tabindex="0" data-info-tap data-info="${esc((t => t.charAt(0).toUpperCase() + t.slice(1))(x.j.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })))} : ${x.n ? `${x.n} entretien${x.n > 1 ? 's' : ''}` : 'aucun entretien'}"></i>`).join('')}</div>
+      <div class="tdb-semaine-l">${jours.map(x => `<span>${x.j.toLocaleDateString('fr-FR', { weekday: 'short' }).replace('.', '')}</span>`).join('')}</div>` : '');
+}
+
+// Boutons des blocs (délégation : ils sont redessinés à chaque chargement).
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-action]');
+  if (b) {
+    const a = b.dataset.action;
+    if (a === 'copier-dispos') copier(lienDispos(), 'Lien des dispos copié : à envoyer au staff.');
+    else if (a === 'partager') ouvrirPartage();
+    else if (a === 'assistant') lancerAssistant();
+    else if (a === 'copier-demain') copierDemain();
+    else if (a === 'messenger') {
+      document.getElementById('filter').value = 'messenger-non'; applyFilters();
+      document.getElementById('cands-wrap').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    return;
+  }
+  const r = e.target.closest('.tdb-rdv[data-cand]');
+  if (r && r.dataset.cand) { const c = allCandidates.find(x => x.id === r.dataset.cand); if (c) ouvrirDossier(c); }
+});
+document.addEventListener('keydown', e => {
+  const r = e.target.closest?.('.tdb-rdv[data-cand]');
+  if (r && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); r.click(); }
+});
+// L'heure avance : la journée se met à jour toutes les minutes.
+setInterval(() => { if (activite && !document.hidden) dessinerActivite(); }, 60000);
 
 // Cocher « Messenger » pour tous les cooptants affichés, en un seul lot :
 // il ne reste qu'à décocher les quelques absents du groupe.
@@ -425,9 +1065,9 @@ function renderTable(cands) {
   cands.forEach(c=>{
     const [bc,label]=BADGES[c.statut]||['badge-gray',c.statut];
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td><strong>${esc(c.prenom||'')} ${esc(c.nom||'')}</strong>${c.langue==='en'?' <span title="Entretien en anglais">🇬🇧</span>':''}</td><td>${esc(c.email||'·')}</td><td><span class="badge ${bc}">${label}</span></td><td style="color:var(--text-muted);font-size:13px;">${c.createdAt?formatDatetime(c.createdAt):'·'}</td><td style="text-align:center;"><input type="checkbox" class="case-messenger" ${c.ajouteMessenger?'checked':''} aria-label="${esc(`${c.prenom||''} ${c.nom||''}`.trim())} ajouté au groupe Messenger" title="Ajouté au groupe Messenger" style="width:18px;height:18px;cursor:pointer;accent-color:var(--indigo);" /></td><td><a href="/candidat.html?token=${esc(c.resultToken||'')}" target="_blank" class="btn btn-ghost btn-sm" title="Page de suivi vue par le cooptant" aria-label="Page de suivi vue par le cooptant">🔗</a></td>`;
+    tr.innerHTML=`<td><strong>${esc(c.prenom||'')} ${esc(c.nom||'')}</strong>${c.langue==='en'?' <span title="Entretien en anglais">🇬🇧</span>':''}</td><td>${esc(c.email||'·')}</td><td><span class="badge ${bc}">${label}</span></td><td style="color:var(--text-muted);font-size:13px;">${c.createdAt?formatDatetime(c.createdAt):'·'}</td><td style="text-align:center;"><input type="checkbox" class="case-messenger" ${c.ajouteMessenger?'checked':''} aria-label="${esc(`${c.prenom||''} ${c.nom||''}`.trim())} ajouté au groupe Messenger" title="Ajouté au groupe Messenger" style="width:18px;height:18px;cursor:pointer;accent-color:var(--indigo);" /></td><td><a href="/candidat.html?token=${esc(c.resultToken||'')}" target="_blank" class="btn btn-ghost btn-sm" title="Page de suivi vue par le cooptant" aria-label="Page de suivi vue par le cooptant">${icone('lien')}</a></td>`;
     // Toute la ligne ouvre le dossier du cooptant dans une fenêtre, sans
-    // quitter le tableau de bord. Le bouton 🔗 garde son rôle : la page de suivi.
+    // quitter le tableau de bord. Le bouton lien garde son rôle : la page de suivi.
     tr.className='row-link'; tr.tabIndex=0; tr.title='Voir le dossier du cooptant';
     tr.addEventListener('click',e=>{ if(e.target.closest('a,button,input')) return; ouvrirDossier(c); });
     // Suivi de l'ajout manuel au groupe Messenger : enregistré tout de suite.
@@ -449,13 +1089,27 @@ function renderTable(cands) {
   });
 }
 
+// Recherche rapide : elle reprend ce que la page a déjà lu, au lieu de tout relire.
+window.donneesRecherche = () => activite && currentCampaign ? {
+  org: currentOrg, campaign: currentCampaign, cooptants: allCandidates,
+  entretiens: activite.ivs.map(iv => ({ candidateId: iv.candidateId, debut: iv.debut })),
+  roster: activite.roster, dispos: activite.dispos,
+} : null;
+
 // ─── Fiche du cooptant (js/fiche-cooptant.js, la même que partout) ──
+// Recherche rapide (js/recherche.js) : ouverte par la page, qui la recharge ensuite.
+window.ouvrirCooptant = id => {
+  const c = allCandidates.find(x => x.id === id);
+  if (!c) return false;
+  ouvrirDossier(c);
+  return true;
+};
 let listeTableau = [];   // ordre du tableau, pour ↑/↓ dans la fiche
 function ouvrirDossier(c) {
   ouvrirFiche(c, {
     org: currentOrg, campaign: currentCampaign, par: user?.email || null,
     liste: () => listeTableau,
-    onChange: () => applyFilters(),
+    onChange: () => { applyFilters(); chargerActivite(currentCampaign.id).catch(() => {}); },
     onSupprime: id => { allCandidates = allCandidates.filter(x => x.id !== id); applyFilters(); },
   });
 }
@@ -507,13 +1161,13 @@ function liensAPartager(){
   const base=location.origin;
   return [
     { section:'Pour les cooptants' },
-    { id:'form', titre:'Formulaire de cooptation', texte:'Le lien à diffuser : réseaux, messageries, affiches.', url:`${base}/postuler.html?org=${o}`, qr:true },
-    { id:'form-en', titre:'🇬🇧 Formulaire en anglais', texte:"Le même formulaire, ouvert en anglais : l'entretien se fera en anglais.", url:`${base}/postuler.html?org=${o}&lang=en` },
+    { id:'form', ico:'note', titre:'Formulaire de cooptation', texte:'Le lien à diffuser : réseaux, messageries, affiches.', url:`${base}/postuler.html?org=${o}`, qr:true },
+    { id:'form-en', ico:'note', titre:'🇬🇧 Formulaire en anglais', texte:"Le même formulaire, ouvert en anglais : l'entretien se fera en anglais.", url:`${base}/postuler.html?org=${o}&lang=en` },
     { section:'Pour le staff' },
-    { id:'dispos', titre:'📅 Dispos du staff', texte:'Chaque staffeur y coche ses créneaux libres et ses langues. Sans compte.', url:`${base}/dispos-publique.html?org=${o}` },
-    { id:'eval', titre:'🎙 Évaluation', texte:'Pour noter un cooptant après son entretien. Ne montre que les entretiens du moment.', url:`${base}/evaluer-publique.html?org=${o}` },
-    { id:'planning', titre:'📋 Planning public', texte:'Le planning des entretiens en lecture seule, sans les notes internes.', url:`${base}/planning-public.html?org=${o}` },
-    { id:'stand', titre:'📍 Mode stand', texte:"Pour inscrire quelqu'un sur place en quelques secondes. Sans compte.", url:`${base}/postuler.html?org=${o}&stand=1` },
+    { id:'dispos', ico:'calendrier', titre:'Dispos du staff', texte:'Chaque staffeur y coche ses créneaux libres et ses langues. Sans compte.', url:`${base}/dispos-publique.html?org=${o}` },
+    { id:'eval', ico:'micro', titre:'Évaluation', texte:'Pour noter un cooptant après son entretien. Ne montre que les entretiens du moment.', url:`${base}/evaluer-publique.html?org=${o}` },
+    { id:'planning', ico:'liste', titre:'Planning public', texte:'Le planning des entretiens en lecture seule, sans les notes internes.', url:`${base}/planning-public.html?org=${o}` },
+    { id:'stand', ico:'stand', titre:'Mode stand', texte:"Pour inscrire quelqu'un sur place en quelques secondes. Sans compte.", url:`${base}/postuler.html?org=${o}&stand=1` },
   ];
 }
 function ouvrirPartage(){
@@ -522,7 +1176,7 @@ function ouvrirPartage(){
   document.getElementById('partage-corps').innerHTML=liensAPartager().map(l=>l.section
     ? `<div class="partage-section">${esc(l.section)}</div>`
     : `<div class="partage-lien">
-        <div class="partage-texte"><strong>${esc(l.titre)}</strong><span>${esc(l.texte)}</span></div>
+        <div class="partage-texte"><strong>${l.ico ? icone(l.ico) + ' ' : ''}${esc(l.titre)}</strong><span>${esc(l.texte)}</span></div>
         <div class="partage-actions">
           <button type="button" class="btn btn-primary btn-sm" data-copier="${l.id}">Copier</button>
           <a class="btn btn-ghost btn-sm" href="${esc(l.url)}" target="_blank" rel="noopener">Ouvrir</a>
@@ -534,7 +1188,7 @@ function ouvrirPartage(){
     if(id==='form') return copyLink();
     if(id==='form-en') return copyLink('en');
     const l=liensAPartager().find(x=>x.id===id);
-    navigator.clipboard.writeText(l.url).then(()=>showToast(`Lien « ${l.titre.replace(/^\S+\s/,'')} » copié !`,'success'))
+    navigator.clipboard.writeText(l.url).then(()=>showToast(`Lien « ${l.titre} » copié !`,'success'))
       .catch(()=>showToast('Impossible de copier.','error'));
   }));
   document.querySelector('#partage-corps [data-qr]')?.addEventListener('click',()=>{ fermerPartage(); showQR(); });
